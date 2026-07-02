@@ -11,20 +11,14 @@ import {
 } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-dot";
 import { Plus, Search, Filter, Monitor, Battery, Wifi, Thermometer } from "lucide-react";
-import type { DeviceStatus } from "@sentience/types";
-
-const devices = [
-  { id: "DEV-001", name: "Gate Controller A3", serial: "SN-2024-001", type: "Controller", status: "online" as DeviceStatus, battery: 87, signal: -52, temp: 24.5, site: "Building A - Riverside" },
-  { id: "DEV-002", name: "Sensor B7", serial: "SN-2024-002", type: "Sensor", status: "online" as DeviceStatus, battery: 12, signal: -61, temp: 22.1, site: "Building B - Riverside" },
-  { id: "DEV-003", name: "Gateway 4", serial: "SN-2024-003", type: "Gateway", status: "warning" as DeviceStatus, battery: 45, signal: -78, temp: 31.2, site: "Warehouse 1 - Tech Valley" },
-  { id: "DEV-004", name: "Relay Panel 2", serial: "SN-2024-004", type: "Relay", status: "fault" as DeviceStatus, battery: 0, signal: -95, temp: 28.7, site: "Main Terminal - Harbour" },
-  { id: "DEV-005", name: "Camera NW-12", serial: "SN-2024-005", type: "Camera", status: "online" as DeviceStatus, battery: 92, signal: -44, temp: 26.3, site: "Admin Block - Tech Valley" },
-  { id: "DEV-006", name: "Temperature Sensor T3", serial: "SN-2024-006", type: "Sensor", status: "online" as DeviceStatus, battery: 76, signal: -55, temp: 21.8, site: "Building A - Riverside" },
-  { id: "DEV-007", name: "Access Controller A1", serial: "SN-2024-007", type: "Controller", status: "offline" as DeviceStatus, battery: 0, signal: 0, temp: 0, site: "Building B - Riverside" },
-  { id: "DEV-008", name: "Smoke Detector SD-2", serial: "SN-2024-008", type: "Sensor", status: "online" as DeviceStatus, battery: 68, signal: -58, temp: 23.4, site: "Warehouse 1 - Tech Valley" },
-];
+import { useLiveDevices } from "@/hooks/use-live-devices";
+import { useLiveDeviceStore } from "@/stores/live-device-store";
 
 export default function DevicesPage() {
+  const devices = useLiveDevices();
+  const isSocketConnected = useLiveDeviceStore((s) => s.isSocketConnected);
+  const hasLiveData = Object.keys(useLiveDeviceStore.getState().devices).length > 0;
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
@@ -37,6 +31,15 @@ export default function DevicesPage() {
           </Button>
         }
       />
+
+      {/* Connection banner */}
+      {!isSocketConnected && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/30 dark:text-slate-400">
+          {hasLiveData
+            ? "Showing cached data — real-time connection is offline."
+            : "Real-time connection is offline. Static data shown."}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
@@ -114,7 +117,7 @@ export default function DevicesPage() {
 
       {/* Pagination */}
       <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>Showing 1-8 of 2,847 devices</span>
+        <span>Showing 1-{devices.length} of {hasLiveData ? devices.length : "2,847"} devices</span>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" disabled>Previous</Button>
           <Button variant="outline" size="sm">Next</Button>

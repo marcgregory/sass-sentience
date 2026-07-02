@@ -1,9 +1,9 @@
 /**
- * React hook for Socket.IO lifecycle and cache invalidation.
+ * React hook for Socket.IO lifecycle, cache invalidation, and live store updates.
  *
  * Connects the socket on mount (when auth is available), subscribes to
- * rooms for the current user's scope, and wires server events to
- * TanStack Query cache invalidation.
+ * rooms for the current user's scope, wires server events to TanStack Query
+ * cache invalidation, and updates the live device store for instant UI updates.
  *
  * Usage: call `useSocket()` once in the dashboard layout. It handles
  * the full lifecycle — connect on mount, disconnect on unmount, and
@@ -17,12 +17,16 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
+import { useLiveDeviceStore } from "@/stores/live-device-store";
 import {
   connectSocket,
   disconnectSocket,
   getSocket,
   subscribeRooms,
   type RoomSubscription,
+  type DeviceStatusEvent,
+  type DeviceTelemetryEvent,
+  type EventStreamEvent,
 } from "@/lib/socket-client";
 import { queryKeys } from "@/lib/query-keys";
 
@@ -104,6 +108,61 @@ export function useSocket(options: UseSocketOptions = {}): void {
       });
     }
 
+    // ─── Live Store Updates ──────────────────────────────────────────
+    //
+    // These handlers update the ephemeral Zustand live-device store so
+    // the UI can render telemetry and events without waiting for a
+    // TanStack Query refetch. The store is a real-time overlay on top of
+    // the server-state cache.
+
+    const liveTelemetryHandler = (payload: DeviceTelemetryEvent) => {
+      useLiveDeviceStore.getState().upsertDeviceTelemetry(payload);
+    };
+    socket.on("device:telemetry", liveTelemetryHandler);
+    handlers.push(() => {
+      socket.off("device:telemetry", liveTelemetryHandler);
+    });
+
+    const liveStatusHandler = (payload: DeviceStatusEvent) => {
+      useLiveDeviceStore.getState().upsertDeviceStatus(payload);
+    };
+    socket.on("device:status", liveStatusHandler);
+    handlers.push(() => {
+      socket.off("device:status", liveStatusHandler);
+    });
+
+    const liveEventHandler = (payload: EventStreamEvent) => {
+      useLiveDeviceStore.getState().addLiveEvent({
+        eventId: payload.eventId,
+        deviceId: payload.deviceId,
+        siteId: payload.siteId,
+        category: payload.category,
+        severity: payload.severity,
+        title: payload.title,
+        timestamp: payload.timestamp,
+      });
+    };
+    socket.on("event:new", liveEventHandler);
+    handlers.push(() => {
+      socket.off("event:new", liveEventHandler);
+    });
+
+    // Track socket connection state
+    const handleConnect = () => {
+      useLiveDeviceStore.getState().setSocketConnected(true);
+      // Re-subscribe to rooms on reconnect
+      if (options.rooms && options.rooms.length > 0) {
+        subscribeRooms(options.rooms);
+      }
+    };
+    const handleDisconnect = () => {
+      useLiveDeviceStore.getState().setSocketConnected(false);
+    };
+    socket.on("connect", handleConnect);
+    socket.on("disconnect", handleDisconnect);
+    handlers.push(() => socket.off("connect", handleConnect));
+    handlers.push(() => socket.off("disconnect", handleDisconnect));
+
     // Handle notification events separately — they feed the Zustand store
     // for instant UI updates, not just cache invalidation.
     const notificationHandler = (payload: { notificationId: string; title: string; message: string; priority: string; timestamp: string }) => {
@@ -129,6 +188,13 @@ export function useSocket(options: UseSocketOptions = {}): void {
     handlers.push(() => {
       socket.off("notification:new" as any, notificationHandler);
     });
+
+    // Set initial connection state if the socket is already connected
+    // This covers the case where connectSocket → socket.connect() succeeds
+    // synchronously before we register the "connect" event listener above.
+    if (socket.connected) {
+      useLiveDeviceStore.getState().setSocketConnected(true);
+    }
 
     return () => {
       for (const off of handlers) off();

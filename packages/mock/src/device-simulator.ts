@@ -311,3 +311,34 @@ function computeNextStatus(current: DeviceStatus): DeviceStatus {
       return "offline";
   }
 }
+
+// ─── CLI Entry Point ─────────────────────────────────────────────────
+//
+// When run directly via `tsx src/device-simulator.ts`, parse CLI args
+// and start the simulator.
+
+const isMainModule =
+  typeof process !== "undefined" &&
+  process.argv[1] &&
+  (process.argv[1].endsWith("device-simulator.ts") ||
+    process.argv[1].endsWith("device-simulator.js"));
+
+if (isMainModule) {
+  const args = process.argv.slice(2);
+  const getArg = (name: string, fallback: string): string => {
+    const idx = args.indexOf(name);
+    return idx !== -1 && idx + 1 < args.length ? args[idx + 1] : fallback;
+  };
+
+  const hasCountFlag = args.includes("--count");
+  const hasBrokerFlag = args.includes("--broker");
+
+  const opts: SimulatorOptions = {};
+  if (hasCountFlag) opts.deviceCount = parseInt(getArg("--count", "5"), 10);
+  if (hasBrokerFlag) opts.brokerUrl = getArg("--broker", "mqtt://localhost:1883");
+
+  runSimulator(opts).catch((err) => {
+    console.error("[simulator] Fatal error:", err);
+    process.exit(1);
+  });
+}

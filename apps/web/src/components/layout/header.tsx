@@ -2,6 +2,7 @@
 
 import { useUIStore } from "@/stores/ui-store";
 import { useAuthStore } from "@/stores/auth-store";
+import { useLiveDeviceStore } from "@/stores/live-device-store";
 import { useTheme } from "@/providers/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,12 +14,16 @@ import {
   Bell,
   User,
   LogOut,
+  Wifi,
+  WifiOff,
+  RefreshCw,
 } from "lucide-react";
 
 export function Header() {
   const { setMobileMenuOpen, sidebarCollapsed } = useUIStore();
   const { user, logout } = useAuthStore();
   const { theme, setTheme } = useTheme();
+  const isSocketConnected = useLiveDeviceStore((s) => s.isSocketConnected);
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 lg:px-6">
@@ -46,6 +51,25 @@ export function Header() {
 
       {/* Right actions */}
       <div className="flex items-center gap-2">
+        {/* Realtime connection indicator */}
+        <div className="hidden items-center gap-1.5 rounded-full border px-2.5 py-1 sm:flex">
+          {isSocketConnected ? (
+            <>
+              <Wifi className="h-3.5 w-3.5 text-emerald-500" />
+              <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                Live
+              </span>
+            </>
+          ) : (
+            <>
+              <WifiOff className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground">
+                Disconnected
+              </span>
+            </>
+          )}
+        </div>
+
         {/* Theme toggle */}
         <Button
           variant="ghost"

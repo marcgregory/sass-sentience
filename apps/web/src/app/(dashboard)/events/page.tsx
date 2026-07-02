@@ -6,15 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { formatRelativeTime } from "@sentience/utils";
 import { Download, Filter, Calendar } from "lucide-react";
 import type { EventSeverity } from "@sentience/types";
+import { useLiveDeviceStore } from "@/stores/live-device-store";
 
-const events = [
-  { id: "EVT-001", title: "Device came online", severity: "info", category: "device_online", device: "Gate Controller A3", user: "System", time: new Date(Date.now() - 1 * 60 * 1000).toISOString() },
-  { id: "EVT-002", title: "Heartbeat received", severity: "info", category: "heartbeat", device: "Sensor B7", user: "System", time: new Date(Date.now() - 5 * 60 * 1000).toISOString() },
-  { id: "EVT-003", title: "Battery dropped below 20%", severity: "warning", category: "telemetry", device: "Sensor B7", user: "System", time: new Date(Date.now() - 15 * 60 * 1000).toISOString() },
-  { id: "EVT-004", title: "Device went offline", severity: "error", category: "device_offline", device: "Access Controller A1", user: "System", time: new Date(Date.now() - 42 * 60 * 1000).toISOString() },
-  { id: "EVT-005", title: "Configuration change applied", severity: "info", category: "config_change", device: "Gateway 4", user: "John Smith (Installer)", time: new Date(Date.now() - 60 * 60 * 1000).toISOString() },
-  { id: "EVT-006", title: "Firmware update initiated", severity: "info", category: "firmware_update", device: "Camera NW-12", user: "System", time: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
-  { id: "EVT-007", title: "Temperature critical threshold reached", severity: "critical", category: "telemetry", device: "Temp Sensor T3", user: "System", time: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString() },
+const MOCK_EVENTS = [
+  { id: "EVT-001", title: "Device came online", severity: "info" as const, category: "device_online", device: "Gate Controller A3", user: "System", time: new Date(Date.now() - 1 * 60 * 1000).toISOString() },
+  { id: "EVT-002", title: "Heartbeat received", severity: "info" as const, category: "heartbeat", device: "Sensor B7", user: "System", time: new Date(Date.now() - 5 * 60 * 1000).toISOString() },
+  { id: "EVT-003", title: "Battery dropped below 20%", severity: "warning" as const, category: "telemetry", device: "Sensor B7", user: "System", time: new Date(Date.now() - 15 * 60 * 1000).toISOString() },
+  { id: "EVT-004", title: "Device went offline", severity: "error" as const, category: "device_offline", device: "Access Controller A1", user: "System", time: new Date(Date.now() - 42 * 60 * 1000).toISOString() },
+  { id: "EVT-005", title: "Configuration change applied", severity: "info" as const, category: "config_change", device: "Gateway 4", user: "John Smith (Installer)", time: new Date(Date.now() - 60 * 60 * 1000).toISOString() },
+  { id: "EVT-006", title: "Firmware update initiated", severity: "info" as const, category: "firmware_update", device: "Camera NW-12", user: "System", time: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
+  { id: "EVT-007", title: "Temperature critical threshold reached", severity: "critical" as const, category: "telemetry", device: "Temp Sensor T3", user: "System", time: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString() },
 ];
 
 const severityBadge: Record<EventSeverity, "default" | "destructive" | "warning" | "outline"> = {
@@ -25,6 +26,23 @@ const severityBadge: Record<EventSeverity, "default" | "destructive" | "warning"
 };
 
 export default function EventsPage() {
+  const recentEvents = useLiveDeviceStore((s) => s.recentEvents);
+  const isSocketConnected = useLiveDeviceStore((s) => s.isSocketConnected);
+  const hasLiveData = recentEvents.length > 0;
+
+  // Use live events when available, fall back to mock data
+  const displayEvents = hasLiveData
+    ? recentEvents.slice(0, 10).map((e) => ({
+        id: e.eventId,
+        title: e.title,
+        severity: e.severity as EventSeverity,
+        category: e.category,
+        device: e.deviceId ?? "Unknown",
+        user: "System",
+        time: e.timestamp,
+      }))
+    : MOCK_EVENTS;
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
@@ -48,10 +66,17 @@ export default function EventsPage() {
         }
       />
 
+      {/* Connection indicator */}
+      {!isSocketConnected && hasLiveData && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+          Showing cached events — real-time connection is offline.
+        </div>
+      )}
+
       {/* Event timeline */}
       <div className="rounded-lg border">
         <div className="divide-y">
-          {events.map((event) => (
+          {displayEvents.map((event) => (
             <div key={event.id} className="flex items-start gap-4 p-4 hover:bg-muted/30 transition-colors">
               <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
                 event.severity === "critical" ? "bg-red-500" :
@@ -62,7 +87,7 @@ export default function EventsPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
                   <p className="text-sm font-medium">{event.title}</p>
-                  <Badge variant={severityBadge[event.severity as EventSeverity]} className="capitalize">
+                  <Badge variant={severityBadge[event.severity]} className="capitalize">
                     {event.severity}
                   </Badge>
                   <Badge variant="outline" className="capitalize">{event.category.replace("_", " ")}</Badge>
@@ -79,7 +104,7 @@ export default function EventsPage() {
 
       {/* Pagination */}
       <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>Showing 1-7 of 1,247 events</span>
+        <span>Showing 1-{displayEvents.length} of {hasLiveData ? displayEvents.length : "1,247"} events</span>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" disabled>Previous</Button>
           <Button variant="outline" size="sm">Next</Button>
