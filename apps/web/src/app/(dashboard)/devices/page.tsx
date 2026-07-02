@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +16,7 @@ import { useLiveDevices } from "@/hooks/use-live-devices";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
 
 export default function DevicesPage() {
+  const router = useRouter();
   const devices = useLiveDevices();
   const isSocketConnected = useLiveDeviceStore((s) => s.isSocketConnected);
   const hasLiveData = Object.keys(useLiveDeviceStore.getState().devices).length > 0;
@@ -76,7 +78,11 @@ export default function DevicesPage() {
           </thead>
           <tbody>
             {devices.map((device) => (
-              <tr key={device.id} className="border-b hover:bg-muted/30 transition-colors cursor-pointer">
+              <tr
+                key={device.id}
+                className="border-b hover:bg-muted/30 transition-colors cursor-pointer"
+                onClick={() => router.push(`/devices/${device.id}`)}
+              >
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <Monitor className="h-4 w-4 text-muted-foreground" />

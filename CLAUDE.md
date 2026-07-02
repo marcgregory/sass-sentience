@@ -27,6 +27,22 @@ Platform: Windows (PowerShell or Git Bash). Use `pnpm` (v10.14.0), Node >=18.
 - **Keep pages thin** — move business logic into hooks (`apps/web/src/hooks/`) and services (`apps/web/src/lib/`).
 - **Do not duplicate domain types or utilities** — import from `@sentience/types` and `@sentience/utils`.
 - **Favor incremental improvements** over architectural rewrites. Small, safe changes compound faster than ground-up rebuilds.
+- **Prioritize user-facing product functionality over infrastructure.** The current architecture (monorepo, design system, state management, MQTT simulator, realtime bridge, live updates) is sufficient. Do not add infrastructure (Kubernetes, Redis, CI/CD, scaling) until the core product demonstrates value. Follow the sprint priority order in `docs/implementation/BUILD_PLAN.md`.
+
+## Product First Rule
+
+The infrastructure phase is considered complete.
+
+From this point onward:
+
+1. **Prioritize user-facing functionality.** Every sprint must deliver visible product features.
+2. **Do not add new infrastructure** unless it is strictly required by the current sprint's user stories.
+3. **Prefer completing vertical slices** over expanding the platform horizontally. A working device detail page with real telemetry is worth more than three stub pages.
+4. **Every sprint should result in a demo.** If a stakeholder can't see the change, it may not be the right change.
+
+## Sprint Discipline
+
+Only one sprint may be active at a time. See `docs/implementation/BUILD_PLAN.md` for the sprint rule and full definition of done. Do not begin the next sprint until the current sprint is accepted.
 
 ---
 
@@ -187,52 +203,21 @@ Every feature must satisfy this checklist before being marked complete:
 
 ---
 
-## Known Gaps / Next Work
+## Roadmap
 
-- `@sentience/mock` is scaffolded but has no data generators yet.
-- Device detail page (`/devices/[id]`) and site detail (`/sites/[id]`) are stubbed with static data.
-- No Socket.IO real-time integration yet.
-- No RBAC enforcement on routes or nav items.
-- No dynamic route segments (all pages are static).
-- Diagnostics tools are UI mocks — no actual ping/MQTT/signal execution.
-- No TanStack Query hooks created yet (data is all inline mock/static).
-- No export/CSV/PDF backend integration.
-- No audit log or notification backend integration.
-- No E2E test infrastructure (Playwright/Cypress).
+The project roadmap is maintained in:
 
----
+**`docs/implementation/ROADMAP.md`** — single source of truth for what is completed, in progress, next, and blocked.
 
-## Future Integrations
+### Roadmap Discipline
 
-These sections describe planned integration points and will grow as they are implemented. Reserved for documenting how each integration connects to the existing architecture.
+Whenever a milestone is completed:
 
-### MQTT
-
-_Not yet started._ Planned as the device ingestion pipeline. Will feed device telemetry (battery, voltage, temperature, signal strength) from field devices into the real-time layer.
-
-### Socket.IO
-
-_Planned._ The `notification-store` has `addNotification()` ready. Will provide auto-reconnecting WebSocket transport with room-based subscriptions (by estate/site/device). Events dispatched from Socket.IO → Zustand store updates → React re-renders.
-
-### REST API
-
-_Not yet started._ The TanStack Query hooks will consume endpoints defined here. Auth uses JWT with refresh token rotation (via next-safe-action).
-
-### CSV / PDF Exports
-
-_Not yet started._ Export buttons exist on Events and Reports pages but are not wired to generation backends.
-
-### Notifications
-
-_UI complete, backend pending._ Notification dropdown in header and full notification list page exist with mock data. Will connect to Socket.IO feed and backend persistence.
-
-### Audit Logging
-
-_Not yet started._ Audit log page is scaffolded with mock data. Will capture user actions (login, CRUD, setting changes) and display in a paginated timeline.
-
-### Feature Flags
-
-_Not yet started._ Planned for the Settings/Admin area to enable/disable features per tenant.
+1. **Update ROADMAP.md** — mark completed items, move next milestone to "In Progress", update blockers.
+2. **Update CHANGELOG.md** — log the milestone with Added/Changed/Fixed/Known Issues sections.
+3. **Update TECHNICAL_DEBT.md** — log any new debt introduced by the milestone.
+4. **Run TypeScript check and build** — `pnpm lint && pnpm build` — before marking done.
+5. **Never leave ROADMAP.md out of sync** with the codebase. If code drifts from the roadmap, update the roadmap.
 
 ---
 
