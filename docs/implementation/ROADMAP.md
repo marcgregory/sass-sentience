@@ -41,7 +41,7 @@
 | **MQTT Simulator** | Device generator (4 estates, 8 sites), telemetry simulator, CLI, Docker Mosquitto |
 | **Realtime Bridge** | MQTT client, event normalizer (14 tests), device registry (9 tests), Socket.IO server with room routing |
 | **Socket Hook** | `useSocket()`: event-to-query invalidation, live-store updates (tested) |
-| **Live Devices Hook** | `useLiveDevices()`: merges static data with live store |
+| **Devices Hook** | `useDevices()`: TanStack Query + live overlay; `useDevice(id)`: single device detail + live overlay |
 | **Dashboard Data Hook** | `useDashboardData()`: live KPIs with mock fallback |
 | **Live Dashboard** | KPI cards, System Health gauges, Live Events, Alerts feed, widgets |
 | **Device Table** | HTML table with live overlay (status/battery/signal/temp) |
@@ -145,7 +145,25 @@
 | **Profile** | Live auth data, personal info edit, password change, notification prefs |
 | **Demo role switching** | Header role badge, Switch Role modal, quick-login on login page |
 
-## ✅ In Progress — Sprint 7: Admin
+## ✅ In Progress — v1.0 RC2: Frontend Integration
+
+Integrating the frontend with the real backend API one domain at a time. No UI/UX changes — only data source swaps.
+
+| Domain | Status | Notes |
+|--------|--------|-------|
+| **1. Health** | ✅ Done | Platform Health polls `GET /api/health`, shows real API status |
+| **2. Devices** | ✅ Done | Devices list and detail load from `GET /api/devices` + `GET /api/devices/:id`, live Socket.IO telemetry overlaid via Zustand, fallback error/loading/empty states, pagination count from API |
+| **3. Events** | ⬜ | Load history from API, live events from Socket.IO |
+| **4. Alerts** | ⬜ | Load alerts from API, live updates from Socket.IO |
+| **5. Reports** | ⬜ | Read report data from API, keep UI unchanged |
+| **6. Users** | ⬜ | Replace mock users with API |
+| **7. Roles** | ⬜ | Replace mock permission data with API |
+| **8. Audit Log** | ⬜ | Read from API |
+| **9. Settings** | ⬜ | Read/write settings via API |
+
+---
+
+## ✅ Completed — v1.0 RC1: Backend API + PostgreSQL
 
 | Area | Notes |
 |------|-------|
@@ -168,9 +186,6 @@
 ## 🔮 Future (Infrastructure & Polish)
 
 - Notifications — connect dropdown + full page to Socket.IO feed
-- Frontend API integration — connect pages to REST API page by page
-- TanStack Query hooks — useQuery/useMutation wrappers against real API
-- Repository layer — data-access functions per domain
 - E2E Tests — Playwright or Cypress
 - Deployment pipeline — CI/CD
 - Advanced scaling — Kubernetes, Redis, multi-region

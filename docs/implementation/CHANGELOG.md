@@ -6,6 +6,41 @@ All notable changes to the Sentience IoT Platform.
 
 ---
 
+## v1.0.0-rc.2 — 2026-07-03
+
+### Added
+
+- **Frontend Integration — v1.0 RC2 started.** The project shifts from "build features" to "integrate & harden." Connecting the frontend to the real backend API one domain at a time, removing mock data as each domain completes.
+- **Device API functions** — `getDevices()` and `getDevice(id)` in `apps/web/src/lib/devices.ts` wrapping `GET /api/devices` and `GET /api/devices/:id` with typed response interfaces (`DeviceApiItem`, `DeviceListResponse`, `DeviceDetailResponse`).
+- **TanStack Query hooks** — `useDevices()` and `useDevice(id)` in `apps/web/src/hooks/use-devices.ts`. `useDevices()` fetches the paginated list and merges live socket telemetry/status overlay; `useDevice(id)` fetches a single device detail with live overlay. Both append simulator-only devices from the live store.
+- **Devices page: loading/error/empty states** — Skeleton loading table (5 rows × 8 cols), error card with retry button, and empty state when no devices are found.
+- **Device detail page: loading/error states** — Skeleton loading with stat card placeholders and error state with retry action.
+
+### Changed
+
+- **Devices list page (`/devices`)** — Now fetches from `GET /api/devices` via TanStack Query. Live socket data overlaid via Zustand on top of API responses. Removed dependency on `useLiveDevices()` mock-only hook. Pagination shows real total from API. Added loading skeleton, error card with retry, and empty state.
+- **Device detail page (`/devices/[id]`)** — Now fetches base device data from `GET /api/devices/:id` via `useDevice(id)` hook. Live telemetry/status overlay remains through `useLiveDeviceStore`. Added loading skeleton and error state. Mock firmware, config, I/O, diagnostics, and events remain for sub-tabs (not yet API-driven).
+- **`useLiveDevices` hook** — No longer imported by any page. Retained as a reference utility for simulator-only scenarios.
+- `lib/index.ts` — Exports `getDevices`, `getDevice`, and their types.
+- `ROADMAP.md` — Devices domain marked complete; Live Devices Hook → Devices Hook description.
+
+### Changed
+
+- **Platform Health: API Service now real** — The "API Service" card on `/admin/health` no longer shows mock data. It polls `GET /api/health` via TanStack Query every 15s and displays real uptime, database latency, and online/disconnected/degraded status. Falls back to "disconnected" when the API is unreachable.
+- `queryKeys` — Added `health.status` query key factory.
+- **New hook** — `useApiHealth` in `apps/web/src/hooks/use-api-health.ts` polls the health endpoint with configurable interval, retry, and staleTime.
+- `ROADMAP.md` — Moved "Frontend API integration" from Future to In Progress.
+
+### Known Issues
+
+- Other services (Bridge, MQTT, Simulator, Database) still use mock data on Platform Health.
+- Events, Alerts, Reports, Users, Roles, Audit Log, and Settings pages still use mock data.
+- Device detail sub-tabs (firmware, config, I/O, diagnostics) still use mock data — only the base device info and live overlay come from API/socket.
+- Search and filter inputs on the devices page are still visual-only (not wired to API query parameters).
+- No device mutation endpoints are connected (add/edit/delete).
+
+---
+
 ## v1.0.0-rc.1 — 2026-07-03
 
 ### Added

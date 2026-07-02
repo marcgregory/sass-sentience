@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import {
   Card,
@@ -28,6 +28,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import type { PlatformService, ServiceStatus } from "@sentience/types";
+import { useApiHealth } from "@/hooks/use-api-health";
 
 const statusConfig: Record<ServiceStatus, { label: string; color: string; bgColor: string; icon: React.ComponentType<{ className?: string }> }> = {
   healthy: { label: "Healthy", color: "text-emerald-600 dark:text-emerald-400", bgColor: "bg-emerald-100 dark:bg-emerald-900/50", icon: CheckCircle2 },
@@ -93,14 +94,14 @@ const initialServices: PlatformService[] = [
   {
     id: "api",
     name: "API Service",
-    status: "healthy",
-    description: "REST API (placeholder — awaiting backend)",
+    status: "healthy" as ServiceStatus,
+    description: "REST API — Fastify 5 + Drizzle ORM + PostgreSQL",
     uptime: 0,
     lastCheck: new Date().toISOString(),
     metrics: [
       { label: "Uptime", value: "N/A" },
       { label: "Requests", value: "0" },
-      { label: "Status", value: "Mock" },
+      { label: "Status", value: "Online" },
     ],
   },
 ];
@@ -122,11 +123,45 @@ export default function PlatformHealthPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
-  // Simulate periodic health checks
+  // Poll the real API health endpoint
+  const { data: apiHealth, isFetching: apiHealthFetching, refetch: refetchApiHealth } = useApiHealth();
+
+  // Derive the API service status from real health data
+  const apiServiceStatus: ServiceStatus = !apiHealth
+    ? "disconnected"
+    : apiHealth.db.status === "unhealthy"
+      ? "degraded"
+      : "healthy";
+
+  // Merge real API health data into the services list
+  useEffect(() => {
+    if (!apiHealth) return;
+    setServices((prev) =>
+      prev.map((s) => {
+        if (s.id !== "api") return s;
+        const uptimeSeconds = Math.max(0, Math.floor(apiHealth.uptime));
+        return {
+          ...s,
+          status: apiServiceStatus,
+          uptime: uptimeSeconds,
+          lastCheck: apiHealth.timestamp,
+          metrics: [
+            { label: "Uptime", value: uptimeSeconds > 0 ? `${uptimeSeconds}s` : "N/A" },
+            { label: "DB Latency", value: apiHealth.db.latency ?? "N/A" },
+            { label: "Status", value: apiHealth.status === "ok" ? "Online" : "Error" },
+          ],
+        };
+      }),
+    );
+    setLastUpdated(new Date());
+  }, [apiHealth, apiServiceStatus]);
+
+  // Simulate periodic updates for non-API services
   useEffect(() => {
     const interval = setInterval(() => {
       setServices((prev) =>
         prev.map((s) => {
+          if (s.id === "api") return s; // API is driven by real health data
           // Simulate slight status changes for realism
           if (s.id === "simulator") {
             const statuses: ServiceStatus[] = ["healthy", "degraded", "healthy"];
@@ -152,17 +187,17 @@ export default function PlatformHealthPage() {
 
   const handleRefresh = () => {
     setRefreshing(true);
-    setTimeout(() => {
+    refetchApiHealth().finally(() => {
       setServices((prev) =>
         prev.map((s) => ({
           ...s,
           lastCheck: new Date().toISOString(),
-          uptime: s.id === "api" ? 0 : s.uptime,
+          uptime: s.id === "api" ? (apiHealth?.uptime ? Math.floor(apiHealth.uptime) : 0) : s.uptime,
         })),
       );
       setLastUpdated(new Date());
       setRefreshing(false);
-    }, 800);
+    });
   };
 
   const healthyCount = services.filter((s) => s.status === "healthy").length;

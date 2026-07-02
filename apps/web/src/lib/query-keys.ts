@@ -73,4 +73,9 @@ export const queryKeys = {
   dashboard: {
     kpis: (estateId?: string) => ["dashboard", "kpis", estateId] as const,
   },
+
+  /** Health / system status */
+  health: {
+    status: ["health", "status"] as const,
+  },
 } as const;

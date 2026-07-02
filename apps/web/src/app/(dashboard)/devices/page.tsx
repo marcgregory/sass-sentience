@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/shared/empty-state";
 import {
   Card,
   CardContent,
@@ -11,15 +12,27 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-dot";
-import { Plus, Search, Filter, Monitor, Battery, Wifi, Thermometer } from "lucide-react";
-import { useLiveDevices } from "@/hooks/use-live-devices";
+import { useDevices } from "@/hooks/use-devices";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
+import {
+  Plus,
+  Search,
+  Filter,
+  Monitor,
+  Battery,
+  Wifi,
+  Thermometer,
+  HardDrive,
+  AlertTriangle,
+  RefreshCw,
+} from "lucide-react";
 
 export default function DevicesPage() {
   const router = useRouter();
-  const devices = useLiveDevices();
+  const { devices, total, isLoading, isError, error } = useDevices();
   const isSocketConnected = useLiveDeviceStore((s) => s.isSocketConnected);
-  const hasLiveData = Object.keys(useLiveDeviceStore.getState().devices).length > 0;
+  const hasLiveData =
+    Object.keys(useLiveDeviceStore.getState().devices).length > 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -57,76 +70,203 @@ export default function DevicesPage() {
           <Filter className="h-4 w-4" />
           Filter
         </Button>
-        <Button variant="outline" size="sm">All Types</Button>
-        <Button variant="outline" size="sm">All Status</Button>
+        <Button variant="outline" size="sm">
+          All Types
+        </Button>
+        <Button variant="outline" size="sm">
+          All Status
+        </Button>
       </div>
 
-      {/* Device Table */}
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b bg-muted/50">
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Device</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Serial</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Type</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Status</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Battery</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Signal</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Temp</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Site</th>
-            </tr>
-          </thead>
-          <tbody>
-            {devices.map((device) => (
-              <tr
-                key={device.id}
-                className="border-b hover:bg-muted/30 transition-colors cursor-pointer"
-                onClick={() => router.push(`/devices/${device.id}`)}
-              >
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Monitor className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">{device.name}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-sm text-muted-foreground font-mono">{device.serial}</td>
-                <td className="px-4 py-3 text-sm">{device.type}</td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={device.status} />
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Battery className={`h-3.5 w-3.5 ${device.battery > 40 ? "text-emerald-500" : "text-red-500"}`} />
-                    <span className={`text-sm font-medium ${device.battery <= 20 ? "text-red-500" : ""}`}>
-                      {device.battery > 0 ? `${device.battery}%` : "N/A"}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Wifi className={`h-3.5 w-3.5 ${device.signal < -70 ? "text-amber-500" : "text-emerald-500"}`} />
-                    <span className="text-sm">{device.signal !== 0 ? `${device.signal} dBm` : "N/A"}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Thermometer className="h-3.5 w-3.5 text-blue-500" />
-                    <span className="text-sm">{device.temp !== 0 ? `${device.temp}°C` : "N/A"}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">{device.site}</td>
+      {/* Error State */}
+      {isError && (
+        <Card className="border-red-200 dark:border-red-900">
+          <CardContent className="flex items-center gap-4 p-6">
+            <AlertTriangle className="h-8 w-8 text-red-500 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-base">Failed to load devices</CardTitle>
+              <CardDescription className="mt-0.5">
+                {error instanceof Error
+                  ? error.message
+                  : "The API server may be offline. Start the backend to see device data."}
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 shrink-0"
+              onClick={() => window.location.reload()}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Loading State */}
+      {isLoading && (
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Device
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Serial
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Type
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Status
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Battery
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Signal
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Temp
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Site
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i} className="border-b">
+                  {Array.from({ length: 8 }).map((_, j) => (
+                    <td key={j} className="px-4 py-3">
+                      <div className="h-4 w-full max-w-[100px] animate-pulse rounded bg-muted" />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!isLoading && !isError && devices.length === 0 && (
+        <EmptyState
+          icon={HardDrive}
+          title="No devices found"
+          description="No devices are registered yet. Add a device or start the MQTT simulator to get started."
+        />
+      )}
+
+      {/* Device Table */}
+      {!isLoading && devices.length > 0 && (
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Device
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Serial
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Type
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Status
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Battery
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Signal
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Temp
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Site
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {devices.map((device) => (
+                <tr
+                  key={device.id}
+                  className="border-b hover:bg-muted/30 transition-colors cursor-pointer"
+                  onClick={() => router.push(`/devices/${device.id}`)}
+                >
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Monitor className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">
+                        {device.name}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground font-mono">
+                    {device.serial}
+                  </td>
+                  <td className="px-4 py-3 text-sm">{device.type}</td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={device.status} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Battery
+                        className={`h-3.5 w-3.5 ${device.battery > 40 ? "text-emerald-500" : "text-red-500"}`}
+                      />
+                      <span
+                        className={`text-sm font-medium ${device.battery <= 20 ? "text-red-500" : ""}`}
+                      >
+                        {device.battery > 0 ? `${device.battery}%` : "N/A"}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Wifi
+                        className={`h-3.5 w-3.5 ${device.signal < -70 ? "text-amber-500" : "text-emerald-500"}`}
+                      />
+                      <span className="text-sm">
+                        {device.signal !== 0 ? `${device.signal} dBm` : "N/A"}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Thermometer className="h-3.5 w-3.5 text-blue-500" />
+                      <span className="text-sm">
+                        {device.temp !== 0 ? `${device.temp}°C` : "N/A"}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">
+                    {device.site}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Pagination */}
       <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>Showing 1-{devices.length} of {hasLiveData ? devices.length : "2,847"} devices</span>
+        <span>
+          Showing 1-{devices.length} of{" "}
+          {total > 0 ? total.toLocaleString() : devices.length} devices
+        </span>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" disabled>Previous</Button>
-          <Button variant="outline" size="sm">Next</Button>
+          <Button variant="outline" size="sm" disabled>
+            Previous
+          </Button>
+          <Button variant="outline" size="sm">
+            Next
+          </Button>
         </div>
       </div>
     </div>

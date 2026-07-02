@@ -1,4 +1,11 @@
 export { get, post, put, patch, del, ApiError } from "./api-client";
+export { getDevices, getDevice } from "./devices";
+export type {
+  DeviceApiItem,
+  DeviceListResponse,
+  DeviceDetailResponse,
+  DevicesParams,
+} from "./devices";
 export { queryKeys } from "./query-keys";
 export { paginationParams, cursorParams } from "./pagination";
 export type { PaginationParams, CursorPaginationParams, Page, CursorPage } from "./pagination";

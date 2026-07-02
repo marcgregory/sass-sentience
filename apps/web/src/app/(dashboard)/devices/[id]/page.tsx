@@ -22,9 +22,7 @@ import {
   RefreshCw,
   Gauge,
   Radio,
-  WifiOff,
   Play,
-  FileText,
   Box,
   List,
   type LucideIcon,
@@ -40,14 +38,27 @@ import {
 } from "@/components/ui/card";
 import { StatusDot, StatusBadge } from "@/components/shared/status-dot";
 import { EmptyState } from "@/components/shared/empty-state";
+import { useDevice } from "@/hooks/use-devices";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
-import { useLiveDevices } from "@/hooks/use-live-devices";
-import { formatRelativeTime, formatDateTime, formatVoltage, formatSignalStrength, formatBattery, formatTemperature } from "@sentience/utils";
+import {
+  formatRelativeTime,
+  formatDateTime,
+  formatVoltage,
+  formatSignalStrength,
+  formatBattery,
+  formatTemperature,
+} from "@sentience/utils";
 import type { DeviceStatus } from "@sentience/types";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
-type TabId = "overview" | "telemetry" | "io" | "diagnostics" | "events" | "config";
+type TabId =
+  | "overview"
+  | "telemetry"
+  | "io"
+  | "diagnostics"
+  | "events"
+  | "config";
 
 interface Tab {
   id: TabId;
@@ -102,34 +113,113 @@ interface MockDiagnostic {
 }
 
 const MOCK_FIRMWARE: Record<string, MockFirmware> = {
-  "DEV-001": { version: "v2.4.1", build: "b20240315", releasedAt: "2026-03-15T10:00:00Z", installedAt: "2026-04-01T08:30:00Z" },
-  "DEV-002": { version: "v1.8.0", build: "b20240120", releasedAt: "2026-01-20T10:00:00Z", installedAt: "2026-02-10T09:00:00Z" },
-  "DEV-003": { version: "v3.0.2", build: "b20240601", releasedAt: "2026-06-01T10:00:00Z", installedAt: "2026-06-15T11:00:00Z" },
-  "DEV-004": { version: "v2.1.0", build: "b20240228", releasedAt: "2026-02-28T10:00:00Z", installedAt: "2026-03-10T07:45:00Z" },
+  "DEV-001": {
+    version: "v2.4.1",
+    build: "b20240315",
+    releasedAt: "2026-03-15T10:00:00Z",
+    installedAt: "2026-04-01T08:30:00Z",
+  },
+  "DEV-002": {
+    version: "v1.8.0",
+    build: "b20240120",
+    releasedAt: "2026-01-20T10:00:00Z",
+    installedAt: "2026-02-10T09:00:00Z",
+  },
+  "DEV-003": {
+    version: "v3.0.2",
+    build: "b20240601",
+    releasedAt: "2026-06-01T10:00:00Z",
+    installedAt: "2026-06-15T11:00:00Z",
+  },
+  "DEV-004": {
+    version: "v2.1.0",
+    build: "b20240228",
+    releasedAt: "2026-02-28T10:00:00Z",
+    installedAt: "2026-03-10T07:45:00Z",
+  },
 };
 
 const DEFAULT_FIRMWARE: MockFirmware = {
-  version: "v1.0.0", build: "b20240101", releasedAt: "2026-01-01T00:00:00Z", installedAt: undefined,
+  version: "v1.0.0",
+  build: "b20240101",
+  releasedAt: "2026-01-01T00:00:00Z",
+  installedAt: undefined,
 };
 
 const MOCK_CONFIG: Record<string, MockConfig> = {
-  "DEV-001": { mqttTopic: "sentience/devices/DEV-001", publishInterval: 30, thresholds: { batteryMin: 20, voltageMin: 3.3, temperatureMin: -10, temperatureMax: 60, signalMin: -90 } },
-  "DEV-002": { mqttTopic: "sentience/devices/DEV-002", publishInterval: 15, thresholds: { batteryMin: 15, voltageMin: 3.0, temperatureMin: 0, temperatureMax: 50, signalMin: -85 } },
-  "DEV-003": { mqttTopic: "sentience/devices/DEV-003", publishInterval: 60, thresholds: { batteryMin: 25, voltageMin: 3.5, temperatureMin: -5, temperatureMax: 55, signalMin: -80 } },
-  "DEV-004": { mqttTopic: "sentience/devices/DEV-004", publishInterval: 10, thresholds: { batteryMin: 10, voltageMin: 2.8, temperatureMin: -15, temperatureMax: 65, signalMin: -95 } },
+  "DEV-001": {
+    mqttTopic: "sentience/devices/DEV-001",
+    publishInterval: 30,
+    thresholds: {
+      batteryMin: 20,
+      voltageMin: 3.3,
+      temperatureMin: -10,
+      temperatureMax: 60,
+      signalMin: -90,
+    },
+  },
+  "DEV-002": {
+    mqttTopic: "sentience/devices/DEV-002",
+    publishInterval: 15,
+    thresholds: {
+      batteryMin: 15,
+      voltageMin: 3.0,
+      temperatureMin: 0,
+      temperatureMax: 50,
+      signalMin: -85,
+    },
+  },
+  "DEV-003": {
+    mqttTopic: "sentience/devices/DEV-003",
+    publishInterval: 60,
+    thresholds: {
+      batteryMin: 25,
+      voltageMin: 3.5,
+      temperatureMin: -5,
+      temperatureMax: 55,
+      signalMin: -80,
+    },
+  },
+  "DEV-004": {
+    mqttTopic: "sentience/devices/DEV-004",
+    publishInterval: 10,
+    thresholds: {
+      batteryMin: 10,
+      voltageMin: 2.8,
+      temperatureMin: -15,
+      temperatureMax: 65,
+      signalMin: -95,
+    },
+  },
 };
 
 const DEFAULT_CONFIG: MockConfig = {
-  mqttTopic: "sentience/devices/unknown", publishInterval: 30,
-  thresholds: { batteryMin: 20, voltageMin: 3.3, temperatureMin: -10, temperatureMax: 60, signalMin: -90 },
+  mqttTopic: "sentience/devices/unknown",
+  publishInterval: 30,
+  thresholds: {
+    batteryMin: 20,
+    voltageMin: 3.3,
+    temperatureMin: -10,
+    temperatureMax: 60,
+    signalMin: -90,
+  },
 };
 
-const MOCK_IO: Record<string, { inputs: MockIOPoint[]; outputs: MockIOPoint[] }> = {
+const MOCK_IO: Record<
+  string,
+  { inputs: MockIOPoint[]; outputs: MockIOPoint[] }
+> = {
   "DEV-001": {
     inputs: [
       { id: "IN-1", label: "Door Contact", type: "digital", state: true },
       { id: "IN-2", label: "Motion Sensor", type: "digital", state: false },
-      { id: "IN-3", label: "Temperature Probe", type: "analog", state: true, value: 24.5 },
+      {
+        id: "IN-3",
+        label: "Temperature Probe",
+        type: "analog",
+        state: true,
+        value: 24.5,
+      },
     ],
     outputs: [
       { id: "OUT-1", label: "Gate Relay", type: "digital", state: false },
@@ -139,7 +229,10 @@ const MOCK_IO: Record<string, { inputs: MockIOPoint[]; outputs: MockIOPoint[] }>
   },
 };
 
-const DEFAULT_IO = { inputs: [] as MockIOPoint[], outputs: [] as MockIOPoint[] };
+const DEFAULT_IO = {
+  inputs: [] as MockIOPoint[],
+  outputs: [] as MockIOPoint[],
+};
 
 function getMockDiagnostics(deviceId: string): MockDiagnostic[] {
   const now = new Date().toISOString();
@@ -150,10 +243,40 @@ function getMockDiagnostics(deviceId: string): MockDiagnostic[] {
   const mqttOk = (seed + 1) % 5 !== 0;
   const signalOk = (seed + 2) % 4 !== 0;
   return [
-    { id: `diag-${deviceId}-1`, type: "Network Ping", status: pingOk ? "passed" : "failed", message: pingOk ? "Responded in 12ms" : "Request timed out after 5s", ranAt: now },
-    { id: `diag-${deviceId}-2`, type: "MQTT Connectivity", status: mqttOk ? "passed" : "warning", message: mqttOk ? "Connected to broker" : "Intermittent connection — 3 reconnects in 24h", ranAt: now },
-    { id: `diag-${deviceId}-3`, type: "Signal Strength", status: signalOk ? "passed" : "warning", message: signalOk ? "Signal within acceptable range" : "Signal below threshold (-92 dBm)", ranAt: now },
-    { id: `diag-${deviceId}-4`, type: "Battery Health", status: "passed", message: "Battery voltage stable at 3.7V", ranAt: now },
+    {
+      id: `diag-${deviceId}-1`,
+      type: "Network Ping",
+      status: pingOk ? "passed" : "failed",
+      message: pingOk
+        ? "Responded in 12ms"
+        : "Request timed out after 5s",
+      ranAt: now,
+    },
+    {
+      id: `diag-${deviceId}-2`,
+      type: "MQTT Connectivity",
+      status: mqttOk ? "passed" : "warning",
+      message: mqttOk
+        ? "Connected to broker"
+        : "Intermittent connection — 3 reconnects in 24h",
+      ranAt: now,
+    },
+    {
+      id: `diag-${deviceId}-3`,
+      type: "Signal Strength",
+      status: signalOk ? "passed" : "warning",
+      message: signalOk
+        ? "Signal within acceptable range"
+        : "Signal below threshold (-92 dBm)",
+      ranAt: now,
+    },
+    {
+      id: `diag-${deviceId}-4`,
+      type: "Battery Health",
+      status: "passed",
+      message: "Battery voltage stable at 3.7V",
+      ranAt: now,
+    },
   ];
 }
 
@@ -209,39 +332,56 @@ function signalColor(dbm: number): string {
 
 function severityIcon(severity: string): LucideIcon {
   switch (severity) {
-    case "critical": return AlertTriangle;
-    case "warning": return AlertCircle;
-    default: return CheckCircle2;
+    case "critical":
+      return AlertTriangle;
+    case "warning":
+      return AlertCircle;
+    default:
+      return CheckCircle2;
   }
 }
 
 function severityColor(severity: string): string {
   switch (severity) {
-    case "critical": return "text-red-500";
-    case "warning": return "text-amber-500";
-    default: return "text-emerald-500";
+    case "critical":
+      return "text-red-500";
+    case "warning":
+      return "text-amber-500";
+    default:
+      return "text-emerald-500";
   }
 }
 
 function diagnosticStatusIcon(status: string): LucideIcon {
   switch (status) {
-    case "passed": return CheckCircle2;
-    case "failed": return XCircle;
-    default: return AlertCircle;
+    case "passed":
+      return CheckCircle2;
+    case "failed":
+      return XCircle;
+    default:
+      return AlertCircle;
   }
 }
 
 function diagnosticStatusColor(status: string): string {
   switch (status) {
-    case "passed": return "text-emerald-500";
-    case "failed": return "text-red-500";
-    default: return "text-amber-500";
+    case "passed":
+      return "text-emerald-500";
+    case "failed":
+      return "text-red-500";
+    default:
+      return "text-amber-500";
   }
 }
 
 // ─── Section Components ───────────────────────────────────────────────────
 
-function StatCard({ icon: Icon, label, value, className }: {
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  className,
+}: {
   icon: LucideIcon;
   label: string;
   value: string | number;
@@ -262,7 +402,12 @@ function StatCard({ icon: Icon, label, value, className }: {
   );
 }
 
-function SectionCard({ title, description, children, className }: {
+function SectionCard({
+  title,
+  description,
+  children,
+  className,
+}: {
   title: string;
   description?: string;
   children: React.ReactNode;
@@ -279,7 +424,14 @@ function SectionCard({ title, description, children, className }: {
   );
 }
 
-function MetricBar({ label, value, min, max, unit, color }: {
+function MetricBar({
+  label,
+  value,
+  min,
+  max,
+  unit,
+  color,
+}: {
   label: string;
   value: number;
   min: number;
@@ -292,7 +444,10 @@ function MetricBar({ label, value, min, max, unit, color }: {
     <div className="space-y-1">
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">{label}</span>
-        <span className="font-medium">{value}{unit}</span>
+        <span className="font-medium">
+          {value}
+          {unit}
+        </span>
       </div>
       <div className="h-2 w-full rounded-full bg-muted">
         <div
@@ -317,16 +472,12 @@ export default function DeviceDetailPage() {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [runningDiag, setRunningDiag] = useState<string | null>(null);
 
-  // Live data sources
-  const liveDevices = useLiveDevices();
+  // API data source
+  const { device, apiDevice, isLoading, isError } = useDevice(deviceId);
+
+  // Live data overlay
   const liveDeviceEntry = useLiveDeviceStore((s) => s.devices[deviceId]);
   const recentEvents = useLiveDeviceStore((s) => s.recentEvents);
-
-  // Find the device by ID
-  const device = useMemo(
-    () => liveDevices.find((d) => d.id === deviceId) ?? null,
-    [liveDevices, deviceId],
-  );
 
   // Device-specific events
   const deviceEvents = useMemo(() => {
@@ -335,9 +486,66 @@ export default function DeviceDetailPage() {
     return getMockEvents(deviceId);
   }, [recentEvents, deviceId]);
 
-  // Handle not found
+  // ═══ Loading State ══════════════════════════════════════════════════════
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div className="flex items-center gap-4">
+          <div className="h-10 w-10 animate-pulse rounded-md bg-muted" />
+          <div className="space-y-2">
+            <div className="h-7 w-56 animate-pulse rounded bg-muted" />
+            <div className="h-4 w-72 animate-pulse rounded bg-muted" />
+          </div>
+        </div>
+        <div className="h-10 animate-pulse rounded-md bg-muted" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-4">
+                <div className="h-20 animate-pulse rounded bg-muted" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ═══ Error State ════════════════════════════════════════════════════════
+
+  if (isError) {
+    return (
+      <div className="animate-fade-in">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mb-4 gap-2"
+          onClick={() => router.push("/devices")}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Devices
+        </Button>
+        <EmptyState
+          icon={AlertTriangle}
+          title="Failed to load device"
+          description={
+            isError
+              ? "The API server may be offline. Please try again or return to the device list."
+              : `No device matches ID "${deviceId}".`
+          }
+          action={{
+            label: "Retry",
+            onClick: () => window.location.reload(),
+          }}
+        />
+      </div>
+    );
+  }
+
+  // ═══ Not Found ══════════════════════════════════════════════════════════
+
   if (!device) {
-    const hasAnyDevices = liveDevices.length > 0;
     return (
       <div className="animate-fade-in">
         <Button
@@ -352,23 +560,21 @@ export default function DeviceDetailPage() {
         <EmptyState
           icon={HardDrive}
           title="Device not found"
-          description={
-            hasAnyDevices
-              ? `No device matches ID "${deviceId}". It may have been removed or the ID is incorrect.`
-              : "No devices are available. Start the MQTT simulator to generate devices."
-          }
-          action={hasAnyDevices ? {
+          description={`No device matches ID "${deviceId}". It may have been removed or the ID is incorrect.`}
+          action={{
             label: "View All Devices",
             onClick: () => router.push("/devices"),
-          } : undefined}
+          }}
         />
       </div>
     );
   }
 
+  // ═══ Device found — render detail ═══════════════════════════════════════
+
   const live = liveDeviceEntry;
 
-  // Live telemetry (from store) or fallback to mock values
+  // Live telemetry (from store) or fallback to API static values
   const telemetry = live?.telemetry
     ? {
         battery: live.telemetry.battery,
@@ -385,8 +591,9 @@ export default function DeviceDetailPage() {
         timestamp: new Date().toISOString(),
       };
 
-  const siteName = live?.siteName ?? device.site;
-  const estateName = live?.estateName;
+  const siteName =
+    live?.siteName ?? apiDevice?.siteName ?? device.site;
+  const estateName = live?.estateName ?? apiDevice?.estateName;
   const status: DeviceStatus = live?.status ?? device.status;
   const lastSeen = live?.lastSeen ?? new Date().toISOString();
   const isLive = !!live;
@@ -403,13 +610,20 @@ export default function DeviceDetailPage() {
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case "overview": return renderOverview();
-      case "telemetry": return renderTelemetry();
-      case "io": return renderIO();
-      case "diagnostics": return renderDiagnostics();
-      case "events": return renderEvents();
-      case "config": return renderConfig();
-      default: return null;
+      case "overview":
+        return renderOverview();
+      case "telemetry":
+        return renderTelemetry();
+      case "io":
+        return renderIO();
+      case "diagnostics":
+        return renderDiagnostics();
+      case "events":
+        return renderEvents();
+      case "config":
+        return renderConfig();
+      default:
+        return null;
     }
   };
 
@@ -536,7 +750,9 @@ export default function DeviceDetailPage() {
                   key={event.eventId}
                   className="flex items-center gap-3 rounded-lg border p-3 text-sm"
                 >
-                  <SevIcon className={`h-4 w-4 ${severityColor(event.severity)}`} />
+                  <SevIcon
+                    className={`h-4 w-4 ${severityColor(event.severity)}`}
+                  />
                   <span className="flex-1">{event.title}</span>
                   <span className="text-xs text-muted-foreground">
                     {formatRelativeTime(event.timestamp)}
@@ -603,28 +819,44 @@ export default function DeviceDetailPage() {
           icon={Battery}
           label="Battery"
           value={formatBattery(telemetry.battery)}
-          detail={live ? `Updated ${formatRelativeTime(live.telemetry?.timestamp ?? "")}` : "Mock data"}
+          detail={
+            live
+              ? `Updated ${formatRelativeTime(live.telemetry?.timestamp ?? "")}`
+              : "Mock data"
+          }
           color="text-emerald-500"
         />
         <TelemetryCard
           icon={Thermometer}
           label="Temperature"
           value={formatTemperature(telemetry.temperature)}
-          detail={live ? `Updated ${formatRelativeTime(live.telemetry?.timestamp ?? "")}` : "Mock data"}
+          detail={
+            live
+              ? `Updated ${formatRelativeTime(live.telemetry?.timestamp ?? "")}`
+              : "Mock data"
+          }
           color="text-orange-500"
         />
         <TelemetryCard
           icon={Zap}
           label="Voltage"
           value={formatVoltage(telemetry.voltage)}
-          detail={live ? `Updated ${formatRelativeTime(live.telemetry?.timestamp ?? "")}` : "Mock data"}
+          detail={
+            live
+              ? `Updated ${formatRelativeTime(live.telemetry?.timestamp ?? "")}`
+              : "Mock data"
+          }
           color="text-purple-500"
         />
         <TelemetryCard
           icon={Wifi}
           label="Signal"
           value={formatSignalStrength(telemetry.signalStrength)}
-          detail={live ? `Updated ${formatRelativeTime(live.telemetry?.timestamp ?? "")}` : "Mock data"}
+          detail={
+            live
+              ? `Updated ${formatRelativeTime(live.telemetry?.timestamp ?? "")}`
+              : "Mock data"
+          }
           color={signalColor(telemetry.signalStrength)}
         />
       </div>
@@ -701,10 +933,10 @@ export default function DeviceDetailPage() {
                         />
                         <div>
                           <p className="text-sm font-medium">{diag.type}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
+                          <p className="mt-0.5 text-xs text-muted-foreground">
                             {diag.message}
                           </p>
-                          <p className="text-xs text-muted-foreground mt-1">
+                          <p className="mt-1 text-xs text-muted-foreground">
                             {formatRelativeTime(diag.ranAt)}
                           </p>
                         </div>
@@ -712,11 +944,13 @@ export default function DeviceDetailPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="gap-1.5 shrink-0"
+                        className="shrink-0 gap-1.5"
                         disabled={isRunning}
                         onClick={() => handleRunDiagnostic(diag.id)}
                       >
-                        <Play className={`h-3.5 w-3.5 ${isRunning ? "animate-spin" : ""}`} />
+                        <Play
+                          className={`h-3.5 w-3.5 ${isRunning ? "animate-spin" : ""}`}
+                        />
                         {isRunning ? "Running..." : "Run"}
                       </Button>
                     </div>
@@ -735,7 +969,11 @@ export default function DeviceDetailPage() {
   const renderEvents = () => (
     <SectionCard
       title="Event History"
-      description={deviceEvents.length > 0 ? `${deviceEvents.length} events recorded` : undefined}
+      description={
+        deviceEvents.length > 0
+          ? `${deviceEvents.length} events recorded`
+          : undefined
+      }
     >
       {deviceEvents.length === 0 ? (
         <EmptyState
@@ -753,15 +991,15 @@ export default function DeviceDetailPage() {
                 className="flex items-center gap-3 rounded-lg border p-3 text-sm"
               >
                 <SevIcon
-                  className={`h-4 w-4 ${severityColor(event.severity)} shrink-0`}
+                  className={`h-4 w-4 shrink-0 ${severityColor(event.severity)}`}
                 />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{event.title}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{event.title}</p>
                   <p className="text-xs text-muted-foreground">
                     {event.category.replace(/_/g, " ")}
                   </p>
                 </div>
-                <span className="text-xs text-muted-foreground shrink-0">
+                <span className="shrink-0 text-xs text-muted-foreground">
                   {formatRelativeTime(event.timestamp)}
                 </span>
               </div>
@@ -790,20 +1028,29 @@ export default function DeviceDetailPage() {
             Thresholds
           </p>
           <div className="space-y-2 rounded-lg border p-3">
-            <InfoRow label="Min Battery" value={`${config.thresholds.batteryMin}%`} />
-            <InfoRow label="Min Voltage" value={`${config.thresholds.voltageMin}V`} />
+            <InfoRow
+              label="Min Battery"
+              value={`${config.thresholds.batteryMin}%`}
+            />
+            <InfoRow
+              label="Min Voltage"
+              value={`${config.thresholds.voltageMin}V`}
+            />
             <InfoRow
               label="Temperature Range"
               value={`${config.thresholds.temperatureMin}°C to ${config.thresholds.temperatureMax}°C`}
             />
-            <InfoRow label="Min Signal" value={`${config.thresholds.signalMin} dBm`} />
+            <InfoRow
+              label="Min Signal"
+              value={`${config.thresholds.signalMin} dBm`}
+            />
           </div>
         </div>
       </div>
     </SectionCard>
   );
 
-  // ─── Render ──────────────────────────────────────────────────────────────
+  // ═══ Render ══════════════════════════════════════════════════════════════
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -820,7 +1067,9 @@ export default function DeviceDetailPage() {
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight">{device.name}</h1>
+              <h1 className="text-2xl font-bold tracking-tight">
+                {device.name}
+              </h1>
               <StatusBadge status={status} />
               {isLive && (
                 <span className="flex items-center gap-1 text-xs text-emerald-500">
@@ -869,7 +1118,11 @@ export default function DeviceDetailPage() {
 
 // ─── Sub-components ──────────────────────────────────────────────────────
 
-function InfoRow({ label, value, mono }: {
+function InfoRow({
+  label,
+  value,
+  mono,
+}: {
   label: string;
   value: React.ReactNode;
   mono?: boolean;
@@ -877,14 +1130,18 @@ function InfoRow({ label, value, mono }: {
   return (
     <div className="flex items-center justify-between text-sm">
       <span className="text-muted-foreground">{label}</span>
-      <span className={mono ? "font-mono" : "font-medium"}>
-        {value}
-      </span>
+      <span className={mono ? "font-mono" : "font-medium"}>{value}</span>
     </div>
   );
 }
 
-function TelemetryCard({ icon: Icon, label, value, detail, color }: {
+function TelemetryCard({
+  icon: Icon,
+  label,
+  value,
+  detail,
+  color,
+}: {
   icon: LucideIcon;
   label: string;
   value: string;
@@ -907,14 +1164,14 @@ function TelemetryCard({ icon: Icon, label, value, detail, color }: {
   );
 }
 
-function IOPointRow({ point }: {
-  point: MockIOPoint;
-}) {
+function IOPointRow({ point }: { point: MockIOPoint }) {
   const stateColor = point.state ? "text-emerald-500" : "text-slate-400";
   return (
     <div className="flex items-center justify-between rounded-lg border p-3 text-sm">
       <div className="flex items-center gap-3">
-        <div className={`h-2 w-2 rounded-full ${point.state ? "bg-emerald-500" : "bg-slate-300"}`} />
+        <div
+          className={`h-2 w-2 rounded-full ${point.state ? "bg-emerald-500" : "bg-slate-300"}`}
+        />
         <div>
           <p className="font-medium">{point.label}</p>
           <p className="text-xs text-muted-foreground">
