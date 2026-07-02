@@ -1,0 +1,313 @@
+/**
+ * MQTT device simulator.
+ *
+ * Connects to a Mosquitto broker and spawns simulated IoT devices that
+ * publish telemetry, status, and events on realistic MQTT topics.
+ *
+ * Topics:
+ *   sentience/devices/{deviceId}/telemetry   — periodic sensor readings
+ *   sentience/devices/{deviceId}/status       — online/offline/fault/warning
+ *   sentience/devices/{deviceId}/events       — status transitions & alerts
+ *
+ * Usage (CLI):
+ *   npx tsx packages/mock/src/device-simulator.ts --count 10 --broker mqtt://localhost:1883
+ *
+ * Usage (programmatic):
+ *   import { runSimulator } from "@sentience/mock";
+ *   await runSimulator({ deviceCount: 10, brokerUrl: "mqtt://localhost:1883" });
+ *
+ * Graceful shutdown via SIGINT/SIGTERM — publishes "offline" for all devices
+ * before disconnecting.
+ *
+ * @see docs/mqtt-simulator.md
+ */
+
+import mqtt from "mqtt";
+import { generateDevice } from "./device-generator";
+import type { Device, DeviceStatus } from "@sentience/types";
+
+// ─── Configuration ─────────────────────────────────────────────────
+
+export interface SimulatorOptions {
+  /** Number of fake devices to simulate (default: 5) */
+  deviceCount?: number;
+  /** MQTT broker URL (default: mqtt://localhost:1883) */
+  brokerUrl?: string;
+  /** Base interval in seconds between telemetry publishes (default: 10) */
+  telemetryInterval?: number;
+  /** Probability of a status transition per tick (0-1, default: 0.02) */
+  statusChangeProbability?: number;
+  /** Client ID prefix for the MQTT connection */
+  clientId?: string;
+}
+
+interface SimulatedDevice {
+  device: Device;
+  status: DeviceStatus;
+  battery: number;
+  signal: number;
+  temperature: number;
+  inputState: boolean;
+  outputState: boolean;
+  fault: boolean;
+  warning: boolean;
+  telemetryTimer: ReturnType<typeof setInterval> | null;
+  eventTimer: ReturnType<typeof setInterval> | null;
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────
+
+function mqttTopic(deviceId: string, suffix: string): string {
+  return `sentience/devices/${deviceId}/${suffix}`;
+}
+
+/**
+ * Jitter a base interval by ±50% so devices don't all publish at once.
+ */
+function jitterInterval(baseMs: number): number {
+  const half = baseMs / 2;
+  return baseMs - half + Math.random() * baseMs;
+}
+
+// ─── Simulator Engine ──────────────────────────────────────────────
+
+export async function runSimulator(options: SimulatorOptions = {}): Promise<void> {
+  const {
+    deviceCount = 5,
+    brokerUrl = "mqtt://localhost:1883",
+    telemetryInterval = 10,
+    statusChangeProbability = 0.02,
+    clientId = `sentience-sim-${Math.random().toString(36).slice(2, 8)}`,
+  } = options;
+
+  console.log(`[simulator] Connecting to ${brokerUrl} (client: ${clientId})...`);
+  console.log(`[simulator] Spawning ${deviceCount} simulated devices...`);
+
+  const client = await mqtt.connectAsync(brokerUrl, {
+    clientId,
+    clean: true,
+    reconnectPeriod: 5_000,
+  });
+
+  console.log(`[simulator] Connected. Publishing on sentience/devices/{id}/...`);
+
+  // Create simulated devices
+  const devices: SimulatedDevice[] = Array.from({ length: deviceCount }, (_, i) => {
+    const device = generateDevice();
+    return {
+      device,
+      status: device.status,
+      battery: device.telemetry.battery,
+      signal: device.telemetry.signalStrength,
+      temperature: device.telemetry.temperature,
+      inputState: device.io.inputs.some((inp) => inp.state),
+      outputState: device.io.outputs.some((out) => out.state),
+      fault: device.status === "fault",
+      warning: device.status === "warning",
+      telemetryTimer: null,
+      eventTimer: null,
+    };
+  });
+
+  // Publish initial status for every device
+  for (const sd of devices) {
+    await publishStatus(client, sd);
+    // Brief stagger to avoid thundering herd on connect
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  console.log(`[simulator] Published initial status for ${deviceCount} devices.`);
+
+  // ─── Telemetry Loop ──────────────────────────────────────────────
+
+  for (const sd of devices) {
+    const tick = () => {
+      // Simulate battery drain (faster for fault/warning devices)
+      const drain = sd.status === "fault" ? 2 : sd.status === "warning" ? 1 : 0.2;
+      sd.battery = Math.max(0, sd.battery - drain * (0.5 + Math.random()));
+
+      // Simulate signal fluctuation
+      sd.signal = Math.min(-40, Math.max(-120, sd.signal + (Math.random() - 0.5) * 10));
+
+      // Simulate temperature drift
+      sd.temperature += (Math.random() - 0.5) * 2;
+      sd.temperature = Math.round(sd.temperature * 10) / 10;
+
+      // Random input/output state changes
+      sd.inputState = Math.random() > 0.9 ? !sd.inputState : sd.inputState;
+      sd.outputState = Math.random() > 0.95 ? !sd.outputState : sd.outputState;
+
+      // Status transitions
+      if (Math.random() < statusChangeProbability) {
+        const nextStatus = computeNextStatus(sd.status);
+        if (nextStatus !== sd.status) {
+          sd.status = nextStatus;
+          sd.fault = nextStatus === "fault";
+          sd.warning = nextStatus === "warning";
+          // Publish status change as an event
+          publishEvent(client, sd, `status: ${sd.status} → ${sd.status}`);
+          publishStatus(client, sd);
+        }
+      }
+
+      // Publish telemetry
+      publishTelemetry(client, sd);
+    };
+
+    sd.telemetryTimer = setInterval(tick, jitterInterval(telemetryInterval * 1000));
+  }
+
+  // ─── Periodic Event Publishing ──────────────────────────────────
+
+  // Some devices emit spontaneous events (battery low, signal weak, temp high)
+  for (const sd of devices) {
+    const eventTick = () => {
+      if (sd.battery < 15 && Math.random() < 0.3) {
+        publishEvent(client, sd, "battery_low", {
+          battery: sd.battery,
+          threshold: 15,
+        });
+      }
+      if (sd.signal < -100 && Math.random() < 0.3) {
+        publishEvent(client, sd, "signal_weak", {
+          signal: sd.signal,
+          threshold: -100,
+        });
+      }
+    };
+
+    sd.eventTimer = setInterval(eventTick, jitterInterval(telemetryInterval * 2000));
+  }
+
+  // ─── Graceful Shutdown ──────────────────────────────────────────
+
+  const shutdown = async () => {
+    console.log("\n[simulator] Shutting down gracefully...");
+
+    // Publish offline status for all devices
+    for (const sd of devices) {
+      const prevStatus = sd.status;
+      sd.status = "offline";
+      await publishEvent(client, sd, `shutdown: ${prevStatus} → offline`);
+      await publishStatus(client, sd);
+    }
+
+    // Clear timers
+    for (const sd of devices) {
+      if (sd.telemetryTimer) clearInterval(sd.telemetryTimer);
+      if (sd.eventTimer) clearInterval(sd.eventTimer);
+    }
+
+    await client.endAsync(true);
+    console.log("[simulator] Disconnected. Goodbye.");
+    process.exit(0);
+  };
+
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+
+  // Keep the process alive
+  console.log(`[simulator] Running. Press Ctrl+C to stop.`);
+}
+
+// ─── Publish Functions ─────────────────────────────────────────────
+
+async function publishTelemetry(client: mqtt.MqttClient, sd: SimulatedDevice): Promise<void> {
+  const payload = JSON.stringify({
+    deviceId: sd.device.id,
+    status: sd.status,
+    battery: Math.round(sd.battery),
+    signal: sd.signal,
+    temperature: sd.temperature,
+    fault: sd.fault,
+    warning: sd.warning,
+    inputState: sd.inputState,
+    outputState: sd.outputState,
+    timestamp: new Date().toISOString(),
+  });
+
+  await client.publishAsync(
+    mqttTopic(sd.device.id, "telemetry"),
+    payload,
+    { qos: 1 },
+  );
+}
+
+async function publishStatus(client: mqtt.MqttClient, sd: SimulatedDevice): Promise<void> {
+  const payload = JSON.stringify({
+    deviceId: sd.device.id,
+    status: sd.status,
+    fault: sd.fault,
+    warning: sd.warning,
+    battery: Math.round(sd.battery),
+    signal: sd.signal,
+    temperature: sd.temperature,
+    inputState: sd.inputState,
+    outputState: sd.outputState,
+    timestamp: new Date().toISOString(),
+  });
+
+  await client.publishAsync(
+    mqttTopic(sd.device.id, "status"),
+    payload,
+    { qos: 2, retain: true },  // Retain so late subscribers get the last known status
+  );
+}
+
+async function publishEvent(
+  client: mqtt.MqttClient,
+  sd: SimulatedDevice,
+  eventType: string,
+  extra?: Record<string, unknown>,
+): Promise<void> {
+  const payload = JSON.stringify({
+    deviceId: sd.device.id,
+    eventType,
+    status: sd.status,
+    battery: Math.round(sd.battery),
+    signal: sd.signal,
+    temperature: sd.temperature,
+    fault: sd.fault,
+    warning: sd.warning,
+    inputState: sd.inputState,
+    outputState: sd.outputState,
+    ...extra,
+    timestamp: new Date().toISOString(),
+  });
+
+  await client.publishAsync(
+    mqttTopic(sd.device.id, "events"),
+    payload,
+    { qos: 1 },
+  );
+}
+
+// ─── Status Transition Logic ───────────────────────────────────────
+
+function computeNextStatus(current: DeviceStatus): DeviceStatus {
+  const r = Math.random();
+  switch (current) {
+    case "online":
+      // Mostly stays online, occasional warning
+      if (r < 0.05) return "warning";
+      if (r < 0.07) return "fault";
+      if (r < 0.08) return "offline";
+      return "online";
+    case "warning":
+      // Warning can clear or escalate
+      if (r < 0.20) return "online";
+      if (r < 0.35) return "fault";
+      if (r < 0.40) return "offline";
+      return "warning";
+    case "fault":
+      // Fault tends to autocorrect or stay
+      if (r < 0.10) return "online";
+      if (r < 0.15) return "warning";
+      if (r < 0.20) return "offline";
+      return "fault";
+    case "offline":
+      // Offline comes back eventually
+      if (r < 0.15) return "online";
+      if (r < 0.10) return "fault";
+      return "offline";
+  }
+}
