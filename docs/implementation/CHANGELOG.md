@@ -4,7 +4,33 @@ All notable changes to the Sentience IoT Platform.
 
 ---
 
-## v0.13.0 — 2026-07-03
+---
+
+## v1.0.0-rc.1 — 2026-07-03
+
+### Added
+
+- **Backend API app** — `apps/api` with Fastify 5, TypeScript, and Drizzle ORM.
+- **PostgreSQL database** — 13-table schema via Docker Compose: users, roles, role_permissions, customers, estates, sites, devices, events, alerts, audit_logs, reports, api_keys, settings.
+- **API routes** — 9 route groups: `GET /api/health`, `POST /api/auth/login`, `GET /api/auth/me`, CRUD for `/users`, `/roles`, `/devices`, `/events`, `/alerts`, `/reports`, `/settings`. All with JWT auth, pagination, and filtering.
+- **Seed data** — 4 roles with full permission matrix, 4 customers, 4 estates, 8 sites, 24 devices, 50 events, 15 alerts, 8 audit log entries, 10 settings, 1 API key, and 5 demo user accounts matching existing mock data.
+- **JWT authentication** — `@fastify/jwt` with 24h token expiry, login returns Bearer token, all routes protected by middleware.
+- **Dev commands** — `pnpm db:start`, `pnpm db:stop`, `pnpm db:migrate`, `pnpm db:seed`, `pnpm api:dev` at project root.
+- **Drizzle Kit** — Auto-generated migration files, schema push for fast iteration.
+- **API documentation** — `docs/backend-api.md` with full endpoint reference, query parameters, demo accounts, and quick-start guide.
+
+### Changed
+
+- `ROADMAP.md` — Sprint 8 (Backend API) marked completed, moved from "Future" to "Completed".
+- `turbo.json` — Added pipeline tasks for `@sentience/api#dev`, `db:generate`, `db:migrate`, `db:seed`.
+- Root `package.json` — Added convenience scripts for database and API management.
+
+### Known Issues
+
+- Frontend still uses mock data — API integration is a future sprint.
+- Passwords hashed with SHA-256 (dev only) — bcrypt/argon2 needed for production.
+- No real-time WebSocket endpoints on the API — `apps/realtime` bridge handles live updates separately.
+- No API rate limiting, request logging, or metrics collection yet.
 
 ### Added
 

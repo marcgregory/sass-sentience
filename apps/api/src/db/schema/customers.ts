@@ -1,10 +1,10 @@
-import { pgTable, uuid, text, boolean, integer, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, boolean, integer, timestamp, uniqueIndex, index } from "drizzle-orm/pg-core";
 
 export const customers = pgTable(
   "customers",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    name: text("name").notNull(),
+    name: text("name").notNull().unique(),
     logo: text("logo"),
     domain: text("domain"),
     contactName: text("contact_name").notNull(),

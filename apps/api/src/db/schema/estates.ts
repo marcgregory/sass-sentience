@@ -6,7 +6,7 @@ export const estates = pgTable(
   "estates",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    name: text("name").notNull(),
+    name: text("name").notNull().unique(),
     address: text("address").notNull(),
     city: text("city").notNull(),
     region: text("region").notNull(),

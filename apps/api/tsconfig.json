@@ -1,5 +1,5 @@
 {
-  "extends": "@sentience/config/typescript",
+  "extends": "../../packages/config/typescript/tsconfig.json",
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
@@ -7,6 +7,8 @@
     "outDir": "dist",
     "rootDir": "src",
     "jsx": "preserve",
+    "skipLibCheck": true,
+    "strict": true,
     "incremental": true
   },
   "include": ["src/**/*.ts"],

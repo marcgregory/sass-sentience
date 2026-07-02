@@ -6,7 +6,13 @@
     "build": "turbo build",
     "lint": "turbo lint",
     "clean": "turbo clean",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "db:start": "docker compose -f apps/api/docker-compose.yml up -d",
+    "db:stop": "docker compose -f apps/api/docker-compose.yml down",
+    "db:migrate": "pnpm --filter @sentience/api db:migrate",
+    "db:seed": "pnpm --filter @sentience/api db:seed",
+    "api:dev": "pnpm --filter @sentience/api dev",
+    "api:start": "pnpm --filter @sentience/api start"
   },
   "devDependencies": {
     "prettier": "^3.4.2",

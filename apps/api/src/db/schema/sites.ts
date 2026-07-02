@@ -5,7 +5,7 @@ export const sites = pgTable(
   "sites",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    name: text("name").notNull(),
+    name: text("name").notNull().unique(),
     estateId: uuid("estate_id")
       .notNull()
       .references(() => estates.id),

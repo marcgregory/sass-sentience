@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, jsonb, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, jsonb, timestamp, uniqueIndex, index } from "drizzle-orm/pg-core";
 
 export const settings = pgTable(
   "settings",
@@ -12,6 +12,6 @@ export const settings = pgTable(
   },
   (table) => ({
     keyIdx: uniqueIndex("settings_key_idx").on(table.key),
-    categoryIdx: uniqueIndex("settings_category_idx").on(table.category),
+    categoryIdx: index("settings_category_idx").on(table.category),
   }),
 );

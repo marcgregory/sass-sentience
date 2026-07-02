@@ -5,6 +5,22 @@
 > Last updated: 2026-07-03
 
 ---
+## ✅ Completed — v1.0 RC1: Backend API + PostgreSQL
+
+| Area | Notes |
+|------|-------|
+| **Backend app** | `apps/api` — Fastify 5 + TypeScript |
+| **Database** | PostgreSQL 16 via Docker, persistent volume |
+| **ORM** | Drizzle ORM with auto-generated migrations |
+| **Schema** | 13 tables: users, roles, role_permissions, customers, estates, sites, devices, events, alerts, audit_logs, reports, api_keys, settings |
+| **API Routes** | /health, /auth/login, /users, /roles, /devices, /events, /alerts, /reports, /settings — all with pagination, filtering, JWT auth |
+| **Seed data** | 4 roles, 4 customers, 4 estates, 8 sites, 24 devices, 50 events, 15 alerts, 8 audit logs, 10 settings, 1 API key, 5 demo users |
+| **JWT Auth** | `@fastify/jwt` — login endpoint returns Bearer token, all routes protected |
+| **Dev commands** | `pnpm db:start/stop/migrate/seed/api:dev` — convenience scripts at root |
+| **Docs** | `docs/backend-api.md` — full API reference with examples |
+| **No frontend changes** | Existing frontend untouched — still builds full 26 pages |
+
+---
 
 ## ✅ Completed — Platform Phase
 
@@ -152,8 +168,8 @@
 ## 🔮 Future (Infrastructure & Polish)
 
 - Notifications — connect dropdown + full page to Socket.IO feed
-- REST API backend — Express/Fastify with CRUD endpoints
-- TanStack Query hooks — useQuery/useMutation wrappers
+- Frontend API integration — connect pages to REST API page by page
+- TanStack Query hooks — useQuery/useMutation wrappers against real API
 - Repository layer — data-access functions per domain
 - E2E Tests — Playwright or Cypress
 - Deployment pipeline — CI/CD

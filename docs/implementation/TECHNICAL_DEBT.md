@@ -18,12 +18,26 @@
 
 ## Data Layer
 
-### No REST API backend
-All data is mock or static. Mock data is embedded in page components rather than extracted into data hooks. This works for demonstration but will need to be migrated to TanStack Query when the backend exists.
+### REST API exists but frontend is not connected
+The `apps/api` backend is built with Fastify + PostgreSQL + Drizzle — all CRUD endpoints exist, seed data matches the mock data, and JWT auth is functional. However, the frontend still uses hardcoded mock data and Zustand stores rather than querying the API.
 
-**Impact:** Pages will need refactoring to swap mock fetches for query hooks. The mock data duplication pattern (in both `use-live-devices.ts` and `page.tsx` components) will need consolidation.
+**Impact:** Pages show mock data and will need refactoring to swap mock fetches for TanStack Query hooks. The `api-client.ts` module in `apps/web/src/lib/` already points to `http://localhost:3001/api` and is ready to be used.
 
-**Resolution:** After REST API sprint (infrastructure backlog).
+**Resolution:** Frontend API integration sprint — connect pages page by page, replacing mock stores with useQuery/useMutation hooks.
+
+### Backend API: SHA-256 password hashing (dev only)
+Passwords are hashed using SHA-256 for development simplicity. This is not suitable for production — bcrypt or argon2id should replace it.
+
+**Impact:** Credential compromise would expose plaintext-equivalent hashes.
+
+**Resolution:** Replace with bcrypt (`bcrypt`) or argon2 (`@node-rs/argon2`) before production deployment.
+
+### Backend API: No rate limiting or logging middleware
+The Fastify server has no rate limiting (`@fastify/rate-limit`) or structured request logging beyond the built-in logger.
+
+**Impact:** API is vulnerable to abuse in production; debugging is harder without request tracing.
+
+**Resolution:** Add rate limiting and structured logging middleware before production deployment.
 
 ### Auth is mock/demo-backed
 Authentication and authorization use mock data — `useAuthStore` has hardcoded demo accounts (user-1 through user-4), `loginAsRole()` bypasses real auth, and token validation doesn't exist. To the user this looks like a real auth flow, but there is no backend verifying credentials, sessions, or permission boundaries.

@@ -13,6 +13,18 @@
     "lint": {},
     "clean": {
       "cache": false
+    },
+    "@sentience/api#dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "db:generate": {},
+    "db:migrate": {
+      "cache": false
+    },
+    "db:seed": {
+      "cache": false,
+      "dependsOn": ["db:migrate"]
     }
   }
 }

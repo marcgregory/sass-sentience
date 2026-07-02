@@ -5,6 +5,46 @@
 > Last updated: 2026-07-03
 
 ---
+## Sprint 8: v1.0 RC1 — Backend API + PostgreSQL
+
+> **Demo:** Start PostgreSQL with `pnpm db:start`, migrate with `pnpm db:migrate`, seed with `pnpm db:seed`, start API with `pnpm api:dev` → `GET /api/health` returns OK, `GET /api/devices` returns 24 seeded devices with pagination, `POST /api/auth/login` returns JWT token. All 9 endpoint groups are functional.
+
+**Goal:** Move Sentience from mock/in-memory data toward a real backend foundation. Build a Fastify + PostgreSQL + Drizzle ORM backend with all domain tables, CRUD API routes, JWT authentication, and seed data matching the existing frontend mock data.
+
+**Scope:** New `apps/api` workspace. 13 database tables. 9 API route groups with pagination, filtering, and JWT auth. Seed data for demo/tests. No frontend changes.
+
+**Dependencies:** Docker for PostgreSQL, `@sentience/types` for domain shapes, `@sentience/config` for TypeScript config.
+
+### Tasks
+
+- [x] **Create `apps/api` package** — package.json, tsconfig, drizzle config, docker-compose, env
+- [x] **Define Drizzle schema** — 13 tables with relations, indexes, and unique constraints across users, roles, customers, estates, sites, devices, events, alerts, audit_logs, reports, api_keys, settings
+- [x] **Build Fastify app** — Entry point, CORS, JWT plugin, error handler, decorators, graceful shutdown
+- [x] **Implement route handlers** — health, auth (login + me), users (CRUD), roles, devices (list + detail + update), events (list + detail), alerts (list + detail + acknowledge/resolve), reports (list + create), settings (list + update)
+- [x] **Create seed script** — 4 roles with full permission matrix, 4 customers, 4 estates, 8 sites, 24 devices, 50 events, 15 alerts, 8 audit logs, 10 settings, 1 API key, 5 demo users
+- [x] **Update monorepo config** — turbo.json pipeline, root package.json scripts
+- [x] **Documentation** — `docs/backend-api.md`, updated CHANGELOG, ROADMAP, TECHNICAL_DEBT
+- [x] **Verify** — `pnpm lint` clean, `pnpm build` clean, all endpoints tested
+
+### Acceptance Criteria
+
+1. [x] API starts locally with `pnpm api:dev`
+2. [x] PostgreSQL starts with `pnpm db:start`
+3. [x] Migrations run successfully
+4. [x] Seed data loads (24 devices, 50 events, 15 alerts, 5 users, etc.)
+5. [x] `GET /api/health` returns OK with DB status
+6. [x] `GET /api/devices` returns seeded devices with pagination
+7. [x] `GET /api/events` returns seeded events with filters
+8. [x] `GET /api/alerts` returns seeded alerts with filters
+9. [x] `GET /api/users` returns seeded users (with JWT auth)
+10. [x] `POST /api/auth/login` returns JWT token for demo accounts
+11. [x] `pnpm lint` and `pnpm build` pass
+12. [x] Existing frontend still builds (26 pages, zero errors)
+
+### Completed
+
+2026-07-03 — v1.0 RC1 delivered. Backend API with Fastify + PostgreSQL + Drizzle ORM. 13 database tables, 9 API route groups, JWT auth, seed data matching mock data. All endpoints tested. Frontend unchanged.
+---
 
 ## Sprint Rule
 
@@ -42,7 +82,8 @@ The infrastructure phase is complete. The current architecture supports all rema
 | 4 | **Event History** | Search event history and drill into a device |
 | 5 | **Reports** | Export a monthly report to CSV/PDF |
 | 6 | **User Management** | Log in as Customer vs Support vs Admin — different permissions |
-| 7 | **Admin (In Progress)** | Log in as Admin → manage feature flags, API keys, platform health |
+| 7 | **Admin** | Log in as Admin → manage feature flags, API keys, platform health |
+| 8 | **v1.0 RC1 (Backend API)** 🔄 | PostgreSQL + Fastify API — health, auth, CRUD, seed data |
 
 ---
 
