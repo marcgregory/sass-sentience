@@ -41,8 +41,8 @@ The infrastructure phase is complete. The current architecture supports all rema
 | 3 | **Alerts** | Trigger low battery → alert appears instantly |
 | 4 | **Event History** | Search event history and drill into a device |
 | 5 | **Reports** | Export a monthly report to CSV/PDF |
-| 6 | **User Management (In Progress)** | Log in as Customer vs Support vs Admin — different permissions |
-| 7 | **Admin** | View audit logs and change system settings |
+| 6 | **User Management** | Log in as Customer vs Support vs Admin — different permissions |
+| 7 | **Admin (In Progress)** | Log in as Admin → manage feature flags, API keys, platform health |
 
 ---
 
@@ -324,3 +324,45 @@ The infrastructure phase is complete. The current architecture supports all rema
 ### Completed
 
 2026-07-03 — Sprint 6 delivered. Full RBAC with role-based sidebar filtering, route guards, user management (create/edit/activate/deactivate), roles/permission matrix, audit log with CSV export, settings with tabs, profile with live auth data, and demo role switching in the header. TypeScript and production build pass cleanly.
+
+---
+
+## Sprint 7: Admin
+
+> **Demo:** Log in as Admin → open Admin/Settings → toggle maintenance mode, manage feature flags, create/revoke an API key, inspect audit logs, and verify non-admin roles cannot access admin-only pages.
+
+**Goal:** Build the Admin module and system operations workflows — tenant settings, feature flags, maintenance mode, API key management, enhanced audit logs, notification rules, and platform health monitoring.
+
+**Scope:** New admin overview page (`/admin`), enhanced settings page, new admin-only pages (API keys, notification rules, platform health), enhanced audit log. All backend mocked.
+
+**Dependencies:** `useAuthStore`, `useAuditStore`, `RequirePermission`, `@sentience/types` (ApiKey, NotificationRule, PlatformService), existing page patterns.
+
+### Tasks
+
+- [x] **Admin overview page** — Hub page at `/admin` with section cards linking to each admin feature, system-wide status summary
+- [x] **Enhanced settings** — Add tenant settings tab (organization name, branding, support info), feature flags tab (toggle-based management), maintenance mode toggle
+- [x] **API Key management** — `/admin/api-keys` with create dialog, masked key display, last used time, revoke action, copy-to-clipboard
+- [x] **Audit log enhancements** — Severity/action filters, detail slide-in drawer on entry click, improved CSV export with row count
+- [x] **Notification rules** — `/admin/notification-rules` with alert threshold config, email/web/push toggles, role-based notification preferences
+- [x] **Platform health** — `/admin/health` with realtime bridge status, MQTT broker status, device simulator status, database/API placeholder health cards
+- [x] **Admin route protection** — All admin pages wrapped in `RequirePermission` with `admin` resource, non-admin roles see Access Denied
+- [x] **Loading, empty, error states** — All data-driven sections handle loading, empty, and error states
+- [x] **Responsive layout** — All admin pages responsive at 375px, 768px, 1280px+
+- [x] **Dark mode** — All admin pages render correctly in both themes
+
+### Acceptance Criteria
+
+1. [x] Admin overview page shows module cards and system status
+2. [x] Settings page enhanced with tenant settings, feature flags, and maintenance mode
+3. [x] API keys can be created, viewed (masked), and revoked
+4. [x] Audit log has severity/action filters and a detail drawer
+5. [x] Notification rules page with thresholds and channel toggles
+6. [x] Platform health page shows all service statuses
+7. [x] Non-admin roles cannot access admin pages (Access Denied)
+8. [x] Dark mode renders correctly on all admin pages
+9. [x] Responsive at all three breakpoints
+10. [x] `pnpm lint` and `pnpm build` pass
+
+### Completed
+
+2026-07-03 — Sprint 7 delivered. Admin overview page (`/admin`), enhanced settings (tenant settings, feature flags, maintenance mode), API key management with create/revoke/masked display, audit log enhancements (severity filter, detail drawer), notification rules with alert thresholds and channel/role toggles, platform health dashboard with service monitoring. All admin pages protected via `RequirePermission` with `admin` resource. 26 static pages generated. TypeScript and production build pass cleanly.

@@ -25,6 +25,13 @@ All data is mock or static. Mock data is embedded in page components rather than
 
 **Resolution:** After REST API sprint (infrastructure backlog).
 
+### Auth is mock/demo-backed
+Authentication and authorization use mock data — `useAuthStore` has hardcoded demo accounts (user-1 through user-4), `loginAsRole()` bypasses real auth, and token validation doesn't exist. To the user this looks like a real auth flow, but there is no backend verifying credentials, sessions, or permission boundaries.
+
+**Impact:** Auth state is purely client-side. Anyone with access to localStorage can escalate privileges. The permission matrix, route guards, and RBAC UI are accurate and well-structured for when real auth arrives, but they operate on trust.
+
+**Resolution:** Requires backend authentication service, JWT verification, and session management. Tracked in infrastructure backlog.
+
 ### Diagnostics are simulated
 The Diagnostics tab on `/devices/[id]` returns pseudo-random pass/fail/warning results based on device ID and current hour. This is a placeholder for real backend diagnostics (MQTT connectivity, device ping, firmware status, I/O tests).
 

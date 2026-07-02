@@ -18,7 +18,8 @@ export type Resource =
   | "notifications"
   | "audit-log"
   | "settings"
-  | "profile";
+  | "profile"
+  | "admin";
 
 export type Action = "read" | "create" | "update" | "delete" | "manage";
 
@@ -42,6 +43,7 @@ const permissionMatrix: Record<UserRole, Partial<Record<Resource, Action[]>>> = 
     "audit-log": ["manage"],
     settings: ["manage"],
     profile: ["manage"],
+    admin: ["manage"],
   },
 
   support: {
@@ -96,6 +98,7 @@ export const ALL_RESOURCES: Resource[] = [
   "audit-log",
   "settings",
   "profile",
+  "admin",
 ];
 
 /** All available actions for iteration */
@@ -117,6 +120,7 @@ export const RESOURCE_LABELS: Record<Resource, string> = {
   "audit-log": "Audit Log",
   settings: "Settings",
   profile: "Profile",
+  admin: "Admin",
 };
 
 /** Role → metadata */

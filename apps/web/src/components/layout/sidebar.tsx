@@ -22,6 +22,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -46,6 +47,7 @@ const allNavigation: NavItem[] = [
   { name: "Notifications", href: "/notifications", icon: Bell, resource: "notifications" },
   { name: "Audit Log", href: "/audit-log", icon: ClipboardList, resource: "audit-log" },
   { name: "Settings", href: "/settings", icon: Settings, resource: "settings" },
+  { name: "Admin", href: "/admin", icon: ShieldCheck, resource: "admin" },
 ];
 
 export function Sidebar() {

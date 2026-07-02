@@ -4,6 +4,28 @@ All notable changes to the Sentience IoT Platform.
 
 ---
 
+## v0.13.0 — 2026-07-03
+
+### Added
+
+- **Admin overview page** — `/admin` hub with section cards linking to each admin feature (settings, API keys, notification rules, platform health, audit log) and system-wide status summary showing platform version, active users, uptime, and pending alerts.
+- **Enhanced settings — tenant & org profile** — New tab group in settings: "Tenant" tab with organization name, platform title, support email/phone, branding colors; "Feature Flags" tab with toggle-based management (live dashboard, advanced diagnostics, CSV export, dark mode toggle, report scheduling, MFA enforcement); "Maintenance" tab now includes maintenance mode toggle with global indicator.
+- **API Key management** — `/admin/api-keys` page with create key dialog (name + expiration), masked key display (sk-XXXX...XXXX), last used timestamp, revoke key with confirmation, copy-to-clipboard, and search. Mock initial key seeded.
+- **Audit log — detail drawer** — Click any audit entry row to open a slide-in detail panel with all entry fields, user info, metadata, and a "View in context" link. Action filter enhanced with severity styling.
+- **Notification Rules page** — `/admin/notification-rules` with rule list (alert type, severity threshold, channels), threshold editor, channel toggles (email/web/push), role-based notification preferences (which roles receive which alert types), and mock save.
+- **Platform Health dashboard** — `/admin/health` with 4 service status cards (Realtime Bridge: connected/disconnected, MQTT Broker: online/offline, Device Simulator: running/stopped/reconnecting, Database: healthy/unhealthy, API Service: operational/degraded) with uptime, latency, and throughput metrics. All mock.
+- **Admin route protection** — All admin pages (`/admin`, `/admin/api-keys`, `/admin/notification-rules`, `/admin/health`, `/settings` admin tabs) guarded by `RequirePermission` with `admin` resource. Non-admin roles see Access Denied.
+- **Notification Rules types** — `NotificationRule`, `RuleChannel`, `RuleSeverity` types in `@sentience/types`.
+- **ApiKey types** — `ApiKey` interface with id, name, masked key, full key, status, expiration, lastUsed.
+
+### Known Issues
+
+- All admin data is mock — no persistence across page refresh for API keys, notification rules, platform health state
+- Auth backend is mock/demo — real authentication requires a backend integration sprint
+- Platform health status is hardcoded (simulated interval timers) — not connected to actual service monitoring
+
+---
+
 ## v0.12.0 — 2026-07-03
 
 ### Added

@@ -114,9 +114,38 @@
 | **Profile** | Live auth data, personal info edit, password change, notification prefs |
 | **Demo role switching** | Header role badge, Switch Role modal, quick-login on login page |
 
-| Sprint | Module | Priority | Demo |
-|--------|--------|----------|------|
-| **7** | **Admin (Queued)** | ⭐⭐⭐ | View audit logs and change system settings |
+## ✅ Completed — Sprint 6: User Management (RBAC)
+
+| Area | Notes |
+|------|-------|
+| **Permission system** | Full matrix (4 roles × 14 resources × 5 actions) in `@/lib/permissions` |
+| **Auth store: real RBAC** | `hasPermission()`/`hasRole()` return real results; `loginAsRole()` for instant switching |
+| **Sidebar nav filtering** | Admin sees 13 items, Support sees 10, Customer sees 5 |
+| **Route guards** | `AuthGuard` (unauthenticated redirect) + `RequirePermission` (Access Denied for unauthorized) |
+| **User management** | User list, search/filter, create dialog, inline role change, activate/deactivate |
+| **Roles & Permissions** | Role summary cards, expandable permission matrix with toggle switches |
+| **Audit Log** | Live store, search, action filter, CSV export, pagination |
+| **Settings** | Tabbed UI (General/Security/Notifications/Maintenance), mock fields, save feedback |
+| **Profile** | Live auth data, personal info edit, password change, notification prefs |
+| **Demo role switching** | Header role badge, Switch Role modal, quick-login on login page |
+
+## ✅ In Progress — Sprint 7: Admin
+
+| Area | Notes |
+|------|-------|
+| **Admin overview page** | Hub page with admin module cards and system-wide status |
+| **Tenant settings** | Platform name, org profile, timezone, branding in enhanced settings |
+| **Feature flags** | Toggle-based feature flag management UI |
+| **Maintenance mode** | Global maintenance mode with toggle and status indicator |
+| **API key management** | Create/revoke API keys, masked display, last used tracking |
+| **Audit log enhancements** | Detail drawer, severity filters, improved export |
+| **Notification rules** | Alert thresholds, channel toggles, role-based preferences |
+| **Platform health** | Bridge, MQTT, Simulator, DB/API status cards |
+| **Admin route protection** | Non-admin roles blocked from admin pages |
+
+| Sprint | Module | Demo |
+|--------|--------|------|
+| **7** | **Admin (In Progress)** | ⭐⭐⭐ | Log in as Admin → manage feature flags, API keys, platform health |
 
 ---
 

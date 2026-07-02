@@ -8,3 +8,6 @@ export * from "./report";
 export * from "./notification";
 export * from "./customer";
 export * from "./audit";
+export * from "./api-key";
+export * from "./notification-rule";
+export * from "./platform-health";
