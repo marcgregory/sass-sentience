@@ -11,11 +11,27 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, Shield, Users, Wrench, Eye as EyeIcon } from "lucide-react";
+import type { UserRole } from "@sentience/types";
+import { ROLE_META } from "@/lib/permissions";
+
+const roleIcons: Record<UserRole, React.ComponentType<{ className?: string }>> = {
+  admin: Shield,
+  support: Users,
+  installer: Wrench,
+  customer: EyeIcon,
+};
+
+const quickAccounts: { role: UserRole; email: string }[] = [
+  { role: "admin", email: "admin@sentience.io" },
+  { role: "support", email: "support@sentience.io" },
+  { role: "installer", email: "installer@sentience.io" },
+  { role: "customer", email: "customer@sentience.io" },
+];
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, isLoading, error } = useAuthStore();
+  const { login, loginAsRole, isLoading, error, clearError } = useAuthStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -24,6 +40,11 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await login(email, password);
+    router.push("/dashboard");
+  };
+
+  const handleQuickLogin = (role: UserRole) => {
+    loginAsRole(role);
     router.push("/dashboard");
   };
 
@@ -39,7 +60,45 @@ export default function LoginPage() {
             Sign in to your Sentience account
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
+          {/* Quick role login cards */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground text-center">
+              Quick demo login — pick a role
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {quickAccounts.map(({ role, email }) => {
+                const meta = ROLE_META[role];
+                const Icon = roleIcons[role];
+                return (
+                  <button
+                    key={role}
+                    onClick={() => handleQuickLogin(role)}
+                    disabled={isLoading}
+                    className="flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center transition-colors hover:border-primary/50 hover:bg-accent disabled:opacity-50"
+                  >
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-full ${meta.bgColor}`}>
+                      <Icon className={`h-4 w-4 ${meta.color}`} />
+                    </div>
+                    <span className="text-xs font-medium">{meta.label}</span>
+                    <span className="text-[10px] text-muted-foreground">{email}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">
+                Or sign in with email
+              </span>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <label
@@ -53,7 +112,10 @@ export default function LoginPage() {
                 type="email"
                 placeholder="name@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (error) clearError();
+                }}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 required
                 autoComplete="email"
@@ -131,7 +193,7 @@ export default function LoginPage() {
             </Button>
 
             <p className="text-center text-xs text-muted-foreground">
-              Demo: admin@sentience.io / any password
+              Demo: use quick login buttons above for instant access
             </p>
           </form>
         </CardContent>

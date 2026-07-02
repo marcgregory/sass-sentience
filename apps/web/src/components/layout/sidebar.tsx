@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@sentience/utils";
 import { useUIStore } from "@/stores/ui-store";
+import { useAuthStore } from "@/stores/auth-store";
+import { hasPermission, type Resource } from "@/lib/permissions";
 import {
   LayoutDashboard,
   Building2,
@@ -23,30 +25,39 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  {
-    name: "Estates",
-    href: "/estates",
-    icon: Building2,
-  },
-  { name: "Sites", href: "/sites", icon: MapPin },
-  { name: "Devices", href: "/devices", icon: Monitor },
-  { name: "Alerts", href: "/alerts", icon: AlertTriangle },
-  { name: "Events", href: "/events", icon: History },
-  { name: "Reports", href: "/reports", icon: FileText },
-  { name: "Diagnostics", href: "/diagnostics", icon: Stethoscope },
-  { name: "Users", href: "/users", icon: Users },
-  { name: "Roles", href: "/roles", icon: Shield },
-  { name: "Notifications", href: "/notifications", icon: Bell },
-  { name: "Audit Log", href: "/audit-log", icon: ClipboardList },
-  { name: "Settings", href: "/settings", icon: Settings },
+interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  resource: Resource;
+}
+
+const allNavigation: NavItem[] = [
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, resource: "dashboard" },
+  { name: "Estates", href: "/estates", icon: Building2, resource: "estates" },
+  { name: "Sites", href: "/sites", icon: MapPin, resource: "sites" },
+  { name: "Devices", href: "/devices", icon: Monitor, resource: "devices" },
+  { name: "Alerts", href: "/alerts", icon: AlertTriangle, resource: "alerts" },
+  { name: "Events", href: "/events", icon: History, resource: "events" },
+  { name: "Reports", href: "/reports", icon: FileText, resource: "reports" },
+  { name: "Diagnostics", href: "/diagnostics", icon: Stethoscope, resource: "diagnostics" },
+  { name: "Users", href: "/users", icon: Users, resource: "users" },
+  { name: "Roles", href: "/roles", icon: Shield, resource: "roles" },
+  { name: "Notifications", href: "/notifications", icon: Bell, resource: "notifications" },
+  { name: "Audit Log", href: "/audit-log", icon: ClipboardList, resource: "audit-log" },
+  { name: "Settings", href: "/settings", icon: Settings, resource: "settings" },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const user = useAuthStore((s) => s.user);
   const { sidebarCollapsed, toggleSidebarCollapsed, mobileMenuOpen, setMobileMenuOpen } =
     useUIStore();
+
+  // Filter navigation by the user's role permissions
+  const navigation = allNavigation.filter((item) =>
+    hasPermission(user?.role, item.resource, "read"),
+  );
 
   return (
     <>
@@ -91,6 +102,9 @@ export function Sidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-2 space-y-1">
+          {navigation.length === 0 && (
+            <p className="px-3 text-xs text-muted-foreground">No modules available</p>
+          )}
           {navigation.map((item) => {
             const isActive = pathname.startsWith(item.href);
             return (

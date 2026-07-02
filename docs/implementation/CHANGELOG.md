@@ -4,6 +4,38 @@ All notable changes to the Sentience IoT Platform.
 
 ---
 
+## v0.12.0 — 2026-07-03
+
+### Added
+
+- **RBAC permission system** — `apps/web/src/lib/permissions.ts` defines a full permission matrix (4 roles × 14 resources × 5 actions), role metadata (label, description, color), and utility functions (`hasPermission`, `getActions`, `getAccessibleResources`) consumed by all auth-gated components.
+- **Auth store: real RBAC enforcement** — `hasPermission()` and `hasRole()` now return real results based on the authenticated user's role (no longer always-true). `loginAsRole()` enables instant demo role switching. Mock audit logging integrated on login/logout.
+- **Demo role switching UI** — Header now includes a role badge and a "Switch Role (Demo)" modal showing all 4 roles (Admin, Support, Installer, Customer) with email, icon, and active indicator. Switch instantly reloads with new navigation.
+- **Sidebar navigation filtering** — The sidebar filters its 13 nav items by the user's role permissions. Admin sees all 13, Support sees admin-only pages excluded, Customer sees only 5 items (dashboard, devices, alerts, events, reports).
+- **Route guard (`AuthGuard`)** — `AuthGuard` component in the dashboard layout redirects unauthenticated users to `/login` with a loading spinner.
+- **Permission guard (`RequirePermission`)** — Wrapper component that checks resource + action permissions and shows an Access Denied page for unauthorized roles. Applied to `/users`, `/roles`, `/audit-log`, and `/settings` pages.
+- **Unauthorized page** — `/unauthorized` route with Access Denied message and back-to-dashboard link.
+- **User management page** — `/users` rewritten with mock user list (7 users), summary cards (total/active/inactive/role counts), search/filter by role and status, create user dialog, inline role change dropdown, activate/deactivate toggle, and audit logging for all user mutations.
+- **Roles & Permissions page** — `/roles` rewritten with 4 role summary cards showing assigned resources, clickable to expand a full permission matrix (resource × action grid) with toggle switches for each permission. Audit logged permission changes.
+- **Audit Log page** — `/audit-log` rewritten with live store-backed entries, summary counts, search, action-type filter, CSV export, pagination, and role-colored user avatars. Tracks user created, role changed, user deactivated, login/logout events.
+- **Settings page** — `/settings` rewritten with tabbed UI (General, Security, Notifications, Maintenance), mock configuration fields (platform name, timezone, MFA toggle, password policy, notification channels, data retention, broker/database status), and save-with-feedback action.
+- **Profile page** — `/profile` rewritten to use live auth store data for name, email, role, and timestamps. Personal information edit, password change with confirmation validation, notification preference toggles, and MFA placeholder.
+- **Audit store** — Zustand store with in-memory audit entries, seeded 5 starter entries, `addEntry()` logged on user create/role change/deactivate/login/logout.
+- **Login page: quick-role buttons** — Login page now has 4 quick-login cards for each demo role plus the standard email/password form.
+
+### Changed
+
+- Auth store login flow now finds matching demo account by email for role-aware login.
+- Header now displays a role badge (colored by role type) next to the user name, with a dropdown menu containing Profile, Switch Role, and Sign Out options.
+- Dashboard layout wraps children in `AuthGuard` to prevent unauthenticated access.
+- `pnpm lint` and `pnpm build` pass cleanly (22 static pages).
+
+### Known Issues
+
+- Permission toggles on the Roles page are client-side only (not persisted to a real API)
+
+---
+
 ## v0.5.0 — 2026-07-02
 
 ### Added
@@ -177,11 +209,11 @@ All notable changes to the Sentience IoT Platform.
 ### Known Issues
 
 - No REST API backend yet — all data is mock or static
-- RBAC not enforced — all 13 nav items show for all users
 - Dashboard device table is hand-crafted HTML (not TanStack Table)
 - `@sentience/ui` package is empty
 - Dashboard page JS bundle is 222 kB (recharts contributes ~100 kB)
 - Alert store has no persistence — alerts clear on page refresh (by design, ephemeral real-time state)
+- Permission toggles on the Roles page are client-side only (not persisted to a real API)
 
 ---
 
@@ -205,8 +237,8 @@ All notable changes to the Sentience IoT Platform.
 ### Known Issues
 
 - No REST API backend yet — all data is mock or static
-- RBAC not enforced — all 13 nav items show for all users
 - Dashboard device table is hand-crafted HTML (not TanStack Table)
 - `@sentience/ui` package is empty
 - Dashboard page JS bundle is 222 kB (recharts contributes ~100 kB)
 - Alert store has no persistence — alerts clear on page refresh (by design, ephemeral real-time state)
+- Permission toggles on the Roles page are client-side only (not persisted to a real API)

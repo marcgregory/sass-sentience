@@ -294,29 +294,33 @@ The infrastructure phase is complete. The current architecture supports all rema
 
 ### Tasks
 
-- [ ] **Auth store: role enforcement** — `hasRole()` and `hasPermission()` now return real results based on the authenticated user's role (not always-true)
-- [ ] **Auth store: login with role** — Mock login accepts `admin`/`support`/`installer`/`customer`, sets role + permissions accordingly
-- [ ] **Navigation filtering** — `navLinks` array filtered by `hasPermission()`, Customer sees subset (dashboard, alerts, events), Support sees all but admin pages, Admin sees all 13
-- [ ] **Route guards** — `/users`, `/roles`, `/settings`, `/audit-log` pages redirect or show AccessDenied for unauthorized roles
-- [ ] **User management page** — `/users` page with user list table (name, email, role, status, last login), mock users seeded, role dropdown to change role
-- [ ] **Role management page** — `/roles` page with role cards showing assigned permissions per role, toggle switches for permissions
-- [ ] **Audit log page** — `/audit-log` page showing logged actions with user, action type, target, timestamp, IP
-- [ ] **Settings page** — System settings form with tabs (General, Security, Notifications, Maintenance), mock toggles and fields
-- [ ] **Profile page** — Current user profile with name, email, role, avatar, password change form (mock), notification preferences
-- [ ] **Loading states** — Skeleton loading for user/role tables
-- [ ] **Empty states** — EmptyState when no users or roles match filters
-- [ ] **Responsive layout** — Tables collapse to cards on mobile
+- [x] **Auth store: role enforcement** — `hasRole()` and `hasPermission()` now return real results based on the authenticated user's role (not always-true)
+- [x] **Auth store: login with role** — Mock login accepts `admin`/`support`/`installer`/`customer`, sets role + permissions accordingly. `loginAsRole()` enables instant role switching.
+- [x] **Navigation filtering** — Sidebar filters nav items by role permissions. Customer sees 5 items, Support sees 10, Admin sees all 13.
+- [x] **Route guards** — `AuthGuard` (redirects unauthenticated users), `RequirePermission` (shows AccessDenied for unauthorized roles on `/users`, `/roles`, `/audit-log`, `/settings`)
+- [x] **User management page** — `/users` page with user list, summary cards, search/filter by role/status, create dialog, inline role change, activate/deactivate, audit logging
+- [x] **Role management page** — `/roles` page with role cards showing assigned resources, expandable permission matrix with toggle switches
+- [x] **Audit log page** — `/audit-log` page showing logged actions with user, action type, resource, timestamp, IP; with search, action filter, CSV export, pagination
+- [x] **Settings page** — System settings with tabs (General, Security, Notifications, Maintenance), mock toggles and fields, save feedback
+- [x] **Profile page** — Live auth store data, personal info edit, password change with validation, notification preferences
+- [x] **Loading states** — Loading spinner in AuthGuard, save feedback on forms
+- [x] **Empty states** — EmptyState when no users or audit entries match filters
+- [x] **Responsive layout** — Tables collapse to stacks on mobile; sidebar nav and role switch modal responsive
 
 ### Acceptance Criteria
 
-1. [ ] Mock login accepts role parameter (admin/support/installer/customer)
-2. [ ] Navigation filters by role — Customer sees 5 items, Support sees 10, Admin sees 13
-3. [ ] Restricted routes redirect unauthorized users
-4. [ ] User management page shows user table with role change capability
-5. [ ] Role management page shows permission toggles per role
-6. [ ] Audit log shows timestamped action entries
-7. [ ] Settings page shows mock configuration groups
-8. [ ] Profile page shows current user info with edit capability
-9. [ ] Dark mode renders correctly on all elements
-10. [ ] Responsive at all three breakpoints
-11. [ ] `pnpm lint` and `pnpm build` pass
+1. [x] Mock login accepts role parameter (admin/support/installer/customer) via quick-login buttons or email
+2. [x] Navigation filters by role — Customer sees 5 items, Support sees 10, Admin sees 13
+3. [x] Restricted routes show Access Denied for unauthorized users
+4. [x] User management page shows user table with role change capability
+5. [x] Role management page shows permission toggles per role
+6. [x] Audit log shows timestamped action entries with search and export
+7. [x] Settings page shows mock configuration groups with tabs
+8. [x] Profile page shows current user info with edit capability
+9. [x] Dark mode renders correctly on all elements
+10. [x] Responsive at all three breakpoints
+11. [x] `pnpm lint` and `pnpm build` pass
+
+### Completed
+
+2026-07-03 — Sprint 6 delivered. Full RBAC with role-based sidebar filtering, route guards, user management (create/edit/activate/deactivate), roles/permission matrix, audit log with CSV export, settings with tabs, profile with live auth data, and demo role switching in the header. TypeScript and production build pass cleanly.

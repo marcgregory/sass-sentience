@@ -1,5 +1,6 @@
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { RealtimeListener } from "@/components/layout/realtime-listener";
+import { AuthGuard } from "@/components/shared/auth-guard";
 
 export default function DashboardLayout({
   children,
@@ -9,7 +10,9 @@ export default function DashboardLayout({
   return (
     <>
       <RealtimeListener />
-      <DashboardShell>{children}</DashboardShell>
+      <AuthGuard>
+        <DashboardShell>{children}</DashboardShell>
+      </AuthGuard>
     </>
   );
 }

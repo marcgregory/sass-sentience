@@ -99,10 +99,24 @@
 | **Scheduling UI (placeholder)** | Daily/Weekly/Monthly badges with coming-soon state |
 | **Recent Exports List** | In-memory list of recently exported reports with re-download buttons |
 
+## ✅ Completed — Sprint 6: User Management (RBAC)
+
+| Area | Notes |
+|------|-------|
+| **Permission system** | Full matrix (4 roles × 14 resources × 5 actions) in `@/lib/permissions` |
+| **Auth store: real RBAC** | `hasPermission()`/`hasRole()` return real results; `loginAsRole()` for instant switching |
+| **Sidebar nav filtering** | Admin sees 13 items, Support sees 10, Customer sees 5 |
+| **Route guards** | `AuthGuard` (unauthenticated redirect) + `RequirePermission` (Access Denied for unauthorized) |
+| **User management** | User list, search/filter, create dialog, inline role change, activate/deactivate |
+| **Roles & Permissions** | Role summary cards, expandable permission matrix with toggle switches |
+| **Audit Log** | Live store, search, action filter, CSV export, pagination |
+| **Settings** | Tabbed UI (General/Security/Notifications/Maintenance), mock fields, save feedback |
+| **Profile** | Live auth data, personal info edit, password change, notification prefs |
+| **Demo role switching** | Header role badge, Switch Role modal, quick-login on login page |
+
 | Sprint | Module | Priority | Demo |
 |--------|--------|----------|------|
-| **6** | **User Management (In Progress)** | ⭐⭐⭐ | Log in as Customer vs Support vs Admin — different permissions |
-| **7** | Admin | ⭐⭐⭐ | View audit logs and change system settings |
+| **7** | **Admin (Queued)** | ⭐⭐⭐ | View audit logs and change system settings |
 
 ---
 
