@@ -30,6 +30,9 @@ export interface LiveDeviceTelemetry {
 export interface LiveDeviceEntry {
   deviceId: string;
   siteId: string;
+  siteName?: string;
+  estateId?: string;
+  estateName?: string;
   status: DeviceStatus;
   previousStatus: DeviceStatus;
   telemetry: LiveDeviceTelemetry | null;
@@ -40,6 +43,9 @@ export interface LiveEventEntry {
   eventId: string;
   deviceId?: string;
   siteId?: string;
+  siteName?: string;
+  estateId?: string;
+  estateName?: string;
   category: string;
   severity: string;
   title: string;
@@ -81,24 +87,25 @@ export const useLiveDeviceStore = create<LiveDeviceState>()((set) => ({
   upsertDeviceTelemetry: (payload) => {
     set((state) => {
       const existing = state.devices[payload.deviceId];
-      return {
-        devices: {
-          ...state.devices,
-          [payload.deviceId]: {
-            deviceId: payload.deviceId,
-            siteId: payload.siteId,
-            status: existing?.status ?? "online",
-            previousStatus: existing?.previousStatus ?? "online",
-            telemetry: {
-              battery: payload.battery,
-              voltage: payload.voltage,
-              temperature: payload.temperature,
-              signalStrength: payload.signalStrength,
-              timestamp: payload.timestamp,
-            },
-            lastSeen: payload.timestamp,
-          },
+      const entry: LiveDeviceEntry = {
+        deviceId: payload.deviceId,
+        siteId: payload.siteId,
+        siteName: payload.siteName ?? existing?.siteName,
+        estateId: payload.estateId ?? existing?.estateId,
+        estateName: payload.estateName ?? existing?.estateName,
+        status: existing?.status ?? "online",
+        previousStatus: existing?.previousStatus ?? "online",
+        telemetry: {
+          battery: payload.battery,
+          voltage: payload.voltage,
+          temperature: payload.temperature,
+          signalStrength: payload.signalStrength,
+          timestamp: payload.timestamp,
         },
+        lastSeen: payload.timestamp,
+      };
+      return {
+        devices: { ...state.devices, [payload.deviceId]: entry },
         lastUpdatedAt: payload.timestamp,
       };
     });
@@ -107,18 +114,19 @@ export const useLiveDeviceStore = create<LiveDeviceState>()((set) => ({
   upsertDeviceStatus: (payload) => {
     set((state) => {
       const existing = state.devices[payload.deviceId];
+      const entry: LiveDeviceEntry = {
+        deviceId: payload.deviceId,
+        siteId: payload.siteId,
+        siteName: payload.siteName ?? existing?.siteName,
+        estateId: payload.estateId ?? existing?.estateId,
+        estateName: payload.estateName ?? existing?.estateName,
+        status: payload.status as DeviceStatus,
+        previousStatus: payload.previousStatus as DeviceStatus,
+        telemetry: existing?.telemetry ?? null,
+        lastSeen: payload.timestamp,
+      };
       return {
-        devices: {
-          ...state.devices,
-          [payload.deviceId]: {
-            deviceId: payload.deviceId,
-            siteId: payload.siteId,
-            status: payload.status as DeviceStatus,
-            previousStatus: payload.previousStatus as DeviceStatus,
-            telemetry: existing?.telemetry ?? null,
-            lastSeen: payload.timestamp,
-          },
-        },
+        devices: { ...state.devices, [payload.deviceId]: entry },
         lastUpdatedAt: payload.timestamp,
       };
     });

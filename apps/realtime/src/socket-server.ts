@@ -14,6 +14,7 @@
  */
 
 import { Server as SocketIOServer } from "socket.io";
+import { createServer } from "net";
 
 // ─── Re-export types for normalizer ─────────────────────────────────
 
@@ -53,6 +54,27 @@ export interface RoomSubscription {
   id: string;
 }
 
+// ─── Port check ────────────────────────────────────────────────────
+
+/**
+ * Check whether a TCP port is already in use.
+ * Returns true if something is listening on the port.
+ */
+function isPortInUse(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const server = createServer();
+    server.once("error", (err: NodeJS.ErrnoException) => {
+      if (err.code === "EADDRINUSE") resolve(true);
+      else resolve(false);
+    });
+    server.once("listening", () => {
+      server.close();
+      resolve(false);
+    });
+    server.listen(port);
+  });
+}
+
 // ─── Server ─────────────────────────────────────────────────────────
 
 export interface SocketServerOptions {
@@ -60,8 +82,15 @@ export interface SocketServerOptions {
   corsOrigin: string;
 }
 
-export function createSocketServer(options: SocketServerOptions): SocketIOServer {
+export async function createSocketServer(options: SocketServerOptions): Promise<SocketIOServer> {
   const { port, corsOrigin } = options;
+
+  const inUse = await isPortInUse(port);
+  if (inUse) {
+    console.error(`[socket] ERROR: Port ${port} is already in use. Is another realtime bridge running?`);
+    console.error(`[socket]        Kill the existing process or use a different SOCKET_PORT.`);
+    process.exit(1);
+  }
 
   const io = new SocketIOServer(port, {
     cors: {

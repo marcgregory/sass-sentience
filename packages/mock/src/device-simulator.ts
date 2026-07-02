@@ -51,6 +51,10 @@ interface SimulatedDevice {
   outputState: boolean;
   fault: boolean;
   warning: boolean;
+  siteId: string;
+  siteName: string;
+  estateId: string;
+  estateName: string;
   telemetryTimer: ReturnType<typeof setInterval> | null;
   eventTimer: ReturnType<typeof setInterval> | null;
 }
@@ -94,6 +98,7 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
   // Create simulated devices
   const devices: SimulatedDevice[] = Array.from({ length: deviceCount }, (_, i) => {
     const device = generateDevice();
+    const ext = device as unknown as Record<string, unknown>;
     return {
       device,
       status: device.status,
@@ -104,6 +109,10 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
       outputState: device.io.outputs.some((out) => out.state),
       fault: device.status === "fault",
       warning: device.status === "warning",
+      siteId: (ext.siteId as string) ?? device.siteId,
+      siteName: (ext.siteName as string) ?? "Unknown Site",
+      estateId: (ext.estateId as string) ?? "unknown",
+      estateName: (ext.estateName as string) ?? "Unknown Estate",
       telemetryTimer: null,
       eventTimer: null,
     };
@@ -211,8 +220,8 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
 
 // ─── Publish Functions ─────────────────────────────────────────────
 
-async function publishTelemetry(client: mqtt.MqttClient, sd: SimulatedDevice): Promise<void> {
-  const payload = JSON.stringify({
+function basePayload(sd: SimulatedDevice): Record<string, unknown> {
+  return {
     deviceId: sd.device.id,
     status: sd.status,
     battery: Math.round(sd.battery),
@@ -222,33 +231,26 @@ async function publishTelemetry(client: mqtt.MqttClient, sd: SimulatedDevice): P
     warning: sd.warning,
     inputState: sd.inputState,
     outputState: sd.outputState,
+    siteId: sd.siteId,
+    siteName: sd.siteName,
+    estateId: sd.estateId,
+    estateName: sd.estateName,
     timestamp: new Date().toISOString(),
-  });
+  };
+}
 
+async function publishTelemetry(client: mqtt.MqttClient, sd: SimulatedDevice): Promise<void> {
   await client.publishAsync(
     mqttTopic(sd.device.id, "telemetry"),
-    payload,
+    JSON.stringify(basePayload(sd)),
     { qos: 1 },
   );
 }
 
 async function publishStatus(client: mqtt.MqttClient, sd: SimulatedDevice): Promise<void> {
-  const payload = JSON.stringify({
-    deviceId: sd.device.id,
-    status: sd.status,
-    fault: sd.fault,
-    warning: sd.warning,
-    battery: Math.round(sd.battery),
-    signal: sd.signal,
-    temperature: sd.temperature,
-    inputState: sd.inputState,
-    outputState: sd.outputState,
-    timestamp: new Date().toISOString(),
-  });
-
   await client.publishAsync(
     mqttTopic(sd.device.id, "status"),
-    payload,
+    JSON.stringify(basePayload(sd)),
     { qos: 2, retain: true },  // Retain so late subscribers get the last known status
   );
 }
@@ -260,18 +262,9 @@ async function publishEvent(
   extra?: Record<string, unknown>,
 ): Promise<void> {
   const payload = JSON.stringify({
-    deviceId: sd.device.id,
+    ...basePayload(sd),
     eventType,
-    status: sd.status,
-    battery: Math.round(sd.battery),
-    signal: sd.signal,
-    temperature: sd.temperature,
-    fault: sd.fault,
-    warning: sd.warning,
-    inputState: sd.inputState,
-    outputState: sd.outputState,
     ...extra,
-    timestamp: new Date().toISOString(),
   });
 
   await client.publishAsync(

@@ -35,9 +35,13 @@ export interface MqttPayload {
   eventType?: string;
   threshold?: number;
 
-  // Real-device fields (optional — simulator doesn't set these)
+  // Estate / site context
   siteId?: string;
+  siteName?: string;
   estateId?: string;
+  estateName?: string;
+
+  // Real-device fields (optional — older simulators don't set these)
   voltage?: number;
 }
 
@@ -46,6 +50,9 @@ export interface MqttPayload {
 export interface DeviceTelemetryEvent {
   deviceId: string;
   siteId: string;
+  siteName?: string;
+  estateId?: string;
+  estateName?: string;
   battery: number;
   voltage: number;
   temperature: number;
@@ -56,6 +63,9 @@ export interface DeviceTelemetryEvent {
 export interface DeviceStatusEvent {
   deviceId: string;
   siteId: string;
+  siteName?: string;
+  estateId?: string;
+  estateName?: string;
   status: DeviceStatusValue;
   previousStatus: DeviceStatusValue;
   timestamp: string;
@@ -65,7 +75,9 @@ export interface EventStreamEvent {
   eventId: string;
   deviceId?: string;
   siteId?: string;
+  siteName?: string;
   estateId?: string;
+  estateName?: string;
   category: string;
   severity: string;
   title: string;
@@ -93,6 +105,9 @@ export function toTelemetryEvent(
   return {
     deviceId,
     siteId: payload.siteId ?? "unknown",
+    siteName: payload.siteName ?? undefined,
+    estateId: payload.estateId ?? undefined,
+    estateName: payload.estateName ?? undefined,
     battery: Math.round(safeNumber(payload.battery, 100)),
     voltage: safeNumber(payload.voltage, 3.3),
     temperature: safeNumber(payload.temperature, 25),
@@ -112,6 +127,9 @@ export function toStatusEvent(
   return {
     deviceId,
     siteId: payload.siteId ?? "unknown",
+    siteName: payload.siteName ?? undefined,
+    estateId: payload.estateId ?? undefined,
+    estateName: payload.estateName ?? undefined,
     status: validStatus(payload.status),
     previousStatus: previousStatus ?? validStatus(payload.previousStatus ?? payload.status),
     timestamp: payload.timestamp ?? new Date().toISOString(),
@@ -132,7 +150,9 @@ export function toEventStreamEvent(
     eventId: `${deviceId}-${eventType}-${Date.now()}`,
     deviceId,
     siteId: payload.siteId ?? "unknown",
+    siteName: payload.siteName ?? undefined,
     estateId: payload.estateId ?? undefined,
+    estateName: payload.estateName ?? undefined,
     category: mapEventTypeToCategory(eventType),
     severity: status === "fault" ? "critical" : status === "warning" ? "warning" : "info",
     title: formatEventTitle(eventType, deviceId, payload),
@@ -150,12 +170,18 @@ export function toDiagnosticEvent(
 ): {
   deviceId: string;
   siteId: string;
+  siteName?: string;
+  estateId?: string;
+  estateName?: string;
   diagnostic: { type: string; status: "passed" | "failed" | "warning"; message: string };
   timestamp: string;
 } {
   return {
     deviceId,
     siteId: payload.siteId ?? "unknown",
+    siteName: payload.siteName ?? undefined,
+    estateId: payload.estateId ?? undefined,
+    estateName: payload.estateName ?? undefined,
     diagnostic: {
       type: payload.eventType ?? "system",
       status: payload.fault ? "failed" : payload.warning ? "warning" : "passed",

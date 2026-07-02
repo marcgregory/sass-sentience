@@ -55,6 +55,9 @@ export type DeviceStatusValue = "online" | "offline" | "fault" | "warning";
 export interface DeviceStatusEvent {
   deviceId: string;
   siteId: string;
+  siteName?: string;
+  estateId?: string;
+  estateName?: string;
   status: DeviceStatusValue;
   previousStatus: DeviceStatusValue;
   timestamp: string;
@@ -63,6 +66,9 @@ export interface DeviceStatusEvent {
 export interface DeviceTelemetryEvent {
   deviceId: string;
   siteId: string;
+  siteName?: string;
+  estateId?: string;
+  estateName?: string;
   battery: number;
   voltage: number;
   temperature: number;
@@ -73,6 +79,9 @@ export interface DeviceTelemetryEvent {
 export interface DeviceDiagnosticEvent {
   deviceId: string;
   siteId: string;
+  siteName?: string;
+  estateId?: string;
+  estateName?: string;
   diagnostic: {
     type: string;
     status: "passed" | "failed" | "warning";
@@ -105,7 +114,9 @@ export interface EventStreamEvent {
   eventId: string;
   deviceId?: string;
   siteId?: string;
+  siteName?: string;
   estateId?: string;
+  estateName?: string;
   category: string;
   severity: string;
   title: string;

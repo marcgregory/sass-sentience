@@ -79,6 +79,14 @@ export function useLiveDevices(): LiveDeviceRow[] {
     for (const id of ids) {
       if (mockIdSet.has(id)) continue;
       const live = liveDevices[id];
+      const siteLabel = live.siteName
+        ? live.estateName
+          ? `${live.siteName} - ${live.estateName}`
+          : live.siteName
+        : live.siteId !== "unknown"
+          ? `Site ${live.siteId.slice(0, 8)}`
+          : "Unassigned";
+
       merged.push({
         id: live.deviceId,
         name: `Device ${live.deviceId.slice(0, 8)}`,
@@ -88,7 +96,7 @@ export function useLiveDevices(): LiveDeviceRow[] {
         battery: live.telemetry?.battery ?? 100,
         signal: live.telemetry?.signalStrength ?? -70,
         temp: live.telemetry?.temperature ?? 25,
-        site: live.siteId !== "unknown" ? `Site ${live.siteId.slice(0, 8)}` : "Unassigned",
+        site: siteLabel,
       });
     }
 

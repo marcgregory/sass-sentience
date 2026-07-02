@@ -13,6 +13,52 @@
 import { faker } from "@faker-js/faker";
 import type { Device, DeviceTelemetry, DeviceIO, DeviceFirmware, DeviceConfig, DeviceStatus, DeviceType } from "@sentience/types";
 
+// ─── Estate / Site Pools ─────────────────────────────────────────────
+//
+// Realistic location names that the simulator assigns devices to.
+// Each device gets one estate and one site (from that estate's sites).
+
+interface EstateDef {
+  id: string;
+  name: string;
+  sites: { id: string; name: string }[];
+}
+
+const ESTATES: EstateDef[] = [
+  {
+    id: "estate-riverside",
+    name: "Riverside Complex",
+    sites: [
+      { id: "site-riverside-a", name: "Building A" },
+      { id: "site-riverside-b", name: "Building B" },
+    ],
+  },
+  {
+    id: "estate-techvalley",
+    name: "Tech Valley Park",
+    sites: [
+      { id: "site-techvalley-1", name: "Warehouse 1" },
+      { id: "site-techvalley-admin", name: "Admin Block" },
+    ],
+  },
+  {
+    id: "estate-harbour",
+    name: "Harbour Terminal",
+    sites: [
+      { id: "site-harbour-main", name: "Main Terminal" },
+      { id: "site-harbour-north", name: "North Gate" },
+    ],
+  },
+  {
+    id: "estate-greenfield",
+    name: "Greenfield Data Centre",
+    sites: [
+      { id: "site-greenfield-a", name: "Server Hall A" },
+      { id: "site-greenfield-b", name: "Server Hall B" },
+    ],
+  },
+];
+
 // ─── Deterministic Support ─────────────────────────────────────────
 //
 // Call generateDevices(seed(42)) to get reproducible output for tests.
@@ -125,6 +171,10 @@ export function generateDevice(seedFn?: () => number): Device {
   const type = pickType();
   const now = new Date();
 
+  // Pick a realistic estate + site assignment
+  const estate = faker.helpers.arrayElement(ESTATES);
+  const site = faker.helpers.arrayElement(estate.sites);
+
   const device: Device = {
     id,
     serialNumber: `SN-${faker.string.alphanumeric(10).toUpperCase()}`,
@@ -140,7 +190,7 @@ export function generateDevice(seedFn?: () => number): Device {
     telemetry: generateTelemetry(type),
     io: generateIO(),
     config: generateConfig(id),
-    siteId: faker.string.nanoid(10),
+    siteId: site.id,
     roomId: faker.helpers.maybe(() => faker.string.nanoid(8), { probability: 0.6 }),
     installedAt: faker.date.past({ years: 2 }).toISOString(),
     lastMaintenance: faker.helpers.maybe(() => faker.date.recent({ days: 60 }).toISOString(), { probability: 0.7 }),
@@ -152,6 +202,13 @@ export function generateDevice(seedFn?: () => number): Device {
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
   };
+
+  // Attach estate/site names as non-standard extensions so the simulator
+  // can include them in MQTT payloads without modifying the Device type.
+  const ext = device as unknown as Record<string, unknown>;
+  ext.estateId = estate.id;
+  ext.estateName = estate.name;
+  ext.siteName = site.name;
 
   return device;
 }

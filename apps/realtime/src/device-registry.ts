@@ -13,7 +13,9 @@
 export interface DeviceRegistration {
   deviceId: string;
   siteId: string;
+  siteName?: string;
   estateId: string;
+  estateName?: string;
   status: string;
   firstSeen: number;
   lastSeen: number;
@@ -23,14 +25,16 @@ const registry = new Map<string, DeviceRegistration>();
 
 export function updateDevice(
   deviceId: string,
-  data: { siteId?: string; estateId?: string; status?: string },
+  data: { siteId?: string; siteName?: string; estateId?: string; estateName?: string; status?: string },
 ): DeviceRegistration {
   const existing = registry.get(deviceId);
 
   const entry: DeviceRegistration = {
     deviceId,
     siteId: data.siteId ?? existing?.siteId ?? "unknown",
+    siteName: data.siteName ?? existing?.siteName ?? undefined,
     estateId: data.estateId ?? existing?.estateId ?? "unknown",
+    estateName: data.estateName ?? existing?.estateName ?? undefined,
     status: data.status ?? existing?.status ?? "unknown",
     firstSeen: existing?.firstSeen ?? Date.now(),
     lastSeen: Date.now(),

@@ -53,7 +53,7 @@ async function main(): Promise<void> {
 
   // ─── Socket.IO Server ───────────────────────────────────────────
 
-  const io = createSocketServer({
+  const io = await createSocketServer({
     port: env.SOCKET_PORT,
     corsOrigin: env.CORS_ORIGIN,
   });
@@ -74,9 +74,13 @@ async function main(): Promise<void> {
       const prevReg = getDevice(deviceId);
       const prevStatus = prevReg?.status as DeviceStatusValue | undefined;
 
-      // Update device registry
+      // Update device registry with estate/site context from the payload
       const reg = updateDevice(deviceId, {
         status: payload.status ?? prevReg?.status,
+        siteId: payload.siteId,
+        siteName: payload.siteName,
+        estateId: payload.estateId,
+        estateName: payload.estateName,
       });
 
       // Emit to appropriate rooms based on device registry
