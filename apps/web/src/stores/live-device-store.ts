@@ -17,6 +17,11 @@ import type {
   EventStreamEvent,
 } from "@/lib/socket-client";
 
+// ─── Constants ────────────────────────────────────────────────────
+
+const MAX_EVENTS = 50;
+const EVENT_DEDUP_MS = 60_000; // 60-second cooldown per deviceId+category
+
 // ─── Types ──────────────────────────────────────────────────────────
 
 export interface LiveDeviceTelemetry {
@@ -67,6 +72,13 @@ interface LiveDeviceState {
   /** Last time any realtime data was received */
   lastUpdatedAt: string | null;
 
+  /**
+   * Dedup tracking: key = `${deviceId}:${category}`, value = timestamp
+   * Prevents repeated events (battery_low, signal_weak) from the same
+   * device from spamming the feed within a 60-second window.
+   */
+  eventDedupTimestamps: Record<string, number>;
+
   // ─── Actions ──────────────────────────────────────────────────────
 
   upsertDeviceTelemetry: (payload: DeviceTelemetryEvent) => void;
@@ -76,13 +88,12 @@ interface LiveDeviceState {
   clearLiveState: () => void;
 }
 
-const MAX_EVENTS = 50;
-
 export const useLiveDeviceStore = create<LiveDeviceState>()((set) => ({
   devices: {},
   recentEvents: [],
   isSocketConnected: false,
   lastUpdatedAt: null,
+  eventDedupTimestamps: {},
 
   upsertDeviceTelemetry: (payload) => {
     set((state) => {
@@ -114,6 +125,10 @@ export const useLiveDeviceStore = create<LiveDeviceState>()((set) => ({
   upsertDeviceStatus: (payload) => {
     set((state) => {
       const existing = state.devices[payload.deviceId];
+      // Never update if status hasn't changed
+      if (existing && existing.status === payload.status) {
+        return { lastUpdatedAt: payload.timestamp };
+      }
       const entry: LiveDeviceEntry = {
         deviceId: payload.deviceId,
         siteId: payload.siteId,
@@ -133,10 +148,24 @@ export const useLiveDeviceStore = create<LiveDeviceState>()((set) => ({
   },
 
   addLiveEvent: (event) => {
-    set((state) => ({
-      recentEvents: [event, ...state.recentEvents].slice(0, MAX_EVENTS),
-      lastUpdatedAt: event.timestamp,
-    }));
+    set((state) => {
+      // Dedup: skip if same deviceId + category within 60s.
+      // Use title for the key so different threshold events (battery_low vs
+      // signal_weak) from the same device are NOT mistakenly deduped despite
+      // mapping to the same "threshold_breach" category.
+      const dedupKey = `${event.deviceId ?? ""}:${event.title}:${event.category}`;
+      const now = Date.now();
+      const lastTime = state.eventDedupTimestamps[dedupKey];
+      if (lastTime && now - lastTime < EVENT_DEDUP_MS) {
+        // Still update lastUpdatedAt so the connection indicator is fresh
+        return { lastUpdatedAt: event.timestamp };
+      }
+      return {
+        recentEvents: [event, ...state.recentEvents].slice(0, MAX_EVENTS),
+        eventDedupTimestamps: { ...state.eventDedupTimestamps, [dedupKey]: now },
+        lastUpdatedAt: event.timestamp,
+      };
+    });
   },
 
   setSocketConnected: (connected) => {
@@ -149,6 +178,7 @@ export const useLiveDeviceStore = create<LiveDeviceState>()((set) => ({
       recentEvents: [],
       isSocketConnected: false,
       lastUpdatedAt: null,
+      eventDedupTimestamps: {},
     });
   },
 }));

@@ -9,45 +9,100 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
+import { FleetHealthGauge } from "@/components/shared/fleet-health-gauge";
+import { DistributionBar } from "@/components/shared/distribution-bar";
+import { RecentActivity } from "@/components/shared/recent-activity";
+import { EstateSummaryCards } from "@/components/shared/estate-summary-cards";
+import { QuickActions } from "@/components/shared/quick-actions";
 import {
   ArrowUpRight,
   ArrowDownRight,
-  AlertTriangle,
+  Monitor,
+  Wifi,
+  WifiOff,
   Battery,
   Activity,
   Clock,
   Thermometer,
   Zap,
+  Radio,
+  RefreshCw,
 } from "lucide-react";
 import { formatRelativeTime } from "@sentience/utils";
 import { useDashboardData } from "./use-dashboard-data";
+import Link from "next/link";
 
 export default function DashboardPage() {
   const {
     kpis,
     systemHealth,
+    fleetHealthScore,
     liveAlerts,
-    batteryCounts,
+    batteryDistribution,
+    signalDistribution,
+    temperatureDistribution,
+    estateSummary,
+    recentActivity,
+    devicesOffline,
     eventsToday,
     hasLiveData,
     isSocketConnected,
+    lastUpdatedAt,
   } = useDashboardData();
+
+  // Compute offline/fault counts from KPIs for quick actions
+  const offlineCount = hasLiveData
+    ? parseInt(kpis[2].value.replace(/,/g, ""), 10)
+    : undefined;
+  const faultCount = hasLiveData
+    ? parseInt(kpis[3].value.replace(/,/g, ""), 10)
+    : undefined;
 
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Dashboard"
-        description="Real-time overview of your IoT estate"
+        description="Real-time operations center for your IoT estate"
+        actions={
+          !hasLiveData ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.location.reload()}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Retry Connection
+            </Button>
+          ) : undefined
+        }
       />
 
-      {/* Connection status banner */}
+      {/* ─── Simulator Banner ──────────────────────────────────────────── */}
+      {!hasLiveData && (
+        <Card className="border-dashed border-amber-300 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
+          <CardContent className="flex items-center gap-4 py-4">
+            <Radio className="h-6 w-6 shrink-0 text-amber-500" />
+            <div>
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                Simulator not running
+              </p>
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                Start the MQTT simulator to see live device data update in
+                real time. For now, showing mock data.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ─── Connection Status Banner ─────────────────────────────────── */}
       {hasLiveData && !isSocketConnected && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
           Showing cached data — real-time connection is offline.
         </div>
       )}
 
-      {/* KPI Row */}
+      {/* ─── KPI Row ──────────────────────────────────────────────────── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {kpis.map((kpi) => (
           <Card key={kpi.label}>
@@ -82,324 +137,260 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Charts Row */}
+      {/* ─── Second Row: Fleet Health + Charts + Estate Summary ────────── */}
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-        {/* System Health */}
-        <Card className="xl:col-span-2">
+        {/* Fleet Health Score + System Health */}
+        <Card>
           <CardHeader>
-            <CardTitle className="text-lg">System Health</CardTitle>
-            <CardDescription>Device status distribution</CardDescription>
+            <CardTitle className="text-lg">Fleet Health</CardTitle>
+            <CardDescription>Composite health score</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-4 gap-4">
+            <FleetHealthGauge
+              score={fleetHealthScore}
+              totalDevices={
+                hasLiveData
+                  ? parseInt(kpis[0].value.replace(/,/g, ""), 10)
+                  : undefined
+              }
+              className="mb-4"
+            />
+            <div className="grid grid-cols-2 gap-2 border-t pt-4">
               {systemHealth.map((item) => (
-                <div key={item.label} className="text-center">
-                  <div className="relative mx-auto mb-2 h-20 w-20">
-                    <svg className="h-20 w-20 -rotate-90" viewBox="0 0 36 36">
-                      <circle
-                        cx="18"
-                        cy="18"
-                        r="15.5"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                        className="text-muted"
-                        opacity={0.2}
-                      />
-                      <circle
-                        cx="18"
-                        cy="18"
-                        r="15.5"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                        strokeDasharray={`${item.value} ${100 - item.value}`}
-                        strokeLinecap="round"
-                        className={item.color.replace("bg-", "text-")}
-                      />
-                    </svg>
-                    <span className="absolute inset-0 flex items-center justify-center text-sm font-bold">
-                      {item.value}%
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{item.label}</p>
+                <div key={item.label} className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">{item.label}</span>
+                  <span className="font-medium">{item.value}%</span>
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
 
-        {/* Recent Alerts / Events */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
-              {hasLiveData ? "Live Events" : "Recent Alerts"}
-            </CardTitle>
-            <CardDescription>
-              {hasLiveData
-                ? "Latest events from the realtime feed"
-                : "Latest issues requiring attention"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {liveAlerts.length > 0 ? (
-                liveAlerts.map((alert) => (
-                  <div
-                    key={alert.id}
-                    className="flex items-start gap-3 rounded-lg border p-3"
-                  >
-                    <div
-                      className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${
-                        alert.severity === "critical"
-                          ? "bg-red-500"
-                          : alert.severity === "warning"
-                            ? "bg-amber-500"
-                            : "bg-blue-500"
-                      }`}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">{alert.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {alert.site} · {formatRelativeTime(alert.time)}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              ) : !hasLiveData ? (
-                <>
-                  {[
-                    {
-                      id: "ALT-001",
-                      title: "Device offline — Gate Controller A3",
-                      severity: "critical",
-                      time: "2 min ago",
-                      site: "North Gate",
-                    },
-                    {
-                      id: "ALT-002",
-                      title: "Battery low — Sensor B7 (12%)",
-                      severity: "warning",
-                      time: "15 min ago",
-                      site: "Building B",
-                    },
-                    {
-                      id: "ALT-003",
-                      title: "Signal strength degraded — Gateway 4",
-                      severity: "warning",
-                      time: "32 min ago",
-                      site: "Warehouse 2",
-                    },
-                    {
-                      id: "ALT-004",
-                      title: "Firmware update available — 12 devices",
-                      severity: "info",
-                      time: "1 hr ago",
-                      site: "All sites",
-                    },
-                  ].map((alert) => (
-                    <div
-                      key={alert.id}
-                      className="flex items-start gap-3 rounded-lg border p-3"
-                    >
-                      <div
-                        className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${
-                          alert.severity === "critical"
-                            ? "bg-red-500"
-                            : alert.severity === "warning"
-                              ? "bg-amber-500"
-                              : "bg-blue-500"
-                        }`}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium">{alert.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {alert.site} · {alert.time}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </>
-              ) : (
-                <p className="py-4 text-center text-sm text-muted-foreground">
-                  Waiting for events...
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Bottom Row */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* Battery Status */}
+        {/* Battery Distribution */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
               <Battery className="h-4 w-4" />
-              Battery Status
+              Battery Distribution
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {batteryCounts ? (
-              <div className="space-y-2">
-                {[
-                  {
-                    label: "Good (>80%)",
-                    value: batteryCounts.good,
-                    color: "bg-emerald-500",
-                  },
-                  {
-                    label: "Fair (40-80%)",
-                    value: batteryCounts.fair,
-                    color: "bg-amber-500",
-                  },
-                  {
-                    label: "Low (<40%)",
-                    value: batteryCounts.low,
-                    color: "bg-red-500",
-                  },
-                ].map((item) => (
-                  <div key={item.label} className="space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span>{item.label}</span>
-                      <span className="text-muted-foreground">
-                        {item.value}%
-                      </span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className={`h-full rounded-full ${item.color} transition-all`}
-                        style={{ width: `${item.value}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {[
-                  { label: "Good (>80%)", value: 65, color: "bg-emerald-500" },
-                  { label: "Fair (40-80%)", value: 22, color: "bg-amber-500" },
-                  { label: "Low (<40%)", value: 13, color: "bg-red-500" },
-                ].map((item) => (
-                  <div key={item.label} className="space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span>{item.label}</span>
-                      <span className="text-muted-foreground">
-                        {item.value}%
-                      </span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className={`h-full rounded-full ${item.color} transition-all`}
-                        style={{ width: `${item.value}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <DistributionBar
+              data={batteryDistribution}
+              title=""
+              description="Good / Fair / Low"
+            />
           </CardContent>
         </Card>
 
-        {/* Signal Strength */}
+        {/* Signal Distribution */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
               <Activity className="h-4 w-4" />
-              Signal Strength
+              Signal Quality
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {[
-                {
-                  label: "Excellent (< -50 dBm)",
-                  value: 45,
-                  color: "bg-emerald-500",
-                },
-                {
-                  label: "Good (-50 to -70 dBm)",
-                  value: 30,
-                  color: "bg-blue-500",
-                },
-                {
-                  label: "Fair (-70 to -85 dBm)",
-                  value: 15,
-                  color: "bg-amber-500",
-                },
-                {
-                  label: "Poor (> -85 dBm)",
-                  value: 10,
-                  color: "bg-red-500",
-                },
-              ].map((item) => (
-                <div key={item.label} className="space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span>{item.label}</span>
-                    <span className="text-muted-foreground">
-                      {item.value}%
-                    </span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={`h-full rounded-full ${item.color} transition-all`}
-                      style={{ width: `${item.value}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <DistributionBar
+              data={signalDistribution}
+              title=""
+              description="Excellent / Good / Fair / Poor"
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ─── Third Row: Temperature + Estates + Recent Activity ────────── */}
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        {/* Temperature Distribution */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <Thermometer className="h-4 w-4" />
+              Temperature Distribution
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DistributionBar
+              data={temperatureDistribution}
+              title=""
+              description="Normal / High / Critical"
+            />
           </CardContent>
         </Card>
 
-        {/* Quick Stats */}
+        {/* Estate Health Summary */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <Monitor className="h-4 w-4" />
+              Devices by Estate
+            </CardTitle>
+            <CardDescription>Health per estate</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <EstateSummaryCards estates={estateSummary} />
+          </CardContent>
+        </Card>
+
+        {/* Recent Activity Feed */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Zap className="h-4 w-4" />
+              Recent Activity
+            </CardTitle>
+            <CardDescription>
+              {hasLiveData
+                ? "Latest events from the realtime feed"
+                : "Latest events requiring attention"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="max-h-[360px] overflow-y-auto">
+            {!hasLiveData ? (
+              <RecentActivity
+                events={
+                  liveAlerts.length > 0
+                    ? liveAlerts.map((a) => ({
+                        eventId: a.id,
+                        title: a.title,
+                        severity: a.severity,
+                        timestamp: a.time,
+                        siteId: a.site,
+                        siteName: undefined,
+                        estateId: undefined,
+                        estateName: undefined,
+                        category: "alert",
+                      }))
+                    : []
+                }
+              />
+            ) : (
+              <RecentActivity events={recentActivity} />
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ─── Fourth Row: Offline Devices + Quick Actions + Today's Stats */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Devices Recently Offline */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <WifiOff className="h-4 w-4 text-slate-500" />
+              Recently Offline
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {devicesOffline.length > 0 ? (
+              <div className="space-y-2">
+                {devicesOffline.map((d) => (
+                  <Link
+                    key={d.id}
+                    href={`/devices/${d.id}`}
+                    className="flex items-center justify-between rounded-md border px-3 py-2 text-sm transition-colors hover:bg-accent/50"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{d.name}</p>
+                      <p className="text-xs text-muted-foreground">{d.site}</p>
+                    </div>
+                    <span className="ml-2 shrink-0 text-xs text-muted-foreground">
+                      {formatRelativeTime(d.lastSeen)}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            ) : !hasLiveData ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm text-muted-foreground">
+                  <span>Simulator data required</span>
+                </div>
+                <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm text-muted-foreground">
+                  <span>Start simulator to populate</span>
+                </div>
+              </div>
+            ) : (
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                All devices are online
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Quick Actions */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
               <Zap className="h-4 w-4" />
+              Quick Actions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <QuickActions
+              offlineCount={devicesOffline.length > 0 ? devicesOffline.length : undefined}
+              faultCount={faultCount}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Today's Overview */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <Clock className="h-4 w-4" />
               Today&apos;s Overview
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {[
-                {
-                  label: "Events Today",
-                  value: eventsToday,
-                  icon: Activity,
-                },
-                {
-                  label: "Avg Response Time",
-                  value: "2.3s",
-                  icon: Clock,
-                },
-                {
-                  label: "Temperature Range",
-                  value: "18°C - 32°C",
-                  icon: Thermometer,
-                },
-                {
-                  label: "System Uptime",
-                  value: "99.97%",
-                  icon: Zap,
-                },
-              ].map((stat) => (
-                <div
-                  key={stat.label}
-                  className="flex items-center justify-between"
-                >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    Events Today
+                  </span>
+                </div>
+                <span className="text-sm font-medium">{eventsToday}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    Last Updated
+                  </span>
+                </div>
+                <span className="text-sm font-medium">
+                  {lastUpdatedAt
+                    ? formatRelativeTime(lastUpdatedAt)
+                    : "—"}
+                </span>
+              </div>
+              {hasLiveData && isSocketConnected && (
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <stat.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Wifi className="h-3.5 w-3.5 text-emerald-500" />
                     <span className="text-sm text-muted-foreground">
-                      {stat.label}
+                      Connection
                     </span>
                   </div>
-                  <span className="text-sm font-medium">{stat.value}</span>
+                  <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                    Live
+                  </span>
                 </div>
-              ))}
+              )}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Thermometer className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    Health Score
+                  </span>
+                </div>
+                <span className="text-sm font-medium">
+                  {fleetHealthScore}/100
+                </span>
+              </div>
             </div>
           </CardContent>
         </Card>

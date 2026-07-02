@@ -1,7 +1,7 @@
 # Technical Debt
 
 > Items intentionally deferred or known to need cleanup.
-> Last updated: 2026-07-02
+> Last updated: 2026-07-03 (consistency audit — removed Resolved items)
 
 ---
 
@@ -9,6 +9,8 @@
 
 - [Data Layer](#data-layer)
 - [UI Components](#ui-components)
+- [Dashboard Charts](#dashboard-charts)
+- [Reports](#reports)
 - [Testing](#testing)
 - [Infrastructure](#infrastructure)
 
@@ -22,8 +24,6 @@ All data is mock or static. Mock data is embedded in page components rather than
 **Impact:** Pages will need refactoring to swap mock fetches for query hooks. The mock data duplication pattern (in both `use-live-devices.ts` and `page.tsx` components) will need consolidation.
 
 **Resolution:** After REST API sprint (infrastructure backlog).
-
----
 
 ### Diagnostics are simulated
 The Diagnostics tab on `/devices/[id]` returns pseudo-random pass/fail/warning results based on device ID and current hour. This is a placeholder for real backend diagnostics (MQTT connectivity, device ping, firmware status, I/O tests).
@@ -60,6 +60,64 @@ The device table on `/devices` is a plain `<table>` with inline styling rather t
 **Impact:** No sort, no column resize, no row selection. Inconsistent with future table patterns.
 
 **Resolution:** When `@tanstack/react-table` is introduced (deferred).
+
+---
+
+## Dashboard Charts
+
+### Dashboard JS bundle is 222 kB (recharts adds ~100 kB)
+The dashboard page imports recharts for distribution bar charts. This nearly doubles the page's first-load JS compared to other pages (~112 kB).
+
+**Impact:** Dashboard page load is heavier than other pages. Each chart is a separate recharts component import.
+
+**Resolution:** Consider lighter alternatives (pure CSS bar charts, SVG-in-JS) if bundle size becomes an issue.
+
+---
+
+### Distribution charts show percentages, not absolute counts
+Battery, signal, and temperature distribution charts display the percentage of devices in each category rather than raw device counts.
+
+**Impact:** Users see relative proportions but can't quickly determine absolute numbers per bucket.
+
+**Resolution:** ✅ **Resolved in quality pass (2026-07-03)** — `DistributionItem` now includes a `count` field, and chart tooltips show both percentage and absolute device counts (e.g. "68% (1,937 devices)").
+
+---
+
+### Alert store has no persistence
+Alerts clear on page refresh — the live alert store is ephemeral by design (real-time overlay). There is no server-side alert persistence to restore alerts on reconnect.
+
+**Impact:** Users lose alert state on navigation away. Only current session alerts survive.
+
+**Resolution:** When REST API backend is built, persist alerts server-side and hydrate the store on reconnect.
+
+---
+
+### No Online/Offline Trend sparkline
+The Sprint 2 spec included a sparkline showing device status counts over time, but the live device store's ring buffer lacks the time-series data needed to compute trends.
+
+**Impact:** Users can't see whether fleet health is improving or degrading over time.
+
+**Resolution:** Add server-side KPI history endpoint and a time-series query when the REST API backend is built.
+
+---
+
+## Reports
+
+### PDF export and scheduled reports are placeholders
+The "Export PDF" button is disabled with a tooltip. The "Schedule Report" card shows Daily/Weekly/Monthly badges but no actual scheduling logic. Both were delivered as UI-only placeholders.
+
+**Impact:** Users can see the intended feature set but cannot use PDF exports or report scheduling.
+
+**Resolution:** PDF could use a client-side library (html2canvas + jsPDF). Scheduling requires a backend (cron-like job scheduler). Both deferred.
+
+---
+
+### Fault distribution data is mock-generated
+The fault distribution pie chart uses static mock data (connection lost, battery failure, signal degradation, etc.) rather than live fault analysis. There is no actual historical fault tracking.
+
+**Impact:** The chart is decorative — it doesn't reflect real device fault patterns.
+
+**Resolution:** Requires server-side fault aggregation. Deferred to backend integration.
 
 ---
 

@@ -1,1 +1,3 @@
 - [Build Priority](memory/build-priority.md) — Product features before infrastructure: the 7-sprint build order
+- [Sprint Release Preference](memory/sprint-release-preference.md) — End feature sprints after Sprint 7, ship v1.0 with an RC polish sprint
+- [Pre-Sprint 6 Audit](memory/pre-sprint-6-audit.md) — Cross-page consistency audit of live metrics before starting RBAC work

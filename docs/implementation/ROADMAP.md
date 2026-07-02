@@ -2,7 +2,7 @@
 
 > **Product backlog.** Tracks what is completed, in progress, next, and blocked.
 > Engineering sprint details live in `BUILD_PLAN.md`.
-> Last updated: 2026-07-02
+> Last updated: 2026-07-03
 
 ---
 
@@ -35,23 +35,73 @@
 
 ---
 
-## 🚧 In Progress — Sprint 2: Dashboard
+## ✅ Completed — Sprint 2: Dashboard
 
-> **Demo:** Dashboard updates automatically as simulator changes. A support engineer can understand the health of an entire estate in 30 seconds.
-
-**Scope:** Upgrade the dashboard from KPIs to an operations center — health scores, charts, estate overview, recent activity, quick actions.
+| Area | Notes |
+|------|-------|
+| **Fleet Health Score** | Composite gauge (online% × 0.4 + battery × 0.3 + signal × 0.3) with green/amber thresholding |
+| **Live KPI cards** | Total, Online, Offline, Fault, Warning counts from live device store |
+| **Battery Distribution** | Horizontal bar chart (Good/Fair/Low) via recharts |
+| **Signal Distribution** | Horizontal bar chart (Excellent/Good/Fair/Poor) via recharts |
+| **Temperature Distribution** | Horizontal bar chart (Normal/High/Critical) via recharts |
+| **Devices by Estate** | Summary cards per estate with status dots and drill-down links |
+| **Recent Activity feed** | Live event stream from ring buffer with severity icons |
+| **Offline Device list** | Recently offline devices with name, site, last-seen links |
+| **Quick Action cards** | View Offline, View Faults, Open Diagnostics, Export Report (placeholder) |
+| **Simulator banner** | Informational card when no live data is present |
+| **Today's Overview** | Side panel with events count, connection status, health score |
+| **Shared components** | `FleetHealthGauge`, `DistributionBar`, `RecentActivity`, `EstateSummaryCards`, `QuickActions` |
 
 ---
 
-## ⏳ Sprint Queue
+## ✅ Completed — Sprint 3: Alerts
+
+| Area | Notes |
+|------|-------|
+| **Live Alert Store** | Zustand store with ring buffer (max 100), acknowledge/resolve actions, history tracking |
+| **Alert Emission** | Bridge emits `alert:created` for battery_low/signal_weak/device_offline/device_fault |
+| **Alert Resolution** | Bridge emits `alert:updated` for status transitions (acknowledge/resolve) |
+| **Socket Wiring** | `useSocket` pushes `alert:created`/`alert:updated` to live alert store |
+| **Alerts Page** | Severity filters (critical/warning/info), status filters (open/acknowledged/resolved) |
+| **Alert Detail Panel** | Side sheet with full alert info, acknowledge/resolve actions, timeline |
+| **Empty State** | EmptyState component when no alerts exist |
+| **Live Alerts Demo** | Start simulator → low battery/fault → alert appears → acknowledge → resolve |
+
+---
+
+---
+
+## ✅ Completed — Sprint 4: Event History
+
+| Area | Notes |
+|------|-------|
+| **Event History Page** | Full event log with severity, category, device, and date filters |
+| **Search** | Text search across event titles and descriptions |
+| **Event Detail Panel** | Side panel with full event info, device/site/estate context, links to device detail |
+| **CSV Export** | Client-side CSV export of filtered events |
+| **Pagination** | Server-style page navigation through event list |
+| **Empty State** | EmptyState when no events match filters |
+
+## ✅ Completed — Sprint 5: Reports
+
+| Area | Notes |
+|------|-------|
+| **Report Dashboard** | Filter bar with date range (today/7d/30d/90d), estate, site, device cascade filters |
+| **Fleet Summary Cards** | Total devices, avg battery, avg signal, open alerts — computed from live store |
+| **Fleet Health Gauge** | Composite health score with status breakdown bars |
+| **Alert Trends Chart** | Stacked area chart (critical/warning/info) over selected time range |
+| **Device Availability Chart** | Stacked bar chart (online/offline/fault) over time |
+| **Battery Health Chart** | Distribution bar (Good/Fair/Low) — reuse from dashboard pattern |
+| **Signal Quality Chart** | Distribution bar (Excellent/Good/Fair/Poor) — reuse from dashboard pattern |
+| **Fault Distribution Chart** | Donut pie chart with 6 fault categories and percentage labels |
+| **CSV Export** | Client-side CSV generation with full metric, distribution, and alert data |
+| **PDF Export (placeholder)** | Button disabled with "Coming soon" tooltip |
+| **Scheduling UI (placeholder)** | Daily/Weekly/Monthly badges with coming-soon state |
+| **Recent Exports List** | In-memory list of recently exported reports with re-download buttons |
 
 | Sprint | Module | Priority | Demo |
 |--------|--------|----------|------|
-| **2** | Dashboard | ⭐⭐⭐⭐⭐ | Dashboard updates automatically as simulator changes |
-| **3** | Alerts | ⭐⭐⭐⭐ | Trigger low battery → alert appears instantly |
-| **4** | Event History | ⭐⭐⭐⭐ | Search event history and drill into a device |
-| **5** | Reports | ⭐⭐⭐⭐ | Export a monthly report to CSV/PDF |
-| **6** | User Management | ⭐⭐⭐ | Log in as Customer vs Support vs Admin — different permissions |
+| **6** | **User Management (In Progress)** | ⭐⭐⭐ | Log in as Customer vs Support vs Admin — different permissions |
 | **7** | Admin | ⭐⭐⭐ | View audit logs and change system settings |
 
 ---

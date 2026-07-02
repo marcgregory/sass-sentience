@@ -42,7 +42,7 @@ import { StatusDot, StatusBadge } from "@/components/shared/status-dot";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
 import { useLiveDevices } from "@/hooks/use-live-devices";
-import { formatRelativeTime, formatDateTime } from "@sentience/utils";
+import { formatRelativeTime, formatDateTime, formatVoltage, formatSignalStrength, formatBattery, formatTemperature } from "@sentience/utils";
 import type { DeviceStatus } from "@sentience/types";
 
 // ─── Types ───────────────────────────────────────────────────────────────
@@ -422,7 +422,7 @@ export default function DeviceDetailPage() {
         <StatCard
           icon={Battery}
           label="Battery"
-          value={`${Math.round(telemetry.battery)}%`}
+          value={formatBattery(telemetry.battery)}
           className={batteryColor(telemetry.battery)}
         />
         <StatCard
@@ -440,7 +440,7 @@ export default function DeviceDetailPage() {
         <StatCard
           icon={Zap}
           label="Voltage"
-          value={`${telemetry.voltage.toFixed(2)}V`}
+          value={formatVoltage(telemetry.voltage)}
           className="text-purple-500"
         />
       </div>
@@ -602,28 +602,28 @@ export default function DeviceDetailPage() {
         <TelemetryCard
           icon={Battery}
           label="Battery"
-          value={`${Math.round(telemetry.battery)}%`}
+          value={formatBattery(telemetry.battery)}
           detail={live ? `Updated ${formatRelativeTime(live.telemetry?.timestamp ?? "")}` : "Mock data"}
           color="text-emerald-500"
         />
         <TelemetryCard
           icon={Thermometer}
           label="Temperature"
-          value={`${telemetry.temperature.toFixed(1)}°C`}
+          value={formatTemperature(telemetry.temperature)}
           detail={live ? `Updated ${formatRelativeTime(live.telemetry?.timestamp ?? "")}` : "Mock data"}
           color="text-orange-500"
         />
         <TelemetryCard
           icon={Zap}
           label="Voltage"
-          value={`${telemetry.voltage.toFixed(2)}V`}
+          value={formatVoltage(telemetry.voltage)}
           detail={live ? `Updated ${formatRelativeTime(live.telemetry?.timestamp ?? "")}` : "Mock data"}
           color="text-purple-500"
         />
         <TelemetryCard
           icon={Wifi}
           label="Signal"
-          value={`${telemetry.signalStrength} dBm`}
+          value={formatSignalStrength(telemetry.signalStrength)}
           detail={live ? `Updated ${formatRelativeTime(live.telemetry?.timestamp ?? "")}` : "Mock data"}
           color={signalColor(telemetry.signalStrength)}
         />

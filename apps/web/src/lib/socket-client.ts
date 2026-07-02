@@ -92,12 +92,16 @@ export interface DeviceDiagnosticEvent {
 
 export interface AlertEvent {
   alertId: string;
+  title: string;
+  description?: string;
+  severity: "critical" | "warning" | "info";
+  status: "open" | "acknowledged" | "resolved";
+  category?: string;
   deviceId?: string;
   siteId?: string;
+  siteName?: string;
   estateId?: string;
-  status: "open" | "acknowledged" | "resolved";
-  severity: "critical" | "warning" | "info";
-  title: string;
+  estateName?: string;
   timestamp: string;
 }
 

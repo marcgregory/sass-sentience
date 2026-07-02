@@ -18,6 +18,7 @@ import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
+import { useLiveAlertStore } from "@/stores/live-alert-store";
 import {
   connectSocket,
   disconnectSocket,
@@ -27,6 +28,7 @@ import {
   type DeviceStatusEvent,
   type DeviceTelemetryEvent,
   type EventStreamEvent,
+  type AlertEvent,
 } from "@/lib/socket-client";
 import { queryKeys } from "@/lib/query-keys";
 
@@ -150,9 +152,31 @@ export function useSocket(options: UseSocketOptions = {}): void {
       socket.off("event:new", liveEventHandler);
     });
 
+    // ─── Live Alert Store Updates ──────────────────────────────────
+    //
+    // These handlers update the ephemeral Zustand live-alert store for
+    // instant UI rendering of alerts without TanStack Query refetch.
+
+    const alertCreatedHandler = (payload: AlertEvent) => {
+      useLiveAlertStore.getState().addAlert(payload);
+    };
+    socket.on("alert:created", alertCreatedHandler);
+    handlers.push(() => {
+      socket.off("alert:created", alertCreatedHandler);
+    });
+
+    const alertUpdatedHandler = (payload: AlertEvent) => {
+      useLiveAlertStore.getState().updateAlertStatus(payload.alertId, payload.status);
+    };
+    socket.on("alert:updated", alertUpdatedHandler);
+    handlers.push(() => {
+      socket.off("alert:updated", alertUpdatedHandler);
+    });
+
     // Track socket connection state
     const handleConnect = () => {
       useLiveDeviceStore.getState().setSocketConnected(true);
+      useLiveAlertStore.getState().setSocketConnected(true);
       // Re-subscribe to rooms on reconnect
       if (options.rooms && options.rooms.length > 0) {
         subscribeRooms(options.rooms);
@@ -160,6 +184,7 @@ export function useSocket(options: UseSocketOptions = {}): void {
     };
     const handleDisconnect = () => {
       useLiveDeviceStore.getState().setSocketConnected(false);
+      useLiveAlertStore.getState().setSocketConnected(false);
     };
     socket.on("connect", handleConnect);
     socket.on("disconnect", handleDisconnect);
@@ -197,6 +222,7 @@ export function useSocket(options: UseSocketOptions = {}): void {
     // synchronously before we register the "connect" event listener above.
     if (socket.connected) {
       useLiveDeviceStore.getState().setSocketConnected(true);
+      useLiveAlertStore.getState().setSocketConnected(true);
     }
 
     return () => {

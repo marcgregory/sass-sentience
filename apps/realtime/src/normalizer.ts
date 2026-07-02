@@ -84,6 +84,25 @@ export interface EventStreamEvent {
   timestamp: string;
 }
 
+/**
+ * Alert event emitted as alert:created / alert:updated
+ * (mirrors socket-client.ts AlertEvent but without the import dependency)
+ */
+export interface AlertEvent {
+  alertId: string;
+  title: string;
+  description?: string;
+  severity: "critical" | "warning" | "info";
+  status: "open" | "acknowledged" | "resolved";
+  category?: string;
+  deviceId?: string;
+  siteId?: string;
+  siteName?: string;
+  estateId?: string;
+  estateName?: string;
+  timestamp: string;
+}
+
 // ─── Normalization ─────────────────────────────────────────────────
 
 function validStatus(s: string | undefined): DeviceStatusValue {
@@ -187,6 +206,70 @@ export function toDiagnosticEvent(
       status: payload.fault ? "failed" : payload.warning ? "warning" : "passed",
       message: formatEventTitle(payload.eventType ?? "event", deviceId, payload),
     },
+    timestamp: payload.timestamp ?? new Date().toISOString(),
+  };
+}
+
+// ─── Alert Normalization ───────────────────────────────────────────
+
+const ALERT_EVENT_TYPES = new Set([
+  "battery_low",
+  "signal_weak",
+  "temperature_high",
+  "device_offline",
+  "device_fault",
+]);
+
+function severityForEventType(eventType: string, payload: MqttPayload): "critical" | "warning" | "info" {
+  if (eventType === "device_fault" || (payload.fault)) return "critical";
+  if (eventType === "battery_low" && (payload.battery ?? 100) < 10) return "critical";
+  if (eventType === "device_offline") return "critical";
+  if (eventType === "temperature_high" && (payload.temperature ?? 0) > 50) return "critical";
+  return "warning";
+}
+
+/**
+ * Normalize an MQTT event payload into an `alert:created` event.
+ * Returns null if the event type is not an alert-worthy condition.
+ */
+export function toAlertEvent(
+  deviceId: string,
+  payload: MqttPayload,
+): AlertEvent | null {
+  const eventType = payload.eventType;
+  if (!eventType || !ALERT_EVENT_TYPES.has(eventType)) return null;
+
+  const severity = severityForEventType(eventType, payload);
+  const id = deviceId.slice(0, 8);
+
+  const titles: Record<string, string> = {
+    battery_low: `Battery Low — Device ${id} (${safeNumber(payload.battery, 0)}%)`,
+    signal_weak: `Signal Weak — Device ${id} (${safeNumber(payload.signal, 0)} dBm)`,
+    temperature_high: `Temperature High — Device ${id} (${safeNumber(payload.temperature, 0)}°C)`,
+    device_offline: `Device Offline — ${id}`,
+    device_fault: `Device Fault — ${id}`,
+  };
+
+  const descriptions: Record<string, string> = {
+    battery_low: `Battery level dropped below threshold (${safeNumber(payload.battery, 0)}%). Device requires maintenance or replacement.`,
+    signal_weak: `Signal strength degraded to ${safeNumber(payload.signal, 0)} dBm. Possible range issue or obstruction.`,
+    temperature_high: `Temperature reading of ${safeNumber(payload.temperature, 0)}°C exceeds safe operating range.`,
+    device_offline: `Device has stopped communicating. Last known state: ${payload.status ?? "unknown"}.`,
+    device_fault: `Device reported a fault condition. Manual inspection may be required.`,
+  };
+
+  return {
+    alertId: `alert-${deviceId}-${eventType}-${Date.now()}`,
+    title: titles[eventType] ?? `Device ${id}: ${eventType}`,
+    description: descriptions[eventType] ?? `Event: ${eventType} for device ${id}.`,
+    severity,
+    status: "open",
+    category: eventType,
+    deviceId,
+    siteId: payload.siteId ?? "unknown",
+    siteName: payload.siteName ?? undefined,
+    estateId: payload.estateId ?? undefined,
+    estateName: payload.estateName ?? undefined,
     timestamp: payload.timestamp ?? new Date().toISOString(),
   };
 }

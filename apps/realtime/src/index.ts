@@ -30,6 +30,7 @@ import {
   toStatusEvent,
   toEventStreamEvent,
   toDiagnosticEvent,
+  toAlertEvent,
 } from "./normalizer";
 import { updateDevice, getDevice, deviceCount } from "./device-registry";
 import type { DeviceStatusValue } from "./socket-server";
@@ -50,6 +51,10 @@ async function main(): Promise<void> {
 
   // Track previous status per device for status transition events
   const previousStatuses = new Map<string, DeviceStatusValue>();
+
+  // Track last alert emission per deviceId+eventType for dedup (60s cooldown)
+  const alertDedupTimestamps = new Map<string, number>();
+  const ALERT_DEDUP_MS = 60_000;
 
   // ─── Socket.IO Server ───────────────────────────────────────────
 
@@ -111,6 +116,15 @@ async function main(): Promise<void> {
             : (previousStatuses.get(deviceId) ?? prevStatus ?? "online");
 
           const statusEvent = toStatusEvent(deviceId, payload, effectivePrev);
+
+          // Never emit status events when status hasn't actually changed
+          if (statusEvent.status === statusEvent.previousStatus) {
+            if (env.LOG_LEVEL === "debug") {
+              console.log(`[status] ${deviceId}: ${statusEvent.status} → ${statusEvent.status} (skipped — no change)`);
+            }
+            break;
+          }
+
           previousStatuses.set(deviceId, statusEvent.status);
           updateDevice(deviceId, { status: statusEvent.status });
 
@@ -120,14 +134,12 @@ async function main(): Promise<void> {
           emitToDevice(EVENTS.DEVICE_STATUS, statusEvent);
 
           // Generate an event stream entry for status transitions
-          if (statusEvent.status !== statusEvent.previousStatus) {
-            const eventStreamEvent = toEventStreamEvent(deviceId, {
-              ...payload,
-              eventType: `status:${statusEvent.previousStatus}→${statusEvent.status}`,
-              status: statusEvent.status,
-            });
-            emitToDevice(EVENTS.EVENT_NEW, eventStreamEvent);
-          }
+          const eventStreamEvent = toEventStreamEvent(deviceId, {
+            ...payload,
+            eventType: `status:${statusEvent.previousStatus}→${statusEvent.status}`,
+            status: statusEvent.status,
+          });
+          emitToDevice(EVENTS.EVENT_NEW, eventStreamEvent);
           break;
         }
 
@@ -136,6 +148,20 @@ async function main(): Promise<void> {
           const eventStreamEvent = toEventStreamEvent(deviceId, payload);
           console.log(`[event]   ${deviceId}: ${payload.eventType ?? "unknown"}`);
           emitToDevice(EVENTS.EVENT_NEW, eventStreamEvent);
+
+          // If it's an alert-worthy condition, also emit alert:created
+          const alertEvent = toAlertEvent(deviceId, payload);
+          if (alertEvent) {
+            // Dedup: skip if same deviceId+category emitted within 60s
+            const dedupKey = `${deviceId}:${payload.eventType ?? "unknown"}`;
+            const lastAlert = alertDedupTimestamps.get(dedupKey);
+            const now = Date.now();
+            if (!lastAlert || now - lastAlert >= ALERT_DEDUP_MS) {
+              alertDedupTimestamps.set(dedupKey, now);
+              console.log(`[alert]   ${deviceId}: ${alertEvent.title}`);
+              emitToDevice(EVENTS.ALERT_CREATED, alertEvent);
+            }
+          }
 
           // If it looks like a diagnostic condition, also emit device:diagnostic
           if (payload.fault || payload.warning) {

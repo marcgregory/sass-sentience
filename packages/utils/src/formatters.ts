@@ -51,8 +51,22 @@ export function formatDuration(seconds: number): string {
   return parts.join(" ") || "<1m";
 }
 
+/**
+ * Format battery percentage: integer (or 1dp for values < 10 to show precision).
+ * Never show more than 1 decimal place.
+ */
+export function formatBattery(pct: number): string {
+  if (Number.isInteger(pct)) return `${pct}%`;
+  return `${pct.toFixed(1)}%`;
+}
+
+/**
+ * Format signal strength: 1 decimal place (or integer if exact).
+ * Never show more than 1 decimal place.
+ */
 export function formatSignalStrength(dbm: number): string {
-  return `${dbm} dBm`;
+  const rounded = Math.round(dbm * 10) / 10;
+  return Number.isInteger(rounded) ? `${rounded} dBm` : `${rounded.toFixed(1)} dBm`;
 }
 
 export function formatVoltage(v: number): string {
