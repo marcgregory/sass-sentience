@@ -66,7 +66,21 @@ export async function userRoutes(app: FastifyInstance) {
     }
 
     if (query.role) {
-      conditions.push(eq(users.roleId, query.role));
+      // Resolve role name to UUID — frontend sends names like "support", not IDs
+      const [roleRecord] = await db
+        .select({ id: roles.id })
+        .from(roles)
+        .where(eq(roles.name, query.role))
+        .limit(1);
+      if (roleRecord) {
+        conditions.push(eq(users.roleId, roleRecord.id));
+      } else {
+        // Unknown role name → no results
+        return reply.send({
+          data: [],
+          pagination: { page, limit, total: 0, totalPages: 0 },
+        });
+      }
     }
 
     if (query.status === "active") {
