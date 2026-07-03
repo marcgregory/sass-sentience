@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
+import { GuestOnly } from "@/components/shared/guest-only";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -54,6 +55,7 @@ export default function LoginPage() {
   };
 
   return (
+    <GuestOnly>
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4 dark:from-slate-950 dark:to-slate-900">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
@@ -208,5 +210,6 @@ export default function LoginPage() {
         </CardContent>
       </Card>
     </div>
+    </GuestOnly>
   );
 }
