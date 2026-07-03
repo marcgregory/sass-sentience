@@ -10,7 +10,7 @@
  */
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { getEvents, getEvent } from "@/lib/events";
 import type { EventApiItem, EventDisplayRow } from "@/lib/events";
 import { queryKeys } from "@/lib/query-keys";
@@ -99,6 +99,7 @@ export function useEvents(options: UseEventsOptions = {}) {
   const query = useQuery({
     queryKey: queryKeys.events.list(apiParams),
     queryFn: () => getEvents(apiParams),
+    placeholderData: keepPreviousData,
   });
 
   const storeEvents = useLiveDeviceStore((s) => s.recentEvents);
