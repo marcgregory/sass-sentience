@@ -154,7 +154,7 @@ Integrating the frontend with the real backend API one domain at a time. No UI/U
 | **1. Health** | ✅ Done | Platform Health polls `GET /api/health`, shows real API status |
 | **2. Devices** | ✅ Done | Devices list and detail load from `GET /api/devices` + `GET /api/devices/:id`, live Socket.IO telemetry overlaid via Zustand, fallback error/loading/empty states, pagination count from API |
 | **3. Events** | ✅ Done | Event history loads from `GET /api/events` + `GET /api/events/:id` via TanStack Query. Live Socket.IO events merged on top via Zustand ring buffer. Deduplication by eventId. Loading skeleton, error state with retry, empty state preserved. Client-side filters (severity/category/device/date/search) and CSV export preserved. Query keys add `events.detail`. New files: `lib/events.ts` (API types + functions), `hooks/use-events.ts` (`useEvents` + `useEvent`). |
-| **4. Alerts** | ⬜ | Load alerts from API, live updates from Socket.IO |
+| **4. Alerts** | ✅ Done | Alerts load from `GET /api/alerts` + `GET /api/alerts/:id` via TanStack Query. Live `alert:created`/`alert:updated` Socket.IO events merged on top via Zustand store. Acknowledge/resolve via `PATCH /api/alerts/:id` with optimistic mutations. Deduplication by alert ID. Loading skeleton, error state with retry, empty state preserved. Filters (severity/status) preserved. New files: `lib/alerts.ts` (API types + functions + mutations), `hooks/use-alerts.ts` (`useAlerts`, `useAlert`, `useAcknowledgeAlert`, `useResolveAlert`). |
 | **5. Reports** | ⬜ | Read report data from API, keep UI unchanged |
 | **6. Users** | ⬜ | Replace mock users with API |
 | **7. Roles** | ⬜ | Replace mock permission data with API |

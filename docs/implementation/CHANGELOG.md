@@ -51,6 +51,17 @@ All notable changes to the Sentience IoT Platform.
 - **Events page (`/events`)** — Now fetches event history from `GET /api/events` via TanStack Query. Live socket events from `useLiveDeviceStore.recentEvents` are merged on top with deduplication. Removed mock data (`MOCK_EVENTS`) and demo data toggle. Client-side filters (severity/category/device/date/search) and CSV export preserved unchanged. Connection indicator shows when offline.
 - `ROADMAP.md` — Events domain marked complete in RC2 integration table.
 
+### Added
+
+- **Alert API functions** — `getAlerts()`, `getAlert(id)`, and `updateAlert(id)` in `apps/web/src/lib/alerts.ts` wrapping `GET /api/alerts`, `GET /api/alerts/:id`, and `PATCH /api/alerts/:id` with typed response interfaces (`AlertApiItem`, `AlertListResponse`, `AlertsParams`, `UpdateAlertPayload`). Exported from `lib/index.ts`.
+- **TanStack Query hooks** — `useAlerts()`, `useAlert(id)`, `useAcknowledgeAlert()`, and `useResolveAlert()` in `apps/web/src/hooks/use-alerts.ts`. `useAlerts()` fetches the paginated alert list and merges live Socket.IO alerts from the Zustand store on top. Live alerts are prepended and deduplicated by id for instant appearance without API refetch. Mutations use optimistic updates to update both the API and the live store, with rollback on error.
+- **Alerts page: loading/error/empty states** — Skeleton loading with 5-row placeholder and summary card skeletons, error card with retry button, empty state when no alerts found.
+
+### Changed
+
+- **Alerts page (`/alerts`)** — Now fetches alert history from `GET /api/alerts` via TanStack Query. Live socket alerts from `useLiveAlertStore` are merged on top with deduplication. Removed mock data (`MOCK_ALERTS`, `MOCK_HISTORY`) and demo data toggle. Acknowledge/resolve actions use optimistic mutations via `PATCH /api/alerts/:id`. Client-side filters (severity/status) preserved unchanged. Connection indicator shows when offline.
+- `ROADMAP.md` — Alerts domain marked complete in RC2 integration table.
+
 ---
 
 ## v1.0.0-rc.1 — 2026-07-03

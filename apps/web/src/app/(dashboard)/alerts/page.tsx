@@ -8,20 +8,19 @@ import { EmptyState } from "@/components/shared/empty-state";
 import {
   BellOff,
   BellRing,
-  BellDot,
   CheckCircle,
   XCircle,
   Eye,
-  Filter,
   History,
-  Clock,
   AlertTriangle,
   AlertCircle,
   Info,
-  WifiOff,
+  RefreshCw,
 } from "lucide-react";
 import { formatRelativeTime, formatDateTime } from "@sentience/utils";
-import { useLiveAlertStore, type LiveAlertEntry, type AlertHistoryEntry } from "@/stores/live-alert-store";
+import { useLiveAlertStore, type AlertHistoryEntry } from "@/stores/live-alert-store";
+import { useAlerts, useAcknowledgeAlert, useResolveAlert } from "@/hooks/use-alerts";
+import type { AlertDisplayRow } from "@/hooks/use-alerts";
 import { cn } from "@sentience/utils";
 
 // ─── Constants ────────────────────────────────────────────────────
@@ -65,69 +64,6 @@ const statusBgStyles: Record<string, string> = {
   open: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-400",
   acknowledged: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-400",
   resolved: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-400",
-};
-
-// ─── Mock Fallback ────────────────────────────────────────────────
-
-const MOCK_ALERTS: LiveAlertEntry[] = [
-  {
-    id: "ALT-001", title: "Device offline — Gate Controller A3",
-    description: "Device has stopped communicating. Last known state: online.",
-    severity: "critical", status: "open", category: "device_offline",
-    deviceId: "DEV-A3", siteName: "Building A - Riverside", estateName: "Riverside Complex",
-    source: "system", occurredAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
-    createdAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "ALT-002", title: "Battery low — Sensor B7 (12%)",
-    description: "Battery level dropped below threshold (12%). Device requires maintenance or replacement.",
-    severity: "warning", status: "acknowledged", category: "battery_low",
-    deviceId: "DEV-B7", siteName: "Building B - Riverside", estateName: "Riverside Complex",
-    acknowledgedBy: "marc.turno", acknowledgedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-    source: "system", occurredAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-    createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "ALT-003", title: "Signal strength degraded — Gateway 4",
-    description: "Signal strength degraded to -95 dBm. Possible range issue or obstruction.",
-    severity: "warning", status: "open", category: "signal_weak",
-    deviceId: "DEV-G4", siteName: "Warehouse 1 - Tech Valley", estateName: "Tech Valley Park",
-    source: "system", occurredAt: new Date(Date.now() - 32 * 60 * 1000).toISOString(),
-    createdAt: new Date(Date.now() - 32 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 32 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "ALT-004", title: "Firmware update available — 12 devices",
-    description: "New firmware version v2.4.0 is available for 12 devices across 3 sites.",
-    severity: "info", status: "open", category: "firmware_outdated",
-    source: "system", occurredAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-    createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "ALT-005", title: "Temperature threshold exceeded — Server Room A",
-    description: "Temperature reading of 47°C exceeds safe operating range.",
-    severity: "critical", status: "resolved", category: "temperature_high",
-    deviceId: "DEV-T3", siteName: "Admin Block - Tech Valley", estateName: "Tech Valley Park",
-    resolvedBy: "system", resolvedAt: new Date(Date.now() - 1.5 * 60 * 60 * 1000).toISOString(),
-    source: "system", occurredAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 1.5 * 60 * 60 * 1000).toISOString(),
-  },
-];
-
-const MOCK_HISTORY: Record<string, AlertHistoryEntry[]> = {
-  "ALT-002": [
-    { alertId: "ALT-002", fromStatus: "open", toStatus: "acknowledged", by: "marc.turno", timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString() },
-    { alertId: "ALT-002", fromStatus: "open", toStatus: "open", timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString() },
-  ],
-  "ALT-005": [
-    { alertId: "ALT-005", fromStatus: "acknowledged", toStatus: "resolved", by: "system", timestamp: new Date(Date.now() - 1.5 * 60 * 60 * 1000).toISOString() },
-    { alertId: "ALT-005", fromStatus: "open", toStatus: "acknowledged", by: "marc.turno", timestamp: new Date(Date.now() - 1.8 * 60 * 60 * 1000).toISOString() },
-    { alertId: "ALT-005", fromStatus: "open", toStatus: "open", timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
-  ],
 };
 
 // ─── Severity Icon ───────────────────────────────────────────────
@@ -194,7 +130,7 @@ function AlertDetailSheet({
   onAcknowledge,
   onResolve,
 }: {
-  alert: LiveAlertEntry;
+  alert: AlertDisplayRow;
   history: AlertHistoryEntry[];
   onClose: () => void;
   onAcknowledge: (id: string) => void;
@@ -338,137 +274,126 @@ function AlertDetailSheet({
   );
 }
 
+// ─── Loading Skeleton ───────────────────────────────────────────────
+
+function AlertsPageSkeleton() {
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Summary card skeletons */}
+      <div className="grid grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="rounded-lg border bg-card p-4">
+            <div className="h-8 w-12 rounded bg-muted animate-pulse" />
+            <div className="h-4 w-20 mt-2 rounded bg-muted animate-pulse" />
+          </div>
+        ))}
+      </div>
+
+      {/* Filter bar skeleton */}
+      <div className="flex gap-2">
+        <div className="h-9 w-72 rounded-lg bg-muted animate-pulse" />
+        <div className="h-9 w-64 rounded-lg bg-muted animate-pulse" />
+      </div>
+
+      {/* Alert row skeletons */}
+      <div className="space-y-2">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="rounded-lg border bg-card p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-5 w-16 rounded-md bg-muted animate-pulse" />
+              <div className="h-5 w-24 rounded-md bg-muted animate-pulse" />
+              <div className="h-4 w-20 rounded bg-muted animate-pulse" />
+            </div>
+            <div className="h-5 w-3/4 rounded bg-muted animate-pulse" />
+            <div className="h-4 w-1/2 mt-2 rounded bg-muted animate-pulse" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Error State ───────────────────────────────────────────────────
+
+function AlertsPageError({ error, onRetry }: { error: Error; onRetry: () => void }) {
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <PageHeader
+        title="Alerts"
+        description="Monitor and manage system alerts"
+      />
+      <div className="rounded-lg border border-red-200 bg-red-50 p-8 text-center dark:border-red-800 dark:bg-red-950/30">
+        <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
+        <h3 className="text-lg font-semibold text-red-800 dark:text-red-400 mb-2">
+          Failed to load alerts
+        </h3>
+        <p className="text-sm text-red-600 dark:text-red-400 mb-4">
+          {error?.message ?? "An unexpected error occurred while fetching alert data."}
+        </p>
+        <Button variant="outline" onClick={onRetry}>
+          <RefreshCw className="h-4 w-4 mr-1.5" />
+          Retry
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ───────────────────────────────────────────────────
 
 export default function AlertsPage() {
-  const storeAlerts = useLiveAlertStore((s) => s.alerts);
-  const storeAlertIds = useLiveAlertStore((s) => s.alertIds);
+  const { alerts, total, isLoading, isError, error, isSocketConnected } = useAlerts();
+  const acknowledgeMutation = useAcknowledgeAlert();
+  const resolveMutation = useResolveAlert();
+
   const storeHistory = useLiveAlertStore((s) => s.alertHistory);
-  const isSocketConnected = useLiveAlertStore((s) => s.isSocketConnected);
-  const acknowledgeAlert = useLiveAlertStore((s) => s.acknowledgeAlert);
-  const resolveAlert = useLiveAlertStore((s) => s.resolveAlert);
 
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
-  const [showMock, setShowMock] = useState(false);
 
-  // Reactive mock alert state for demo mode
-  const [mockAlerts, setMockAlerts] = useState<LiveAlertEntry[]>(MOCK_ALERTS);
-  const [mockHistory, setMockHistory] = useState<Record<string, AlertHistoryEntry[]>>(MOCK_HISTORY);
-
-  const handleMockAcknowledge = (alertId: string) => {
-    setMockAlerts((prev) =>
-      prev.map((a) =>
-        a.id === alertId && a.status === "open"
-          ? { ...a, status: "acknowledged" as const, acknowledgedBy: "demo.user", acknowledgedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
-          : a,
-      ),
-    );
-    setMockHistory((prev) => ({
-      ...prev,
-      [alertId]: [
-        { alertId, fromStatus: "open", toStatus: "acknowledged", by: "demo.user", timestamp: new Date().toISOString() },
-        ...(prev[alertId] ?? []),
-      ],
-    }));
-  };
-
-  const handleMockResolve = (alertId: string) => {
-    setMockAlerts((prev) =>
-      prev.map((a) =>
-        a.id === alertId && a.status !== "resolved"
-          ? { ...a, status: "resolved" as const, resolvedBy: "demo.user", resolvedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
-          : a,
-      ),
-    );
-    setMockHistory((prev) => {
-      const current = prev[alertId]?.[0];
-      const fromStatus = current ? current.toStatus : "open";
-      return {
-        ...prev,
-        [alertId]: [
-          { alertId, fromStatus: fromStatus as "open" | "acknowledged" | "resolved", toStatus: "resolved", by: "demo.user", timestamp: new Date().toISOString() },
-          ...(prev[alertId] ?? []),
-        ],
-      };
-    });
-  };
-
-  // Use live store alerts if available, fall back to mock
-  const hasLiveAlerts = storeAlertIds.length > 0;
-  const sourceAlerts = hasLiveAlerts ? storeAlerts : (showMock ? {} : {});
-  const sourceIds = hasLiveAlerts ? storeAlertIds : (showMock ? mockAlerts.map((a) => a.id) : []);
-  const sourceHistory = hasLiveAlerts ? storeHistory : (showMock ? mockHistory : {});
-
-  // Derive alert list from either source
-  const allAlerts = useMemo(() => {
-    if (hasLiveAlerts) {
-      return storeAlertIds
-        .map((id) => storeAlerts[id])
-        .filter(Boolean) as LiveAlertEntry[];
-    }
-    if (showMock) return mockAlerts;
-    return [];
-  }, [hasLiveAlerts, storeAlertIds, storeAlerts, showMock, mockAlerts]);
-
-  // Apply filters
+  // Apply client-side filters
   const filteredAlerts = useMemo(() => {
-    return allAlerts.filter((alert) => {
+    return alerts.filter((alert) => {
       if (severityFilter !== "all" && alert.severity !== severityFilter) return false;
       if (statusFilter !== "all" && alert.status !== statusFilter) return false;
       return true;
     });
-  }, [allAlerts, severityFilter, statusFilter]);
+  }, [alerts, severityFilter, statusFilter]);
 
-  // Summary counts
-  const criticalCount = allAlerts.filter((a) => a.severity === "critical" && a.status !== "resolved").length;
-  const warningCount = allAlerts.filter((a) => a.severity === "warning" && a.status !== "resolved").length;
-  const infoCount = allAlerts.filter((a) => a.severity === "info" && a.status !== "resolved").length;
+  // Summary counts (only non-resolved alerts)
+  const criticalCount = alerts.filter((a) => a.severity === "critical" && a.status !== "resolved").length;
+  const warningCount = alerts.filter((a) => a.severity === "warning" && a.status !== "resolved").length;
+  const infoCount = alerts.filter((a) => a.severity === "info" && a.status !== "resolved").length;
   const totalActive = criticalCount + warningCount + infoCount;
 
+  // Selected alert detail
   const selectedAlert = selectedAlertId
-    ? (hasLiveAlerts ? storeAlerts[selectedAlertId] : (showMock ? mockAlerts.find((a) => a.id === selectedAlertId) : undefined))
+    ? alerts.find((a) => a.id === selectedAlertId) ?? null
     : null;
   const selectedHistory = selectedAlertId
-    ? (sourceHistory[selectedAlertId] ?? [])
+    ? (storeHistory[selectedAlertId] ?? [])
     : [];
 
-  // Determine which acknowledge/resolve handler to use
-  const handleAcknowledge = hasLiveAlerts ? acknowledgeAlert : handleMockAcknowledge;
-  const handleResolve = hasLiveAlerts ? resolveAlert : handleMockResolve;
+  // ─── Loading State ──────────────────────────────────────────
+  if (isLoading) {
+    return <AlertsPageSkeleton />;
+  }
+
+  // ─── Error State ────────────────────────────────────────────
+  if (isError) {
+    return <AlertsPageError error={error as Error} onRetry={() => window.location.reload()} />;
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Alerts"
         description="Monitor and manage system alerts"
-        actions={
-          <Button variant="outline" size="sm" onClick={() => setShowMock(!showMock)}>
-            <Filter className="h-4 w-4 mr-1" />
-            {showMock ? "Show Live" : "Show Demo Data"}
-          </Button>
-        }
       />
 
       {/* Connection indicator */}
-      {!hasLiveAlerts && !isSocketConnected && !showMock && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400 flex items-center gap-2">
-          <WifiOff className="h-4 w-4" />
-          <span>
-            No real-time connection.{" "}
-            <button
-              className="underline font-medium"
-              onClick={() => setShowMock(true)}
-            >
-              Show demo data
-            </button>{" "}
-            to preview the alerts experience.
-          </span>
-        </div>
-      )}
-
-      {!isSocketConnected && hasLiveAlerts && (
+      {!isSocketConnected && (
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/30 dark:text-slate-400">
           Showing cached alerts — real-time connection is offline.
         </div>
@@ -537,7 +462,7 @@ export default function AlertsPage() {
 
         {filteredAlerts.length > 0 && (
           <span className="text-xs text-muted-foreground ml-auto">
-            {filteredAlerts.length} of {allAlerts.length} alerts
+            {filteredAlerts.length} of {alerts.length} alerts
           </span>
         )}
       </div>
@@ -548,12 +473,12 @@ export default function AlertsPage() {
           icon={BellOff}
           title="No alerts to display"
           description={
-            allAlerts.length === 0
+            alerts.length === 0
               ? "Your alert feed is clear. All devices are operating normally."
               : "No alerts match the current filters. Try adjusting your filter selection."
           }
           action={
-            allAlerts.length > 0
+            alerts.length > 0
               ? { label: "Clear Filters", onClick: () => { setSeverityFilter("all"); setStatusFilter("all"); } }
               : undefined
           }
@@ -596,7 +521,7 @@ export default function AlertsPage() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => handleAcknowledge(alert.id)}
+                      onClick={() => acknowledgeMutation.mutate({ id: alert.id })}
                       title="Acknowledge"
                     >
                       <CheckCircle className="h-4 w-4" />
@@ -607,7 +532,7 @@ export default function AlertsPage() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => handleResolve(alert.id)}
+                      onClick={() => resolveMutation.mutate({ id: alert.id })}
                       title="Resolve"
                     >
                       <XCircle className="h-4 w-4" />
@@ -630,10 +555,10 @@ export default function AlertsPage() {
           history={selectedHistory}
           onClose={() => setSelectedAlertId(null)}
           onAcknowledge={(id) => {
-            handleAcknowledge(id);
+            acknowledgeMutation.mutate({ id });
           }}
           onResolve={(id) => {
-            handleResolve(id);
+            resolveMutation.mutate({ id });
           }}
         />
       )}

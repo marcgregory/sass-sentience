@@ -13,6 +13,13 @@ export type {
   EventsParams,
   EventDisplayRow,
 } from "./events";
+export { getAlerts, getAlert, updateAlert } from "./alerts";
+export type {
+  AlertApiItem,
+  AlertListResponse,
+  AlertsParams,
+  UpdateAlertPayload,
+} from "./alerts";
 export { queryKeys } from "./query-keys";
 export { paginationParams, cursorParams } from "./pagination";
 export type { PaginationParams, CursorPaginationParams, Page, CursorPage } from "./pagination";
