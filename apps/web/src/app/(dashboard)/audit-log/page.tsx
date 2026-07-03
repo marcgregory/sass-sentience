@@ -4,13 +4,15 @@ import { useState, useMemo } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/shared/empty-state";
 import { formatRelativeTime } from "@sentience/utils";
-import { useAuditStore } from "@/stores/audit-store";
+import { useAuditLogs } from "@/hooks/use-audit-logs";
 import { useAuthStore } from "@/stores/auth-store";
+import { useAuditStore } from "@/stores/audit-store";
 import { RequirePermission } from "@/components/shared/require-permission";
 import { hasPermission, ROLE_META } from "@/lib/permissions";
 import {
-  Filter,
   Download,
   Search,
   X,
@@ -21,8 +23,11 @@ import {
   Globe,
   Monitor,
   Shield,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
-import type { AuditAction } from "@sentience/types";
+import type { AuditLogApiItem } from "@/lib/audit-logs";
 
 const actionColors: Record<string, string> = {
   create: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-400",
@@ -69,44 +74,101 @@ const actionSeverity: Record<string, string> = {
   export: "info",
 };
 
+const ACTION_OPTIONS = [
+  "all",
+  "create",
+  "update",
+  "delete",
+  "login",
+  "logout",
+  "export",
+  "permission_change",
+  "password_reset",
+  "mfa_change",
+] as const;
+
 export default function AuditLogPage() {
   const currentUser = useAuthStore((s) => s.user);
-  const { entries } = useAuditStore();
+  const localEntries = useAuditStore((s) => s.entries);
   const [search, setSearch] = useState("");
-  const [actionFilter, setActionFilter] = useState<AuditAction | "all">("all");
+  const [actionFilter, setActionFilter] = useState<string>("all");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
-  const [page, setPage] = useState(0);
-  const [selectedEntry, setSelectedEntry] = useState<typeof entries[number] | null>(null);
+  const [page, setPage] = useState(1);
+  const [selectedEntry, setSelectedEntry] = useState<AuditLogApiItem | null>(null);
   const perPage = 15;
 
   const canManage = hasPermission(currentUser?.role, "audit-log", "manage");
 
-  // Get unique action types from entries
-  const actionTypes = useMemo(() => {
-    const types = new Set(entries.map((e) => e.action));
-    return Array.from(types);
-  }, [entries]);
+  // Fetch audit log entries from API (limit=200 gives a good working set for client-side filtering)
+  const {
+    entries: apiEntries,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useAuditLogs({
+    limit: 200,
+  });
 
-  // Filter entries
-  const filtered = useMemo(() => {
-    return entries.filter((e) => {
-      const matchesSearch = !search ||
-        e.userName.toLowerCase().includes(search.toLowerCase()) ||
-        e.description.toLowerCase().includes(search.toLowerCase()) ||
-        e.resource.toLowerCase().includes(search.toLowerCase()) ||
-        e.id.toLowerCase().includes(search.toLowerCase());
-
-      const matchesAction = actionFilter === "all" || e.action === actionFilter;
-
-      const sev = actionSeverity[e.action] ?? "info";
-      const matchesSeverity = severityFilter === "all" || sev === severityFilter;
-
-      return matchesSearch && matchesAction && matchesSeverity;
+  // Merge API entries with locally-created entries (from this session)
+  // Local entries appear first (most recent)
+  const mergedEntries = useMemo(() => {
+    const combined = [...localEntries, ...apiEntries];
+    // De-duplicate by ID in case a local entry was persisted and now comes via API
+    const seen = new Set<string>();
+    return combined.filter((e) => {
+      if (seen.has(e.id)) return false;
+      seen.add(e.id);
+      return true;
     });
-  }, [entries, search, actionFilter, severityFilter]);
+  }, [localEntries, apiEntries]);
 
+  // Apply search and severity filter (client-side — severity is derived from action)
+  const filtered = useMemo(() => {
+    let result = mergedEntries;
+
+    // Search filter
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (e) =>
+          e.userName.toLowerCase().includes(q) ||
+          e.description.toLowerCase().includes(q) ||
+          e.resource.toLowerCase().includes(q) ||
+          e.id.toLowerCase().includes(q),
+      );
+    }
+
+    // Action filter
+    if (actionFilter !== "all") {
+      result = result.filter((e) => e.action === actionFilter);
+    }
+
+    // Severity filter
+    if (severityFilter !== "all") {
+      result = result.filter((e) => (actionSeverity[e.action] ?? "info") === severityFilter);
+    }
+
+    return result;
+  }, [mergedEntries, search, actionFilter, severityFilter]);
+
+  // Get unique action types from merged entries
+  const actionTypes = useMemo(() => {
+    const types = new Set(mergedEntries.map((e) => e.action));
+    return Array.from(types);
+  }, [mergedEntries]);
+
+  // Client-side pagination
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
-  const paged = filtered.slice(page * perPage, (page + 1) * perPage);
+  const paged = filtered.slice((page - 1) * perPage, page * perPage);
+
+  const severityOptions = [
+    { value: "all", label: "All Severities" },
+    { value: "critical", label: "Critical" },
+    { value: "warning", label: "Warning" },
+    { value: "info", label: "Info" },
+    { value: "debug", label: "Debug" },
+  ];
 
   const handleCSVExport = () => {
     const headers = ["ID", "User", "Action", "Resource", "Resource ID", "Description", "Timestamp", "IP Address"];
@@ -138,13 +200,29 @@ export default function AuditLogPage() {
     );
   };
 
-  const severityOptions = [
-    { value: "all", label: "All Severities" },
-    { value: "critical", label: "Critical" },
-    { value: "warning", label: "Warning" },
-    { value: "info", label: "Info" },
-    { value: "debug", label: "Debug" },
-  ];
+  const handleSearch = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
+
+  const handleActionFilter = (value: string) => {
+    setActionFilter(value);
+    setPage(1);
+  };
+
+  const handleSeverityFilter = (value: string) => {
+    setSeverityFilter(value);
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setSearch("");
+    setActionFilter("all");
+    setSeverityFilter("all");
+    setPage(1);
+  };
+
+  const hasActiveFilters = search || actionFilter !== "all" || severityFilter !== "all";
 
   return (
     <RequirePermission resource="audit-log" action="read">
@@ -166,7 +244,7 @@ export default function AuditLogPage() {
         <div className="grid gap-4 sm:grid-cols-4">
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground mb-1">Total Entries</p>
-            <p className="text-2xl font-bold">{entries.length}</p>
+            <p className="text-2xl font-bold">{mergedEntries.length}</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground mb-1">Filtered</p>
@@ -175,7 +253,7 @@ export default function AuditLogPage() {
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground mb-1">Unique Users</p>
             <p className="text-2xl font-bold">
-              {new Set(entries.map((e) => e.userId)).size}
+              {new Set(mergedEntries.map((e) => e.userId)).size}
             </p>
           </div>
           <div className="rounded-lg border p-4">
@@ -192,12 +270,12 @@ export default function AuditLogPage() {
               type="search"
               placeholder="Search audit log..."
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+              onChange={(e) => { handleSearch(e.target.value); }}
               className="w-full rounded-md border bg-background py-2 pl-10 pr-8 text-sm outline-none focus:ring-2 focus:ring-ring"
             />
             {search && (
               <button
-                onClick={() => setSearch("")}
+                onClick={() => handleSearch("")}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 <X className="h-3.5 w-3.5" />
@@ -207,18 +285,18 @@ export default function AuditLogPage() {
 
           <select
             value={actionFilter}
-            onChange={(e) => { setActionFilter(e.target.value as AuditAction | "all"); setPage(0); }}
+            onChange={(e) => { handleActionFilter(e.target.value); }}
             className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="all">All Actions</option>
-            {["create", "update", "delete", "login", "logout", "export", "permission_change", "password_reset", "mfa_change"].map((a) => (
+            {ACTION_OPTIONS.filter((a) => a !== "all").map((a) => (
               <option key={a} value={a}>{actionLabels[a] ?? a}</option>
             ))}
           </select>
 
           <select
             value={severityFilter}
-            onChange={(e) => { setSeverityFilter(e.target.value); setPage(0); }}
+            onChange={(e) => { handleSeverityFilter(e.target.value); }}
             className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
           >
             {severityOptions.map((opt) => (
@@ -226,11 +304,11 @@ export default function AuditLogPage() {
             ))}
           </select>
 
-          {(search || actionFilter !== "all" || severityFilter !== "all") && (
+          {hasActiveFilters && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => { setSearch(""); setActionFilter("all"); setSeverityFilter("all"); setPage(0); }}
+              onClick={clearFilters}
               className="text-xs"
             >
               <XCircle className="h-3.5 w-3.5" />
@@ -239,99 +317,132 @@ export default function AuditLogPage() {
           )}
         </div>
 
-        {/* Audit entries */}
-        <div className="rounded-lg border">
-          {paged.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <ClipboardList className="h-12 w-12 text-muted-foreground/40 mb-4" />
-              <p className="text-sm font-medium text-muted-foreground mb-1">No audit entries found</p>
-              <p className="text-xs text-muted-foreground">
-                {search || actionFilter !== "all" || severityFilter !== "all"
-                  ? "Try adjusting your search or filters"
-                  : "No audit activity recorded yet"}
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y">
-              {paged.map((log) => {
-                const sev = actionSeverity[log.action] ?? "info";
-                return (
-                  <button
-                    key={log.id}
-                    onClick={() => setSelectedEntry(log)}
-                    className="flex w-full items-start gap-4 p-4 hover:bg-muted/30 transition-colors text-left"
-                  >
-                    {/* Severity bar */}
-                    <div className={`w-0.5 h-full min-h-[3rem] shrink-0 rounded-full ${
-                      sev === "critical" ? "bg-red-500" :
-                      sev === "warning" ? "bg-amber-500" :
-                      sev === "info" ? "bg-blue-500" : "bg-slate-300 dark:bg-slate-600"
-                    }`} />
-
-                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
-                      log.userRole === "system"
-                        ? "bg-muted text-muted-foreground"
-                        : ROLE_META[log.userRole as keyof typeof ROLE_META]?.bgColor ?? "bg-muted"
-                    } ${
-                      ROLE_META[log.userRole as keyof typeof ROLE_META]?.color ?? ""
-                    }`}>
-                      {log.userName.split(" ").map((n) => n[0]).join("")}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                        <SeverityIndicator action={log.action} />
-                        <p className="text-sm font-medium">{log.userName}</p>
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${actionColors[log.action] ?? "bg-muted text-muted-foreground"}`}>
-                          {actionLabels[log.action] ?? log.action}
-                        </span>
-                        <Badge variant="outline" className="text-[10px]">{log.resource}</Badge>
-                        {log.resourceId && (
-                          <span className="text-[10px] text-muted-foreground">{log.resourceId}</span>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground">{log.description}</p>
-                    </div>
-                    <div className="text-right shrink-0 flex items-center gap-2">
-                      <div>
-                        <p className="text-xs text-muted-foreground">{formatRelativeTime(log.createdAt)}</p>
-                        {log.ipAddress && (
-                          <p className="text-[10px] text-muted-foreground">{log.ipAddress}</p>
-                        )}
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Page {page + 1} of {totalPages} ({filtered.length} entries)
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page === 0}
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages - 1}
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              >
-                Next
-              </Button>
+        {/* Loading state */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-16">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Loading audit log…</p>
             </div>
           </div>
+        )}
+
+        {/* Error state */}
+        {isError && !isLoading && (
+          <Card className="border-destructive/50">
+            <CardContent className="flex flex-col items-center gap-3 py-12">
+              <AlertCircle className="h-8 w-8 text-destructive" />
+              <p className="text-sm font-medium">Failed to load audit log</p>
+              <p className="text-xs text-muted-foreground">
+                {error instanceof Error ? error.message : "The audit log data could not be fetched."}
+                {" "}Showing locally recorded entries where available.
+              </p>
+              <Button variant="outline" size="sm" onClick={() => refetch()}>
+                <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Empty state */}
+        {!isLoading && !isError && filtered.length === 0 && (
+          <EmptyState
+            icon={ClipboardList}
+            title="No audit entries found"
+            description={
+              hasActiveFilters
+                ? "Try adjusting your search or filters"
+                : "No audit activity recorded yet"
+            }
+          />
+        )}
+
+        {/* Audit entries */}
+        {filtered.length > 0 && (
+          <>
+            <div className="rounded-lg border">
+              <div className="divide-y">
+                {paged.map((log) => {
+                  const sev = actionSeverity[log.action] ?? "info";
+                  return (
+                    <button
+                      key={log.id}
+                      onClick={() => setSelectedEntry(log)}
+                      className="flex w-full items-start gap-4 p-4 hover:bg-muted/30 transition-colors text-left"
+                    >
+                      {/* Severity bar */}
+                      <div className={`w-0.5 h-full min-h-[3rem] shrink-0 rounded-full ${
+                        sev === "critical" ? "bg-red-500" :
+                        sev === "warning" ? "bg-amber-500" :
+                        sev === "info" ? "bg-blue-500" : "bg-slate-300 dark:bg-slate-600"
+                      }`} />
+
+                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
+                        log.userRole === "system"
+                          ? "bg-muted text-muted-foreground"
+                          : ROLE_META[log.userRole as keyof typeof ROLE_META]?.bgColor ?? "bg-muted"
+                      } ${
+                        ROLE_META[log.userRole as keyof typeof ROLE_META]?.color ?? ""
+                      }`}>
+                        {log.userName.split(" ").map((n) => n[0]).join("")}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                          <SeverityIndicator action={log.action} />
+                          <p className="text-sm font-medium">{log.userName}</p>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${actionColors[log.action] ?? "bg-muted text-muted-foreground"}`}>
+                            {actionLabels[log.action] ?? log.action}
+                          </span>
+                          <Badge variant="outline" className="text-[10px]">{log.resource}</Badge>
+                          {log.resourceId && (
+                            <span className="text-[10px] text-muted-foreground">{log.resourceId}</span>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">{log.description}</p>
+                      </div>
+                      <div className="text-right shrink-0 flex items-center gap-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground">{formatRelativeTime(log.createdAt)}</p>
+                          {log.ipAddress && (
+                            <p className="text-[10px] text-muted-foreground">{log.ipAddress}</p>
+                          )}
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Page {page} of {totalPages} ({filtered.length} entries)
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* Detail Drawer */}

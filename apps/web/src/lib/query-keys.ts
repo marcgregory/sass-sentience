@@ -75,6 +75,13 @@ export const queryKeys = {
     detail: (id: string) => ["roles", "detail", id] as const,
   },
 
+  /** Audit logs */
+  auditLogs: {
+    all: ["auditLogs"] as const,
+    list: (params?: Record<string, unknown>) => ["auditLogs", "list", params] as const,
+    detail: (id: string) => ["auditLogs", "detail", id] as const,
+  },
+
   /** Dashboard KPIs */
   dashboard: {
     kpis: (estateId?: string) => ["dashboard", "kpis", estateId] as const,

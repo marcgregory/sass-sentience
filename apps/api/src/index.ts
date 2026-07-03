@@ -29,6 +29,7 @@ import { eventRoutes } from "./routes/events";
 import { alertRoutes } from "./routes/alerts";
 import { reportRoutes } from "./routes/reports";
 import { settingRoutes } from "./routes/settings";
+import { auditLogRoutes } from "./routes/audit-logs";
 
 let app: FastifyInstance | undefined;
 
@@ -73,6 +74,7 @@ async function main() {
   await app.register(alertRoutes, { prefix: "/api/alerts" });
   await app.register(reportRoutes, { prefix: "/api/reports" });
   await app.register(settingRoutes, { prefix: "/api/settings" });
+  await app.register(auditLogRoutes, { prefix: "/api/audit-logs" });
 
   // ─── Start ──────────────────────────────────────────────────────
 

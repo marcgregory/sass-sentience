@@ -10,16 +10,18 @@ All notable changes to the Sentience IoT Platform.
 
 ### Added
 
-- **Role detail + permission mutations** — `getRole(id)`, `grantPermission(roleId, {resource, action})`, and `revokePermission(roleId, {resource, action})` in `apps/web/src/lib/roles.ts`. Exported from `lib/index.ts` with types (`RoleDetailResponse`, `PermissionApiItem`).
-- **TanStack Query hooks** — `useRole(id)`, `useGrantPermission()`, and `useRevokePermission()` in `apps/web/src/hooks/use-roles.ts`. `useRole()` fetches a single role with its permissions from `GET /api/roles/:id`. Mutations grant/revoke permissions via `POST /api/roles/:id/permissions` and `DELETE /api/roles/:id/permissions` with admin-only guards. Both mutations invalidate the role detail cache on success.
-- **Backend: role permission endpoints** — `POST /api/roles/:id/permissions` and `DELETE /api/roles/:id/permissions` in `apps/api/src/routes/roles.ts` with Zod validation, duplicate checking, and admin role guard (`requireRole("admin")`).
-- **Roles page: loading/error/empty states** — Loading spinner with "Loading roles…" message, error card with retry (falls back to static permission matrix), empty state when no roles found from API.
-- `queryKeys.roles.detail` — Added `detail(id)` query key factory for single-role lookups.
+- **Audit log backend API route** — `GET /api/audit-logs` and `GET /api/audit-logs/:id` in `apps/api/src/routes/audit-logs.ts` with pagination, action filter, date range, search, and sort. Registered at `/api/audit-logs` prefix in `apps/api/src/index.ts`.
+- **Audit log API functions** — `getAuditLogs(params)` and `getAuditLog(id)` in `apps/web/src/lib/audit-logs.ts` wrapping `GET /api/audit-logs` and `GET /api/audit-logs/:id` with typed response interfaces (`AuditLogApiItem`, `AuditLogListResponse`, `AuditLogParams`). Exported from `lib/index.ts`.
+- **TanStack Query hooks** — `useAuditLogs()` and `useAuditLog(id)` in `apps/web/src/hooks/use-audit-logs.ts`. `useAuditLogs()` fetches the paginated, filterable audit log list from the API.
+- **Audit log page: loading/error/empty states** — Loading spinner with "Loading audit log…" message, error card with retry (falls back to showing locally recorded entries), empty state when no entries found.
+- `queryKeys.auditLogs` — Added `all`, `list`, and `detail` query key factories for audit log data.
+- **Graceful degradation** — Audit log page merges API entries with locally-recorded entries (from `useAuditStore`) and deduplicates by ID. Loads the first 200 API entries as a client-side working set for responsive filtering.
 
 ### Changed
 
-- **Roles page (`/roles`)** — Now fetches role list from `GET /api/roles` via TanStack Query. Expanded role card fetches permissions from `GET /api/roles/:id`. Inline toggle grants/revokes permissions via mutations. Permissions reflect live API data during expansion; non-expanded roles still use the static matrix. Added loading, error, and empty states. Audited permission changes preserved.
-- `useRoles()` hook — Now exposes `refetch()` for retry behavior.
+- **Audit Log page (`/audit-log`)** — Now fetches audit entries from `GET /api/audit-logs` via TanStack Query. Search, action filter, severity filter, and pagination all operate client-side on the merged data set (API + local). CSV export, detail drawer, severity indicators, summary cards, and role-colored avatars preserved unchanged.
+- `CLAUDE.md` — Updated "Current Development Phase" to show 8 of 9 domains integrated. Transition to phase-oriented format.
+- `ROADMAP.md` — Audit Log domain marked complete in RC2 integration table.
 
 ### Added
 

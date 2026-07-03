@@ -46,22 +46,18 @@ Only one sprint may be active at a time. See `docs/implementation/BUILD_PLAN.md`
 
 ---
 
-## Current Development Phase – RC2
+## Current Phase
 
-The application UI is feature complete. The current objective is to replace mock frontend data with production API endpoints, one domain at a time.
+RC2 — Frontend/API Integration
 
-### Progress
+**Status:** 8 of 9 domains integrated.
 
-| Status | Domain |
-|--------|--------|
-| ✅ | Health |
-| ✅ | Devices |
-| ✅ | Events |
-| ✅ | Alerts |
-| ✅ | Reports |
-| ✅ | Users |
-| ✅ | Roles |
-| ⏳ | Audit Log |
+| ✅ | Health, Devices, Events, Alerts, Reports, Users, Roles, Audit Log |
+|----|-------------------------------------------------------------------|
+| ⏳ | Settings |
+
+**Current priority:** Finish API integration.
+Do not introduce new features until RC2 is complete.
 
 ### Rules
 

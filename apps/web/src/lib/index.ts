@@ -49,6 +49,12 @@ export type {
 } from "./users";
 export { getRoles, getRole, grantPermission, revokePermission } from "./roles";
 export type { RoleApiItem, RoleListResponse, RoleDetailResponse, PermissionApiItem } from "./roles";
+export { getAuditLogs, getAuditLog } from "./audit-logs";
+export type {
+  AuditLogApiItem,
+  AuditLogListResponse,
+  AuditLogParams,
+} from "./audit-logs";
 export { queryKeys } from "./query-keys";
 export { paginationParams, cursorParams } from "./pagination";
 export type { PaginationParams, CursorPaginationParams, Page, CursorPage } from "./pagination";
