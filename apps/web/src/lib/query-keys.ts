@@ -69,6 +69,11 @@ export const queryKeys = {
     detail: (id: string) => ["users", "detail", id] as const,
     profile: (id: string) => ["users", "profile", id] as const,
   },
+  roles: {
+    all: ["roles"] as const,
+    list: () => ["roles", "list"] as const,
+    detail: (id: string) => ["roles", "detail", id] as const,
+  },
 
   /** Dashboard KPIs */
   dashboard: {

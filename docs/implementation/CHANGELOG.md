@@ -10,6 +10,19 @@ All notable changes to the Sentience IoT Platform.
 
 ### Added
 
+- **Role detail + permission mutations** — `getRole(id)`, `grantPermission(roleId, {resource, action})`, and `revokePermission(roleId, {resource, action})` in `apps/web/src/lib/roles.ts`. Exported from `lib/index.ts` with types (`RoleDetailResponse`, `PermissionApiItem`).
+- **TanStack Query hooks** — `useRole(id)`, `useGrantPermission()`, and `useRevokePermission()` in `apps/web/src/hooks/use-roles.ts`. `useRole()` fetches a single role with its permissions from `GET /api/roles/:id`. Mutations grant/revoke permissions via `POST /api/roles/:id/permissions` and `DELETE /api/roles/:id/permissions` with admin-only guards. Both mutations invalidate the role detail cache on success.
+- **Backend: role permission endpoints** — `POST /api/roles/:id/permissions` and `DELETE /api/roles/:id/permissions` in `apps/api/src/routes/roles.ts` with Zod validation, duplicate checking, and admin role guard (`requireRole("admin")`).
+- **Roles page: loading/error/empty states** — Loading spinner with "Loading roles…" message, error card with retry (falls back to static permission matrix), empty state when no roles found from API.
+- `queryKeys.roles.detail` — Added `detail(id)` query key factory for single-role lookups.
+
+### Changed
+
+- **Roles page (`/roles`)** — Now fetches role list from `GET /api/roles` via TanStack Query. Expanded role card fetches permissions from `GET /api/roles/:id`. Inline toggle grants/revokes permissions via mutations. Permissions reflect live API data during expansion; non-expanded roles still use the static matrix. Added loading, error, and empty states. Audited permission changes preserved.
+- `useRoles()` hook — Now exposes `refetch()` for retry behavior.
+
+### Added
+
 - **Frontend Integration — v1.0 RC2 started.** The project shifts from "build features" to "integrate & harden." Connecting the frontend to the real backend API one domain at a time, removing mock data as each domain completes.
 - **Device API functions** — `getDevices()` and `getDevice(id)` in `apps/web/src/lib/devices.ts` wrapping `GET /api/devices` and `GET /api/devices/:id` with typed response interfaces (`DeviceApiItem`, `DeviceListResponse`, `DeviceDetailResponse`).
 - **TanStack Query hooks** — `useDevices()` and `useDevice(id)` in `apps/web/src/hooks/use-devices.ts`. `useDevices()` fetches the paginated list and merges live socket telemetry/status overlay; `useDevice(id)` fetches a single device detail with live overlay. Both append simulator-only devices from the live store.
@@ -53,14 +66,32 @@ All notable changes to the Sentience IoT Platform.
 
 ### Added
 
-- **Alert API functions** — `getAlerts()`, `getAlert(id)`, and `updateAlert(id)` in `apps/web/src/lib/alerts.ts` wrapping `GET /api/alerts`, `GET /api/alerts/:id`, and `PATCH /api/alerts/:id` with typed response interfaces (`AlertApiItem`, `AlertListResponse`, `AlertsParams`, `UpdateAlertPayload`). Exported from `lib/index.ts`.
-- **TanStack Query hooks** — `useAlerts()`, `useAlert(id)`, `useAcknowledgeAlert()`, and `useResolveAlert()` in `apps/web/src/hooks/use-alerts.ts`. `useAlerts()` fetches the paginated alert list and merges live Socket.IO alerts from the Zustand store on top. Live alerts are prepended and deduplicated by id for instant appearance without API refetch. Mutations use optimistic updates to update both the API and the live store, with rollback on error.
-- **Alerts page: loading/error/empty states** — Skeleton loading with 5-row placeholder and summary card skeletons, error card with retry button, empty state when no alerts found.
+- **Report API functions** — `getReportSummary()`, `getReportTrends()`, `getReports()`, `getReport()`, and `generateReport()` in `apps/web/src/lib/reports.ts` wrapping `GET /api/reports/summary`, `GET /api/reports/trends`, `GET /api/reports`, `GET /api/reports/:id`, and `POST /api/reports` with typed response interfaces (`ReportSummaryResponse`, `ReportTrendsResponse`, `TimeSeriesPoint`, `AvailabilityPoint`, `SummaryDistributionItem`, `FaultDistributionItem`, `GeneratedReport`, `ReportListResponse`). Exported from `lib/index.ts`.
+- **TanStack Query hooks** — `useReportSummary()`, `useReportTrends()`, `useRecentReports()`, and `useGenerateReport()` in `apps/web/src/hooks/use-reports.ts`. `useReportSummary()` fetches computed fleet summary (total/online/offline/fault/warning devices, avg battery, avg signal, health score, battery/signal/fault distributions) with optional estate/site/device filtering. `useReportTrends()` fetches alert time series (critical/warning/info) and device availability (online/offline/fault) over a configurable date range. Both have 30s stale time.
+- **Reports page: loading/error states** — Full-page skeleton with summary card placeholders (4 col), filter bar skeleton, health gauge skeleton, and chart area skeletons. Error card with retry button and error message.
+- **Backend report endpoints** — `GET /api/reports/summary` and `GET /api/reports/trends` in `apps/api/src/routes/reports.ts`. Summary computes fleet metrics from the devices table with optional estate/site/device filtering. Trends computes daily alert time series (from events + alerts tables) and device availability counts (from event categories). Both respect filters and return typed responses matching frontend expectations.
 
 ### Changed
 
-- **Alerts page (`/alerts`)** — Now fetches alert history from `GET /api/alerts` via TanStack Query. Live socket alerts from `useLiveAlertStore` are merged on top with deduplication. Removed mock data (`MOCK_ALERTS`, `MOCK_HISTORY`) and demo data toggle. Acknowledge/resolve actions use optimistic mutations via `PATCH /api/alerts/:id`. Client-side filters (severity/status) preserved unchanged. Connection indicator shows when offline.
-- `ROADMAP.md` — Alerts domain marked complete in RC2 integration table.
+- **Reports page (`/reports`)** — Now fetches summary and trend data from `GET /api/reports/summary` and `GET /api/reports/trends` via TanStack Query. Removed mock data generators (`generateTimeSeries`, `generateAvailabilityTrend`, `generateFaultDistribution`, `MOCK_FLEET`, `MOCK_BATTERY`, `MOCK_SIGNAL`). Live device/alert overlay (open alerts, events in scope, filter dropdown options) preserved from Zustand stores. Client-side filters (date range, estate, site, device) and CSV export preserved unchanged. Added loading skeleton and error state.
+- `useReportsData` hook — Now delegates to `useReportSummary` and `useReportTrends` TanStack Query hooks. Exposes `isLoading`, `isError`, `error`, and `refetch` for page-level state handling.
+- `lib/index.ts` — Exports `getReportSummary`, `getReportTrends`, `getReports`, `getReport`, `generateReport`, and their types.
+- `queryKeys.reports` — Already had `all`, `list`, `detail` factories; now also used by the new hooks.
+- `ROADMAP.md` — Reports domain marked complete in RC2 integration table.
+
+### Added
+
+- **User API functions** — `getUsers()`, `getUser()`, `createUser()`, `updateUser()`, `deactivateUser()` in `apps/web/src/lib/users.ts` wrapping `GET /api/users`, `GET /api/users/:id`, `POST /api/users`, `PATCH /api/users/:id`, and `DELETE /api/users/:id` with typed response interfaces (`UserApiItem`, `UserListResponse`, `UsersParams`, `CreateUserPayload`, `UpdateUserPayload`). Exported from `lib/index.ts`.
+- **Role API functions** — `getRoles()` in `apps/web/src/lib/roles.ts` wrapping `GET /api/roles` with typed response (`RoleApiItem`, `RoleListResponse`). Roles are fetched separately because the create user dialog needs role UUIDs for role assignment.
+- **TanStack Query hooks** — `useUsers()`, `useUser()`, `useRoles()`, `useCreateUser()`, `useUpdateUser()`, `useDeactivateUser()` in `apps/web/src/hooks/use-users.ts`. `useUsers()` supports server-side search, role filter, status filter, and pagination. Mutations invalidate the user list cache on success.
+- **Users page: loading/error/empty states** — Loading spinner with "Loading users..." message, error card with retry button, empty state preserved. Pagination controls added for multi-page result sets.
+- **Backend: users API joined with roles** — `apps/api/src/routes/users.ts` now left-joins the `roles` table in all GET/POST/PATCH endpoints, returning both `roleId` (UUID) and `role` (enum name from the roles table) in every user response.
+
+### Changed
+
+- **Users page (`/users`)** — Now fetches user list from `GET /api/users` via TanStack Query. Create/edit/deactivate operate through `POST/PATCH/DELETE /api/users` with mutations. Removed mock `initialUsers` data and `setTimeout`-based create/role change/deactivate logic. Role dropdown populated from `GET /api/roles` using real UUIDs. Summary cards, search, filters, role badges, inline role change, and dialog UI preserved unchanged.
+- `queryKeys.roles` — Added `roles.all` and `roles.list()` query key factories.
+- `ROADMAP.md` — Users domain marked complete in RC2 integration table. Removed duplicate Sprint 6 section.
 
 ---
 

@@ -16,8 +16,6 @@ import { DistributionBar } from "@/components/shared/distribution-bar";
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell,
@@ -34,7 +32,6 @@ import {
   Download,
   FileText,
   Calendar,
-  Clock,
   BarChart3,
   PieChart as PieChartIcon,
   AlertTriangle,
@@ -42,10 +39,9 @@ import {
   RefreshCw,
   Printer,
   X,
-  ChevronRight,
-  ChevronLeft,
+  AlertCircle,
 } from "lucide-react";
-import { cn, formatDateTime, formatRelativeTime, formatBattery, formatSignalStrength, colorClassToHex } from "@sentience/utils";
+import { cn, formatRelativeTime, formatBattery, formatSignalStrength, colorClassToHex } from "@sentience/utils";
 import { useReportsData, type ReportFilter } from "./use-reports-data";
 
 // ─── Constants ────────────────────────────────────────────────────
@@ -93,6 +89,10 @@ export default function ReportsPage() {
     siteOptions,
     deviceOptions,
     downloadCSV,
+    isLoading,
+    isError,
+    error,
+    refetch,
   } = useReportsData(filter);
 
   const hasFilters = filter.estateId || filter.siteId || filter.deviceId;
@@ -121,6 +121,119 @@ export default function ReportsPage() {
   const clearFilters = useCallback(() => {
     setFilter({ dateRange: "30d", estateId: null, siteId: null, deviceId: null });
   }, []);
+
+  // ─── Loading State ──────────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <PageHeader
+          title="Reports"
+          description="Generate and export fleet reports with charts and summary statistics"
+          actions={
+            <div className="flex gap-2">
+              <div className="h-9 w-24 rounded-lg bg-muted animate-pulse" />
+              <div className="h-9 w-32 rounded-lg bg-muted animate-pulse" />
+              <div className="h-9 w-28 rounded-lg bg-muted animate-pulse" />
+            </div>
+          }
+        />
+
+        {/* Summary card skeletons */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2">
+                <div className="h-4 w-20 rounded bg-muted animate-pulse" />
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 w-16 rounded bg-muted animate-pulse" />
+                <div className="h-3 w-28 mt-2 rounded bg-muted animate-pulse" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Filter bar skeleton */}
+        <Card>
+          <CardContent className="py-4">
+            <div className="flex flex-wrap gap-3">
+              <div className="h-10 w-96 rounded-lg bg-muted animate-pulse" />
+              <div className="h-10 w-36 rounded-lg bg-muted animate-pulse" />
+              <div className="h-10 w-36 rounded-lg bg-muted animate-pulse" />
+              <div className="h-10 w-40 rounded-lg bg-muted animate-pulse" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Chart area skeletons */}
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Card className="lg:col-span-1">
+            <CardContent className="py-8">
+              <div className="h-48 rounded-full bg-muted animate-pulse mx-auto w-48" />
+            </CardContent>
+          </Card>
+          <Card className="lg:col-span-2">
+            <CardContent className="py-8">
+              <div className="space-y-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i}>
+                    <div className="h-3 w-20 rounded bg-muted animate-pulse mb-1" />
+                    <div className="h-4 w-full rounded bg-muted animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Chart skeletons */}
+        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          <Card className="xl:col-span-2">
+            <CardContent className="py-8">
+              <div className="h-64 rounded bg-muted animate-pulse" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="py-8">
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i}>
+                    <div className="h-3 w-20 rounded bg-muted animate-pulse mb-1" />
+                    <div className="h-4 w-full rounded bg-muted animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Error State ────────────────────────────────────────────────────
+  if (isError) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <PageHeader
+          title="Reports"
+          description="Generate and export fleet reports with charts and summary statistics"
+        />
+        <div className="rounded-lg border border-red-200 bg-red-50 p-8 text-center dark:border-red-800 dark:bg-red-950/30">
+          <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
+          <h3 className="text-lg font-semibold text-red-800 dark:text-red-400 mb-2">
+            Failed to load report data
+          </h3>
+          <p className="text-sm text-red-600 dark:text-red-400 mb-4">
+            {error instanceof Error ? error.message : "An unexpected error occurred while fetching report data."}
+          </p>
+          <Button variant="outline" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4 mr-1.5" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">

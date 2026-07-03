@@ -1,46 +1,34 @@
 /**
- * Reports data hook — merges live device/alert state with mock historical
- * data for the Reports dashboard.
+ * Reports data hook — fetches report summary and trends from the API
+ * via TanStack Query, then overlays live device/alert state for realtime freshness.
  *
- * When live socket data is present, summary metrics reflect actual devices
- * via shared selectors. Chart data uses deterministic mock generation since
- * no historical API exists yet.
+ * Chart data (alert trends, availability, distributions) comes from the API.
+ * Live overlay data (open alerts, events in scope) comes from Zustand stores.
+ * Filter dropdown options come from both API and live devices.
+ *
+ * When the API is unreachable, data falls back to a graceful error state
+ * rather than showing stale mock data.
  */
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useReportSummary, useReportTrends } from "@/hooks/use-reports";
+import type { UseReportSummaryOptions, UseReportTrendsOptions } from "@/hooks/use-reports";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
 import { useLiveAlertStore } from "@/stores/live-alert-store";
 import {
-  computeBatteryDistribution,
-  computeSignalDistribution,
-  computeFleetSummary,
-  colorClassToHex,
+  formatBattery,
+  formatSignalStrength,
   type FleetSummary,
   type DistributionItem,
 } from "@sentience/utils";
+import type {
+  TimeSeriesPoint,
+  AvailabilityPoint,
+  FaultDistributionItem,
+  SummaryDistributionItem,
+} from "@/lib/reports";
 
 // ─── Types ─────────────────────────────────────────────────────────────
-
-export interface TimeSeriesPoint {
-  date: string;
-  label: string;
-  critical: number;
-  warning: number;
-  info: number;
-}
-
-export interface AvailabilityPoint {
-  name: string;
-  online: number;
-  offline: number;
-  fault: number;
-}
-
-export interface FaultDistributionItem {
-  category: string;
-  count: number;
-  color: string;
-}
 
 export interface ReportFilter {
   dateRange: "today" | "7d" | "30d" | "90d";
@@ -58,103 +46,49 @@ export interface RecentExport {
   exportedAt: string;
 }
 
-// ─── Mock Generators ───────────────────────────────────────────────────
+// ─── Days map ─────────────────────────────────────────────────────────
 
-function generateTimeSeries(days: number): TimeSeriesPoint[] {
-  const points: TimeSeriesPoint[] = [];
-  const now = Date.now();
-
-  let baseCritical = 2;
-  let baseWarning = 8;
-  let baseInfo = 15;
-
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(now - i * 24 * 60 * 60 * 1000);
-    const dayOfWeek = d.getDay();
-    const weekendFactor = dayOfWeek === 0 || dayOfWeek === 6 ? 0.6 : 1;
-
-    baseCritical = Math.max(0, baseCritical + (Math.random() - 0.45) * 1.5);
-    baseWarning = Math.max(1, baseWarning + (Math.random() - 0.48) * 3);
-    baseInfo = Math.max(2, baseInfo + (Math.random() - 0.5) * 4);
-
-    points.push({
-      date: d.toISOString().slice(0, 10),
-      label: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      critical: Math.round(baseCritical * weekendFactor),
-      warning: Math.round(baseWarning * weekendFactor),
-      info: Math.round(baseInfo * weekendFactor),
-    });
+function dateRangeToDays(range: ReportFilter["dateRange"]): number {
+  switch (range) {
+    case "today": return 1;
+    case "7d": return 7;
+    case "30d": return 30;
+    case "90d": return 90;
+    default: return 30;
   }
-  return points;
 }
 
-function generateAvailabilityTrend(days: number): AvailabilityPoint[] {
-  const baseOnline = 625;
-  const baseTotal = 712;
-  const points: AvailabilityPoint[] = [];
-  const now = Date.now();
+// ─── DistributionItem adapter ─────────────────────────────────────────
 
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(now - i * 24 * 60 * 60 * 1000);
-    const drift = Math.round((Math.random() - 0.5) * 6);
-    const online = Math.max(0, Math.min(baseTotal, baseOnline + drift));
-    const fault = Math.max(0, Math.round((baseTotal - online) * (0.1 + Math.random() * 0.2)));
-    const offline = Math.max(0, baseTotal - online - fault);
-    points.push({
-      name: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      online,
-      offline,
-      fault,
-    });
-  }
-  return points;
+function apiDistToDistItem(d: SummaryDistributionItem): DistributionItem {
+  return {
+    label: d.label,
+    value: d.value,
+    count: d.count,
+    color: d.color,
+  };
 }
-
-function generateFaultDistribution(): FaultDistributionItem[] {
-  return [
-    { category: "Connection Lost", count: 42, color: "#ef4444" },
-    { category: "Battery Failure", count: 28, color: "#f59e0b" },
-    { category: "Signal Degradation", count: 35, color: "#f97316" },
-    { category: "Temperature", count: 18, color: "#dc2626" },
-    { category: "Hardware Fault", count: 12, color: "#8b5cf6" },
-    { category: "Firmware Error", count: 9, color: "#6366f1" },
-  ];
-}
-
-// ─── Mock Fleet Summary ────────────────────────────────────────────────
-
-const MOCK_FLEET: FleetSummary = {
-  totalDevices: 2847,
-  onlineDevices: 2631,
-  offlineDevices: 142,
-  faultDevices: 37,
-  warningDevices: 89,
-  avgBattery: 74.3,
-  avgSignal: -68.5,
-  healthScore: 87.2,
-  onlinePct: 92.4,
-};
-
-const MOCK_BATTERY: DistributionItem[] = [
-  { label: "Good (>60%)", value: 68, count: 1937, color: "bg-emerald-500" },
-  { label: "Fair (20–60%)", value: 22, count: 626, color: "bg-amber-500" },
-  { label: "Low (<20%)", value: 10, count: 284, color: "bg-red-500" },
-];
-
-const MOCK_SIGNAL: DistributionItem[] = [
-  { label: "Excellent", value: 35, count: 996, color: "bg-emerald-500" },
-  { label: "Good", value: 30, count: 854, color: "bg-blue-500" },
-  { label: "Fair", value: 22, count: 626, color: "bg-amber-500" },
-  { label: "Poor", value: 13, count: 371, color: "bg-red-500" },
-];
-
-// ─── Export tracking ───────────────────────────────────────────────────
-
-let exportCounter = 0;
 
 // ─── Hook ──────────────────────────────────────────────────────────────
 
 export function useReportsData(filter: ReportFilter) {
+  const days = dateRangeToDays(filter.dateRange);
+
+  // API data via TanStack Query
+  const summaryQuery = useReportSummary({
+    estateId: filter.estateId,
+    siteId: filter.siteId,
+    deviceId: filter.deviceId,
+  });
+
+  const trendsQuery = useReportTrends({
+    days,
+    estateId: filter.estateId,
+    siteId: filter.siteId,
+    deviceId: filter.deviceId,
+  });
+
+  // Live device/alert stores for realtime freshness
   const devices = useLiveDeviceStore((s) => s.devices);
   const recentEvents = useLiveDeviceStore((s) => s.recentEvents);
   const alerts = useLiveAlertStore((s) => s.alerts);
@@ -164,112 +98,106 @@ export function useReportsData(filter: ReportFilter) {
   const deviceEntries = Object.values(devices);
   const hasLiveData = deviceEntries.length > 0;
 
-  // ─── Filtered device entries ────────────────────────────────────────
+  // ─── Derive FleetSummary from API ─────────────────────────────────
 
-  const filteredDevices = useMemo(() => {
-    let entries = hasLiveData ? deviceEntries : [];
-
-    if (filter.estateId) {
-      entries = entries.filter((d) => d.estateId === filter.estateId);
-    }
-    if (filter.siteId) {
-      entries = entries.filter((d) => d.siteId === filter.siteId);
-    }
-    if (filter.deviceId) {
-      entries = entries.filter((d) => d.deviceId === filter.deviceId);
-    }
-
-    return entries;
-  }, [deviceEntries, hasLiveData, filter.estateId, filter.siteId, filter.deviceId]);
-
-  // ─── Days for date range ────────────────────────────────────────────
-
-  const days = useMemo(() => {
-    switch (filter.dateRange) {
-      case "today": return 1;
-      case "7d": return 7;
-      case "30d": return 30;
-      case "90d": return 90;
-      default: return 30;
-    }
-  }, [filter.dateRange]);
-
-  // ─── Fleet Summary (via shared selector) ────────────────────────────
+  const api = summaryQuery.summary;
 
   const fleetSummary: FleetSummary = useMemo(() => {
-    if (!hasLiveData) return MOCK_FLEET;
-    const summary = computeFleetSummary(filteredDevices);
-    // If no devices match filters, return mock with zeroed counts
-    if (filteredDevices.length === 0) {
-      return { ...MOCK_FLEET, totalDevices: 0, onlineDevices: 0, offlineDevices: 0, faultDevices: 0, warningDevices: 0, onlinePct: 0, avgBattery: 0, avgSignal: 0, healthScore: 0 };
+    if (!api) {
+      // Fallback when API is loading or errored — use zeroed defaults
+      return {
+        totalDevices: 0,
+        onlineDevices: 0,
+        offlineDevices: 0,
+        faultDevices: 0,
+        warningDevices: 0,
+        avgBattery: 0,
+        avgSignal: 0,
+        healthScore: 0,
+        onlinePct: 0,
+      };
     }
-    return summary;
-  }, [filteredDevices, hasLiveData]);
+    return {
+      totalDevices: api.totalDevices,
+      onlineDevices: api.onlineDevices,
+      offlineDevices: api.offlineDevices,
+      faultDevices: api.faultDevices,
+      warningDevices: api.warningDevices,
+      avgBattery: api.avgBattery,
+      avgSignal: api.avgSignal,
+      healthScore: api.healthScore,
+      onlinePct: api.onlinePct,
+    };
+  }, [api]);
 
-  // ─── Alert Trends (time series) ─────────────────────────────────────
+  // ─── Alert Trends ────────────────────────────────────────────────
 
   const alertTrends: TimeSeriesPoint[] = useMemo(() => {
-    return generateTimeSeries(days);
-  }, [days]);
+    return trendsQuery.trends?.alertTrends ?? [];
+  }, [trendsQuery.trends]);
 
-  // ─── Device Availability ────────────────────────────────────────────
+  // ─── Device Availability ──────────────────────────────────────────
 
   const availability: AvailabilityPoint[] = useMemo(() => {
-    return generateAvailabilityTrend(days);
-  }, [days]);
+    return trendsQuery.trends?.availability ?? [];
+  }, [trendsQuery.trends]);
 
-  // ─── Battery Distribution (via shared selector) ─────────────────────
+  // ─── Battery Distribution ────────────────────────────────────────
 
   const batteryDistribution: DistributionItem[] = useMemo(() => {
-    if (!hasLiveData) return MOCK_BATTERY;
-    const result = computeBatteryDistribution(filteredDevices);
-    return result.every((d) => d.count === 0) ? [
-      { label: "Good (>60%)", value: 0, count: 0, color: "bg-emerald-500" },
-      { label: "Fair (20–60%)", value: 0, count: 0, color: "bg-amber-500" },
-      { label: "Low (<20%)", value: 0, count: 0, color: "bg-red-500" },
-    ] : result;
-  }, [filteredDevices, hasLiveData]);
+    if (!api?.batteryDistribution) {
+      return [
+        { label: "Good (>60%)", value: 0, count: 0, color: "bg-emerald-500" },
+        { label: "Fair (20–60%)", value: 0, count: 0, color: "bg-amber-500" },
+        { label: "Low (<20%)", value: 0, count: 0, color: "bg-red-500" },
+      ];
+    }
+    return api.batteryDistribution.map(apiDistToDistItem);
+  }, [api]);
 
-  // ─── Signal Distribution (via shared selector) ─────────────────────
+  // ─── Signal Distribution ─────────────────────────────────────────
 
   const signalDistribution: DistributionItem[] = useMemo(() => {
-    if (!hasLiveData) return MOCK_SIGNAL;
-    const result = computeSignalDistribution(filteredDevices);
-    return result.every((d) => d.count === 0) ? [
-      { label: "Excellent", value: 0, count: 0, color: "bg-emerald-500" },
-      { label: "Good", value: 0, count: 0, color: "bg-blue-500" },
-      { label: "Fair", value: 0, count: 0, color: "bg-amber-500" },
-      { label: "Poor", value: 0, count: 0, color: "bg-red-500" },
-    ] : result;
-  }, [filteredDevices, hasLiveData]);
+    if (!api?.signalDistribution) {
+      return [
+        { label: "Excellent", value: 0, count: 0, color: "bg-emerald-500" },
+        { label: "Good", value: 0, count: 0, color: "bg-blue-500" },
+        { label: "Fair", value: 0, count: 0, color: "bg-amber-500" },
+        { label: "Poor", value: 0, count: 0, color: "bg-red-500" },
+      ];
+    }
+    return api.signalDistribution.map(apiDistToDistItem);
+  }, [api]);
 
-  // ─── Fault Distribution ─────────────────────────────────────────────
+  // ─── Fault Distribution ──────────────────────────────────────────
 
   const faultDistribution: FaultDistributionItem[] = useMemo(() => {
-    return generateFaultDistribution();
-  }, []);
+    return api?.faultDistribution ?? [];
+  }, [api]);
 
-  // ─── Recent events count for the report scope ───────────────────────
-
-  const eventsInScope = useMemo(() => {
-    return Math.max(12, recentEvents.length * (days > 1 ? days : 1));
-  }, [recentEvents.length, days]);
-
-  // ─── Open alerts count ───────────────────────────────────────────────
+  // ─── Open alerts (live overlay) ──────────────────────────────────
 
   const openAlerts = useMemo(() => {
     return Object.values(alerts).filter((a) => a.status === "open").length;
   }, [alerts]);
 
-  // ─── Recent Exports (tracked in-memory) ─────────────────────────────
+  // ─── Events in scope (live overlay) ──────────────────────────────
 
-  const recentExports: RecentExport[] = [
+  const eventsInScope = useMemo(() => {
+    return Math.max(recentEvents.length, recentEvents.length * (days > 1 ? days : 1));
+  }, [recentEvents.length, days]);
+
+  // ─── Recent Exports (in-memory tracking) ─────────────────────────
+
+  const [recentExports] = useState<RecentExport[]>([
     { id: "EXP-001", name: "Fleet Health Report", filters: "All estates", dateRange: "Last 30 Days", format: "CSV", exportedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
     { id: "EXP-002", name: "Alert Analysis", filters: "Critical + Warning", dateRange: "Last 7 Days", format: "CSV", exportedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() },
     { id: "EXP-003", name: "Monthly Summary", filters: "Tech Valley Park", dateRange: "Last 30 Days", format: "PDF", exportedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
-  ];
+  ]);
 
-  // ─── CSV Export ─────────────────────────────────────────────────────
+  // ─── CSV Export ──────────────────────────────────────────────────
+
+  let exportCounter = 0;
 
   function generateCSV(): string {
     const headers = [
@@ -328,7 +256,7 @@ export function useReportsData(filter: ReportFilter) {
     exportCounter++;
   }
 
-  // ─── Estate/Site options for filter dropdowns ───────────────────────
+  // ─── Estate/Site options for filter dropdowns ─────────────────────
 
   const estateOptions = useMemo(() => {
     const estateMap = new Map<string, string>();
@@ -380,6 +308,12 @@ export function useReportsData(filter: ReportFilter) {
     return Array.from(deviceSet).map((id) => ({ id, name: `Device ${id.slice(0, 8)}` }));
   }, [deviceEntries, filter.estateId, filter.siteId]);
 
+  // ─── Combined loading/error state ────────────────────────────────
+
+  const isLoading = summaryQuery.isLoading || trendsQuery.isLoading;
+  const isError = summaryQuery.isError && trendsQuery.isError;
+  const error = summaryQuery.error ?? trendsQuery.error;
+
   return {
     fleetSummary,
     alertTrends,
@@ -397,5 +331,12 @@ export function useReportsData(filter: ReportFilter) {
     siteOptions,
     deviceOptions,
     downloadCSV,
+    isLoading,
+    isError,
+    error,
+    refetch: () => {
+      summaryQuery.refetch();
+      trendsQuery.refetch();
+    },
   };
 }

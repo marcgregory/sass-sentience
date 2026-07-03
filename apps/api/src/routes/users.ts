@@ -6,6 +6,22 @@ import { eq, ilike, and, or, asc, desc, count, SQL } from "drizzle-orm";
 import { requireAuth, requireRole } from "../middleware/auth";
 import * as crypto from "crypto";
 
+// ─── Shared Columns ─────────────────────────────────────────────────────────
+const userWithRole = {
+  id: users.id,
+  email: users.email,
+  name: users.name,
+  avatar: users.avatar,
+  roleId: users.roleId,
+  role: roles.name,
+  isActive: users.isActive,
+  mfaEnabled: users.mfaEnabled,
+  customerId: users.customerId,
+  lastLogin: users.lastLogin,
+  createdAt: users.createdAt,
+  updatedAt: users.updatedAt,
+};
+
 const createUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
@@ -70,19 +86,9 @@ export async function userRoutes(app: FastifyInstance) {
     const orderBy = query.order === "desc" ? desc(sortField) : asc(sortField);
 
     const result = await db
-      .select({
-        id: users.id,
-        email: users.email,
-        name: users.name,
-        avatar: users.avatar,
-        roleId: users.roleId,
-        isActive: users.isActive,
-        mfaEnabled: users.mfaEnabled,
-        lastLogin: users.lastLogin,
-        createdAt: users.createdAt,
-        updatedAt: users.updatedAt,
-      })
+      .select(userWithRole)
       .from(users)
+      .leftJoin(roles, eq(users.roleId, roles.id))
       .where(where)
       .orderBy(orderBy)
       .limit(limit)
@@ -103,20 +109,9 @@ export async function userRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string };
 
     const [user] = await db
-      .select({
-        id: users.id,
-        email: users.email,
-        name: users.name,
-        avatar: users.avatar,
-        roleId: users.roleId,
-        isActive: users.isActive,
-        mfaEnabled: users.mfaEnabled,
-        customerId: users.customerId,
-        lastLogin: users.lastLogin,
-        createdAt: users.createdAt,
-        updatedAt: users.updatedAt,
-      })
+      .select(userWithRole)
       .from(users)
+      .leftJoin(roles, eq(users.roleId, roles.id))
       .where(eq(users.id, id))
       .limit(1);
 
@@ -156,16 +151,17 @@ export async function userRoutes(app: FastifyInstance) {
         customerId: body.customerId,
         avatar: body.avatar,
       })
-      .returning({
-        id: users.id,
-        email: users.email,
-        name: users.name,
-        roleId: users.roleId,
-        isActive: users.isActive,
-        createdAt: users.createdAt,
-      });
+      .returning({ id: users.id });
 
-    return reply.status(201).send(newUser);
+    // Fetch the created user with role name
+    const [created] = await db
+      .select(userWithRole)
+      .from(users)
+      .leftJoin(roles, eq(users.roleId, roles.id))
+      .where(eq(users.id, newUser.id))
+      .limit(1);
+
+    return reply.status(201).send(created);
   });
 
   app.patch("/:id", { preHandler: [requireAuth] }, async (request, reply) => {
@@ -176,21 +172,21 @@ export async function userRoutes(app: FastifyInstance) {
       .update(users)
       .set({ ...body, updatedAt: new Date() })
       .where(eq(users.id, id))
-      .returning({
-        id: users.id,
-        email: users.email,
-        name: users.name,
-        roleId: users.roleId,
-        isActive: users.isActive,
-        mfaEnabled: users.mfaEnabled,
-        updatedAt: users.updatedAt,
-      });
+      .returning({ id: users.id });
 
     if (!updated) {
       return reply.status(404).send({ message: "User not found", code: "NOT_FOUND" });
     }
 
-    return reply.send(updated);
+    // Fetch the updated user with role name
+    const [updatedUser] = await db
+      .select(userWithRole)
+      .from(users)
+      .leftJoin(roles, eq(users.roleId, roles.id))
+      .where(eq(users.id, id))
+      .limit(1);
+
+    return reply.send(updatedUser);
   });
 
   app.delete("/:id", { preHandler: [requireAuth, requireRole("admin")] }, async (request, reply) => {

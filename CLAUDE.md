@@ -46,6 +46,35 @@ Only one sprint may be active at a time. See `docs/implementation/BUILD_PLAN.md`
 
 ---
 
+## Current Development Phase – RC2
+
+The application UI is feature complete. The current objective is to replace mock frontend data with production API endpoints, one domain at a time.
+
+### Progress
+
+| Status | Domain |
+|--------|--------|
+| ✅ | Health |
+| ✅ | Devices |
+| ✅ | Events |
+| ✅ | Alerts |
+| ✅ | Reports |
+| ✅ | Users |
+| ✅ | Roles |
+| ⏳ | Audit Log |
+
+### Rules
+
+- Do not redesign the UI. Preserve existing UX.
+- Server state → TanStack Query.
+- Realtime state → Zustand overlay.
+- One integration domain at a time.
+- Remove mock data as each domain completes.
+- Update ROADMAP.md and CHANGELOG.md after each completed domain.
+- Run `pnpm lint` and `pnpm build` before marking a domain complete.
+
+---
+
 ## Architecture
 
 ### Monorepo (pnpm workspaces + Turborepo)

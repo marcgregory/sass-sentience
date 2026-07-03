@@ -130,21 +130,6 @@
 | **Profile** | Live auth data, personal info edit, password change, notification prefs |
 | **Demo role switching** | Header role badge, Switch Role modal, quick-login on login page |
 
-## ✅ Completed — Sprint 6: User Management (RBAC)
-
-| Area | Notes |
-|------|-------|
-| **Permission system** | Full matrix (4 roles × 14 resources × 5 actions) in `@/lib/permissions` |
-| **Auth store: real RBAC** | `hasPermission()`/`hasRole()` return real results; `loginAsRole()` for instant switching |
-| **Sidebar nav filtering** | Admin sees 13 items, Support sees 10, Customer sees 5 |
-| **Route guards** | `AuthGuard` (unauthenticated redirect) + `RequirePermission` (Access Denied for unauthorized) |
-| **User management** | User list, search/filter, create dialog, inline role change, activate/deactivate |
-| **Roles & Permissions** | Role summary cards, expandable permission matrix with toggle switches |
-| **Audit Log** | Live store, search, action filter, CSV export, pagination |
-| **Settings** | Tabbed UI (General/Security/Notifications/Maintenance), mock fields, save feedback |
-| **Profile** | Live auth data, personal info edit, password change, notification prefs |
-| **Demo role switching** | Header role badge, Switch Role modal, quick-login on login page |
-
 ## ✅ In Progress — v1.0 RC2: Frontend Integration
 
 Integrating the frontend with the real backend API one domain at a time. No UI/UX changes — only data source swaps.
@@ -155,9 +140,9 @@ Integrating the frontend with the real backend API one domain at a time. No UI/U
 | **2. Devices** | ✅ Done | Devices list and detail load from `GET /api/devices` + `GET /api/devices/:id`, live Socket.IO telemetry overlaid via Zustand, fallback error/loading/empty states, pagination count from API |
 | **3. Events** | ✅ Done | Event history loads from `GET /api/events` + `GET /api/events/:id` via TanStack Query. Live Socket.IO events merged on top via Zustand ring buffer. Deduplication by eventId. Loading skeleton, error state with retry, empty state preserved. Client-side filters (severity/category/device/date/search) and CSV export preserved. Query keys add `events.detail`. New files: `lib/events.ts` (API types + functions), `hooks/use-events.ts` (`useEvents` + `useEvent`). |
 | **4. Alerts** | ✅ Done | Alerts load from `GET /api/alerts` + `GET /api/alerts/:id` via TanStack Query. Live `alert:created`/`alert:updated` Socket.IO events merged on top via Zustand store. Acknowledge/resolve via `PATCH /api/alerts/:id` with optimistic mutations. Deduplication by alert ID. Loading skeleton, error state with retry, empty state preserved. Filters (severity/status) preserved. New files: `lib/alerts.ts` (API types + functions + mutations), `hooks/use-alerts.ts` (`useAlerts`, `useAlert`, `useAcknowledgeAlert`, `useResolveAlert`). |
-| **5. Reports** | ⬜ | Read report data from API, keep UI unchanged |
-| **6. Users** | ⬜ | Replace mock users with API |
-| **7. Roles** | ⬜ | Replace mock permission data with API |
+| **5. Reports** | ✅ Done | Report summary and trends load from `GET /api/reports/summary` + `GET /api/reports/trends` via TanStack Query. Live device/alert overlay preserved for freshness. Client-side filters (date range, estate, site, device) preserved. CSV export unchanged. PDF export placeholder preserved. Loading skeleton with summary/gauge/chart placeholders. Error state with retry. New files: `lib/reports.ts` (API types + functions), `hooks/use-reports.ts` (`useReportSummary`, `useReportTrends`, `useRecentReports`, `useGenerateReport`). Backend: `GET /api/reports/summary` and `GET /api/reports/trends` endpoints added to compute aggregate data from devices/events/alerts tables with optional estate/site/device filtering. |
+| **6. Users** | ✅ Done | Users list loads from `GET /api/users` via TanStack Query. Role drop-down populated from `GET /api/roles`. Create/edit/deactivate via `POST/PATCH/DELETE /api/users` with mutations. Backend users route updated to join with `roles` table so API returns both `roleId` (UUID) and `role` (enum name). Loading spinner, error state with retry, empty state preserved. Search, filters, pagination, dialog, role badges all preserved. New files: `lib/users.ts` (API types + functions), `lib/roles.ts` (API types + functions), `hooks/use-users.ts` (`useUsers`, `useUser`, `useRoles`, `useCreateUser`, `useUpdateUser`, `useDeactivateUser`). No mock user records remain in users page. |
+| **7. Roles** | ✅ Done | Role list loads from `GET /api/roles`, permission detail from `GET /api/roles/:id`. Inline toggle to grant/revoke permissions via `POST/DELETE /api/roles/:id/permissions` with admin-only mutations. Backend: added `POST /api/roles/:id/permissions` and `DELETE /api/roles/:id/permissions` endpoints, Zod validation, duplicate checking, admin role guard. New files: `hooks/use-roles.ts` (`useRole`, `useGrantPermission`, `useRevokePermission`). Updated: `lib/roles.ts` (`getRole`, `grantPermission`, `revokePermission`), `query-keys.ts` (`roles.detail`). Loading spinner, error state with retry (falls back to static matrix), empty state for no roles. Role card granted-resources badges reflect live permission data during expansion. |
 | **8. Audit Log** | ⬜ | Read from API |
 | **9. Settings** | ⬜ | Read/write settings via API |
 
