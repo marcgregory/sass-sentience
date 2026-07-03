@@ -389,8 +389,8 @@ export default function EventsPage() {
 
   const hasFilters = severityFilter !== "all" || categoryFilter !== "all" || deviceFilter !== "all" || dateRange !== "all" || searchQuery.trim() !== "";
 
-  // ─── Loading state ─────────────────────────────────────────────
-  if (isLoading) {
+  // ─── Loading state (initial only — keep content during search refetches) ─
+  if (isLoading && events.length === 0) {
     return (
       <div className="space-y-6 animate-fade-in">
         <PageHeader
