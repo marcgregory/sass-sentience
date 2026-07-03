@@ -2,23 +2,25 @@
  * Reports data hook — fetches report summary and trends from the API
  * via TanStack Query, then overlays live device/alert state for realtime freshness.
  *
- * Chart data (alert trends, availability, distributions) comes from the API.
- * Live overlay data (open alerts, events in scope) comes from Zustand stores.
- * Filter dropdown options come from both API and live devices.
+ * Three modes:
+ *   Simulator Mode ON + live store has data → live metrics from store
+ *   Simulator Mode ON + live store empty    → zero state (simulator banner)
+ *   Simulator Mode OFF                      → API data (or zero fallback)
  *
- * When the API is unreachable, data falls back to a graceful error state
- * rather than showing stale mock data.
+ * Chart data (alert trends, availability, distributions) uses live store
+ * when simulator mode is active with data, otherwise falls back to the API.
  */
 
 import { useMemo, useState } from "react";
 import { useReportSummary, useReportTrends } from "@/hooks/use-reports";
-import type { UseReportSummaryOptions, UseReportTrendsOptions } from "@/hooks/use-reports";
-import { useLiveDeviceStore } from "@/stores/live-device-store";
-import { useLiveAlertStore } from "@/stores/live-alert-store";
+import { useLiveDeviceStore, type LiveDeviceEntry } from "@/stores/live-device-store";
+import { useLiveAlertStore, type LiveAlertEntry } from "@/stores/live-alert-store";
 import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 import {
-  formatBattery,
-  formatSignalStrength,
+  computeFleetSummary,
+  computeStatusCounts,
+  computeBatteryDistribution,
+  computeSignalDistribution,
   type FleetSummary,
   type DistributionItem,
 } from "@sentience/utils";
@@ -70,12 +72,137 @@ function apiDistToDistItem(d: SummaryDistributionItem): DistributionItem {
   };
 }
 
+// ─── Live alert → FaultDistributionItem ───────────────────────────────
+
+const FAULT_CATEGORY_COLORS: Record<string, string> = {
+  device_offline: "#94a3b8",
+  device_fault: "#ef4444",
+  battery_low: "#f59e0b",
+  signal_weak: "#3b82f6",
+  temperature_high: "#ef4444",
+  threshold_breach: "#f59e0b",
+  firmware_outdated: "#8b5cf6",
+  connection_lost: "#94a3b8",
+  voltage_drop: "#f59e0b",
+  config_change: "#6366f1",
+  system: "#6b7280",
+};
+
+function deriveFaultDistributionFromLive(
+  deviceEntries: LiveDeviceEntry[],
+  alerts: Record<string, LiveAlertEntry>,
+): FaultDistributionItem[] {
+  // Collect fault categories from devices in fault/warning status and open alerts
+  const categoryCounts = new Map<string, number>();
+
+  // Count from devices with fault/warning derived status
+  const counts = computeStatusCounts(deviceEntries);
+  if (counts.fault > 0) categoryCounts.set("device_fault", counts.fault);
+  if (counts.warning > 0) categoryCounts.set("threshold_breach", counts.warning);
+
+  // Count from alert categories
+  for (const alert of Object.values(alerts)) {
+    const cat = alert.category ?? "system";
+    categoryCounts.set(cat, (categoryCounts.get(cat) ?? 0) + 1);
+  }
+
+  if (categoryCounts.size === 0) {
+    return [];
+  }
+
+  return Array.from(categoryCounts.entries())
+    .map(([category, count]) => ({
+      category,
+      count,
+      color: FAULT_CATEGORY_COLORS[category] ?? "#6b7280",
+    }))
+    .sort((a, b) => b.count - a.count);
+}
+
+// ─── Live → TimeSeriesPoint (alert trends grouped by date) ────────────
+
+function deriveAlertTrendsFromLive(
+  alerts: Record<string, LiveAlertEntry>,
+  days: number,
+): TimeSeriesPoint[] {
+  const alertList = Object.values(alerts);
+  if (alertList.length === 0) {
+    // Return blank series for the requested day range
+    return Array.from({ length: Math.min(days, 7) }, (_, i) => ({
+      date: "",
+      label: `Day ${i + 1}`,
+      critical: 0,
+      warning: 0,
+      info: 0,
+      online: 0,
+      offline: 0,
+      fault: 0,
+    }));
+  }
+
+  // Group alerts by their occurrence date label
+  const buckets = new Map<string, { critical: number; warning: number; info: number }>();
+
+  for (const alert of alertList) {
+    const d = new Date(alert.occurredAt);
+    const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    if (!buckets.has(label)) {
+      buckets.set(label, { critical: 0, warning: 0, info: 0 });
+    }
+    const bucket = buckets.get(label)!;
+    if (alert.severity === "critical") bucket.critical++;
+    else if (alert.severity === "warning") bucket.warning++;
+    else bucket.info++;
+  }
+
+  // Sort by date and return as TimeSeriesPoint[]
+  return Array.from(buckets.entries())
+    .sort(([a], [b]) => {
+      // Parse "Mon DD" → comparable date
+      const da = new Date(`${a}, ${new Date().getFullYear()}`);
+      const db = new Date(`${b}, ${new Date().getFullYear()}`);
+      return da.getTime() - db.getTime();
+    })
+    .map(([label, counts]) => ({
+      date: label,
+      label,
+      critical: counts.critical,
+      warning: counts.warning,
+      info: counts.info,
+      online: 0,
+      offline: 0,
+      fault: 0,
+    }));
+}
+
+// ─── Live → AvailabilityPoint ─────────────────────────────────────────
+
+function deriveAvailabilityFromLive(
+  deviceEntries: LiveDeviceEntry[],
+  days: number,
+): AvailabilityPoint[] {
+  if (deviceEntries.length === 0) {
+    return Array.from({ length: Math.min(days, 7) }, (_, i) => ({
+      name: `Day ${i + 1}`,
+      online: 0,
+      offline: 0,
+      fault: 0,
+    }));
+  }
+
+  const counts = computeStatusCounts(deviceEntries);
+  // Return a single data point for "current" since the live store only has current state
+  return [
+    { name: "Current", online: counts.online, offline: counts.offline, fault: counts.fault },
+  ];
+}
+
 // ─── Hook ──────────────────────────────────────────────────────────────
 
 export function useReportsData(filter: ReportFilter) {
   const days = dateRangeToDays(filter.dateRange);
 
-  // API data via TanStack Query
+  // API data via TanStack Query (used when simulator mode is OFF)
   const summaryQuery = useReportSummary({
     estateId: filter.estateId,
     siteId: filter.siteId,
@@ -98,16 +225,20 @@ export function useReportsData(filter: ReportFilter) {
   const isSocketConnected = useLiveDeviceStore((s) => s.isSocketConnected);
 
   // Simulator Mode OFF → ignore live store entirely, use API data only
-  const deviceEntries = simulatorMode ? Object.values(devices) : [];
+  const deviceEntries = Object.values(devices);
   const hasLiveData = simulatorMode && deviceEntries.length > 0;
+  const liveDataSource = hasLiveData ? deviceEntries : [];
 
-  // ─── Derive FleetSummary from API ─────────────────────────────────
+  // ─── FleetSummary ──────────────────────────────────────────────────
+  // Sim ON + live data → derive from store. Sim OFF → use API.
 
   const api = summaryQuery.summary;
 
   const fleetSummary: FleetSummary = useMemo(() => {
+    if (hasLiveData) {
+      return computeFleetSummary(liveDataSource);
+    }
     if (!api) {
-      // Fallback when API is loading or errored — use zeroed defaults
       return {
         totalDevices: 0,
         onlineDevices: 0,
@@ -131,23 +262,32 @@ export function useReportsData(filter: ReportFilter) {
       healthScore: api.healthScore,
       onlinePct: api.onlinePct,
     };
-  }, [api]);
+  }, [hasLiveData, liveDataSource, api]);
 
   // ─── Alert Trends ────────────────────────────────────────────────
 
   const alertTrends: TimeSeriesPoint[] = useMemo(() => {
+    if (hasLiveData) {
+      return deriveAlertTrendsFromLive(alerts, days);
+    }
     return trendsQuery.trends?.alertTrends ?? [];
-  }, [trendsQuery.trends]);
+  }, [hasLiveData, alerts, days, trendsQuery.trends]);
 
   // ─── Device Availability ──────────────────────────────────────────
 
   const availability: AvailabilityPoint[] = useMemo(() => {
+    if (hasLiveData) {
+      return deriveAvailabilityFromLive(liveDataSource, days);
+    }
     return trendsQuery.trends?.availability ?? [];
-  }, [trendsQuery.trends]);
+  }, [hasLiveData, liveDataSource, days, trendsQuery.trends]);
 
   // ─── Battery Distribution ────────────────────────────────────────
 
   const batteryDistribution: DistributionItem[] = useMemo(() => {
+    if (hasLiveData) {
+      return computeBatteryDistribution(liveDataSource);
+    }
     if (!api?.batteryDistribution) {
       return [
         { label: "Good (>60%)", value: 0, count: 0, color: "bg-emerald-500" },
@@ -156,11 +296,14 @@ export function useReportsData(filter: ReportFilter) {
       ];
     }
     return api.batteryDistribution.map(apiDistToDistItem);
-  }, [api]);
+  }, [hasLiveData, liveDataSource, api]);
 
   // ─── Signal Distribution ─────────────────────────────────────────
 
   const signalDistribution: DistributionItem[] = useMemo(() => {
+    if (hasLiveData) {
+      return computeSignalDistribution(liveDataSource);
+    }
     if (!api?.signalDistribution) {
       return [
         { label: "Excellent", value: 0, count: 0, color: "bg-emerald-500" },
@@ -170,13 +313,16 @@ export function useReportsData(filter: ReportFilter) {
       ];
     }
     return api.signalDistribution.map(apiDistToDistItem);
-  }, [api]);
+  }, [hasLiveData, liveDataSource, api]);
 
   // ─── Fault Distribution ──────────────────────────────────────────
 
   const faultDistribution: FaultDistributionItem[] = useMemo(() => {
+    if (hasLiveData) {
+      return deriveFaultDistributionFromLive(liveDataSource, alerts);
+    }
     return api?.faultDistribution ?? [];
-  }, [api]);
+  }, [hasLiveData, liveDataSource, alerts, api]);
 
   // ─── Open alerts (live overlay) ──────────────────────────────────
 
@@ -312,9 +458,14 @@ export function useReportsData(filter: ReportFilter) {
   }, [deviceEntries, filter.estateId, filter.siteId]);
 
   // ─── Combined loading/error state ────────────────────────────────
+  // When live data is active, ignore API loading/errors — we use the store.
+  // When simulator mode is ON but no devices yet, suppress API errors too
+  // so the "Simulator not running" banner shows instead of an error state.
 
-  const isLoading = summaryQuery.isLoading || trendsQuery.isLoading;
-  const isError = summaryQuery.isError && trendsQuery.isError;
+  const ignoreApi = hasLiveData || (simulatorMode && deviceEntries.length === 0);
+
+  const isLoading = ignoreApi ? false : (summaryQuery.isLoading || trendsQuery.isLoading);
+  const isError = ignoreApi ? false : (summaryQuery.isError && trendsQuery.isError);
   const error = summaryQuery.error ?? trendsQuery.error;
 
   return {

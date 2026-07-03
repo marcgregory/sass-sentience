@@ -42,7 +42,7 @@ import {
   AlertCircle,
   Cpu,
 } from "lucide-react";
-import { cn, formatRelativeTime, formatBattery, formatSignalStrength, colorClassToHex } from "@sentience/utils";
+import { cn, formatRelativeTime, formatBattery, formatSignalStrength } from "@sentience/utils";
 import { useReportsData, type ReportFilter } from "./use-reports-data";
 import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 
