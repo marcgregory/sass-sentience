@@ -454,7 +454,10 @@ export function useReportsData(filter: ReportFilter) {
         { id: "DEV-B7", name: "Sensor B7" },
       ];
     }
-    return Array.from(deviceSet).map((id) => ({ id, name: `Device ${id.slice(0, 8)}` }));
+    return Array.from(deviceSet).map((id) => {
+      const entry = liveDataSource.find((d) => d.deviceId === id);
+      return { id, name: entry?.deviceName ?? `Device ${id.slice(0, 8)}` };
+    });
   }, [deviceEntries, filter.estateId, filter.siteId]);
 
   // ─── Combined loading/error state ────────────────────────────────

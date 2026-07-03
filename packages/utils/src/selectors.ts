@@ -12,14 +12,6 @@ import type { DeviceStatus } from "@sentience/types";
 
 // ─── Constants ────────────────────────────────────────────────────────────
 
-/** If a device hasn't been seen in this many ms, consider it offline. */
-const HEARTBEAT_STALE_MS = 300_000; // 5 minutes
-
-/** Battery percentage below which a device gets "warning" status. */
-const BATTERY_WARNING_THRESHOLD = 20;
-
-/** Battery at or below this percentage means the device is in "fault". */
-const BATTERY_FAULT_THRESHOLD = 0;
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -81,41 +73,50 @@ export interface EstateSummary {
 
 /**
  * Derive the *effective display status* of a device based on telemetry
- * health and heartbeat freshness, not just the raw stored status.
+ * health, not just the raw stored status.
  *
- * Rules:
- * 1. No telemetry at all → "offline" (we can't confirm it's alive).
- * 2. Battery is null/undefined → "offline" (critical sensor missing).
- * 3. Battery ≤ 0 → "fault" (dead battery, cannot operate).
- * 4. Battery < 20% → "warning" (low battery, needs attention).
- * 5. lastSeen is stale (>5 min) → "offline" (no recent heartbeat).
- * 6. Otherwise → keep the raw status (likely "online").
+ * Rules (in priority order):
+ * 1. Raw status is "offline" → "offline" (connection is truly lost).
+ * 2. Battery ≤ 10%       → "fault" (critically low).
+ * 3. Battery ≤ 20%       → "warning" (low battery).
+ * 4. Battery is null/N/A → "warning" (missing sensor data).
+ * 5. Signal ≤ -110 dBm   → "warning" (very weak signal).
+ * 6. Temperature ≥ 45°C  → "warning" (overheating risk).
+ * 7. Otherwise           → keep the raw status (typically "online").
  *
- * This ensures devices with N/A or zero battery never show a healthy Online.
+ * This is the one shared status selector. Every page (Dashboard, Devices,
+ * Device detail, Reports) must use this to keep counts and badges in sync.
+ *
+ * @see ADR-0002 — Zustand for Client State
  */
 export function deriveDeviceStatus(entry: DeviceEntry): DeviceStatus {
-  const { telemetry, status, lastSeen } = entry;
+  const { telemetry, status } = entry;
 
-  // No telemetry at all → cannot confirm device is alive
-  if (!telemetry) return "offline";
+  // If the raw status says offline, honor it — we don't have a way to
+  // derive "alive" from telemetry for a truly disconnected device.
+  if (status === "offline") return "offline";
 
-  // Check heartbeat freshness
-  const lastSeenMs = new Date(lastSeen).getTime();
-  if (Date.now() - lastSeenMs > HEARTBEAT_STALE_MS) return "offline";
+  // Without telemetry we can't derive — keep the raw status
+  if (!telemetry) return status;
 
-  // Valid telemetry exists — check battery
   const battery = telemetry.battery;
 
-  // Battery is missing or invalid
-  if (battery == null || Number.isNaN(battery)) return "offline";
+  // Battery is null/N/A → warning
+  if (battery == null || Number.isNaN(battery)) return "warning";
 
-  // Dead battery
-  if (battery <= BATTERY_FAULT_THRESHOLD) return "fault";
+  // Battery ≤ 10% → fault
+  if (battery <= 10) return "fault";
 
-  // Low battery
-  if (battery < BATTERY_WARNING_THRESHOLD) return "warning";
+  // Battery ≤ 20% → warning
+  if (battery <= 20) return "warning";
 
-  // All checks pass — use the raw status (usually "online")
+  // Signal ≤ -110 dBm → warning
+  if (telemetry.signalStrength <= -110) return "warning";
+
+  // Temperature ≥ 45°C → warning
+  if (telemetry.temperature >= 45) return "warning";
+
+  // All checks pass — use the raw status (typically "online")
   return status;
 }
 

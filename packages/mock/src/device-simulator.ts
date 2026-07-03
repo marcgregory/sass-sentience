@@ -232,6 +232,8 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
 function basePayload(sd: SimulatedDevice): Record<string, unknown> {
   return {
     deviceId: sd.device.id,
+    deviceName: sd.device.name,
+    name: sd.device.name,
     status: sd.status,
     battery: Math.round(sd.battery),
     signal: sd.signal,

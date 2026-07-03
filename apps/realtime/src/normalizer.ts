@@ -18,6 +18,8 @@ import type { DeviceStatusValue } from "./socket-server";
 
 export interface MqttPayload {
   deviceId: string;
+  deviceName?: string;
+  name?: string;
   status?: string;
   battery?: number;
   signal?: number;
@@ -49,6 +51,7 @@ export interface MqttPayload {
 
 export interface DeviceTelemetryEvent {
   deviceId: string;
+  deviceName?: string;
   siteId: string;
   siteName?: string;
   estateId?: string;
@@ -62,6 +65,7 @@ export interface DeviceTelemetryEvent {
 
 export interface DeviceStatusEvent {
   deviceId: string;
+  deviceName?: string;
   siteId: string;
   siteName?: string;
   estateId?: string;
@@ -110,6 +114,10 @@ function validStatus(s: string | undefined): DeviceStatusValue {
   return "online";
 }
 
+function resolveName(payload: MqttPayload): string | undefined {
+  return payload.deviceName ?? payload.name ?? undefined;
+}
+
 function safeNumber(v: number | undefined, fallback: number): number {
   return v !== undefined && !Number.isNaN(v) ? v : fallback;
 }
@@ -123,6 +131,7 @@ export function toTelemetryEvent(
 ): DeviceTelemetryEvent {
   return {
     deviceId,
+    deviceName: resolveName(payload),
     siteId: payload.siteId ?? "unknown",
     siteName: payload.siteName ?? undefined,
     estateId: payload.estateId ?? undefined,
@@ -145,6 +154,7 @@ export function toStatusEvent(
 ): DeviceStatusEvent {
   return {
     deviceId,
+    deviceName: resolveName(payload),
     siteId: payload.siteId ?? "unknown",
     siteName: payload.siteName ?? undefined,
     estateId: payload.estateId ?? undefined,

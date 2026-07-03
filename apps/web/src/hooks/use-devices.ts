@@ -18,6 +18,7 @@ import { useLiveDeviceStore } from "@/stores/live-device-store";
 import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 import { deriveDeviceStatus } from "@sentience/utils";
 import type { DeviceStatus } from "@sentience/types";
+import type { DeviceEntry } from "@sentience/utils";
 
 // ─── Row Type ─────────────────────────────────────────────────────────────
 
@@ -70,12 +71,30 @@ function mapLiveEntryToRow(
   index: number,
 ): DeviceListRow {
   const typeLabels = ["Sensor", "Controller", "Gateway", "Relay", "Camera"];
+  const entryForSelector: DeviceEntry = {
+    deviceId: entry.deviceId,
+    status: entry.status,
+    telemetry: entry.telemetry
+      ? {
+          battery: entry.telemetry.battery,
+          voltage: entry.telemetry.voltage,
+          temperature: entry.telemetry.temperature,
+          signalStrength: entry.telemetry.signalStrength,
+          timestamp: entry.telemetry.timestamp,
+        }
+      : null,
+    lastSeen: entry.lastSeen,
+    siteId: entry.siteId,
+    siteName: entry.siteName,
+    estateId: entry.estateId,
+    estateName: entry.estateName,
+  };
   return {
     id: entry.deviceId,
-    name: `Device ${entry.deviceId.slice(0, 8)}`,
+    name: entry.deviceName ?? `Device ${entry.deviceId.slice(0, 8)}`,
     serial: `SIM-${entry.deviceId.slice(0, 8).toUpperCase()}`,
     type: typeLabels[index % typeLabels.length],
-    status: entry.status,
+    status: deriveDeviceStatus(entryForSelector),
     battery: entry.telemetry?.battery ?? 0,
     signal: entry.telemetry?.signalStrength ?? 0,
     temp: entry.telemetry?.temperature ?? 0,
@@ -178,12 +197,30 @@ export function useDevice(id: string) {
     // Simulator mode: build from live store entry only
     if (simulatorMode) {
       if (!liveEntry) return null;
+      const entryForSelector: DeviceEntry = {
+        deviceId: liveEntry.deviceId,
+        status: liveEntry.status,
+        telemetry: liveEntry.telemetry
+          ? {
+              battery: liveEntry.telemetry.battery,
+              voltage: liveEntry.telemetry.voltage,
+              temperature: liveEntry.telemetry.temperature,
+              signalStrength: liveEntry.telemetry.signalStrength,
+              timestamp: liveEntry.telemetry.timestamp,
+            }
+          : null,
+        lastSeen: liveEntry.lastSeen,
+        siteId: liveEntry.siteId,
+        siteName: liveEntry.siteName,
+        estateId: liveEntry.estateId,
+        estateName: liveEntry.estateName,
+      };
       return {
         id: liveEntry.deviceId,
-        name: `Device ${liveEntry.deviceId.slice(0, 8)}`,
+        name: liveEntry.deviceName ?? `Device ${liveEntry.deviceId.slice(0, 8)}`,
         serial: `SIM-${liveEntry.deviceId.slice(0, 8).toUpperCase()}`,
         type: "Sensor",
-        status: liveEntry.status,
+        status: deriveDeviceStatus(entryForSelector),
         battery: liveEntry.telemetry?.battery ?? 0,
         signal: liveEntry.telemetry?.signalStrength ?? 0,
         temp: liveEntry.telemetry?.temperature ?? 0,
