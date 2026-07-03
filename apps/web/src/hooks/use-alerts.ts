@@ -147,44 +147,42 @@ export function useAlerts(options: UseAlertsOptions = {}) {
   const isSocketConnected = useLiveAlertStore((s) => s.isSocketConnected);
   const simulatorMode = useSimulatorModeStore((s) => s.enabled);
 
-  // Merge API alerts with live overlay (only in simulator mode — when
-  // simulator mode is OFF, show API alerts only, no live store contamination)
-  const alerts = useMemo<AlertDisplayRow[]>(() => {
-    const apiData = query.data?.data ?? [];
+  // Merge API alerts with live store (when simulator mode is ON, show ONLY live alerts)
 
+  // NOTE: When simulator mode is ON, ONLY live socket alerts are shown.
+  // This is exclusive — no database alerts are mixed in — so the user
+  // sees a clean simulator-only view. Toggle Sim OFF to see database data.
+  const alerts = useMemo<AlertDisplayRow[]>(() => {
     if (!simulatorMode) {
       // Normal mode: API data only
-      return apiData.map(mapApiAlertToRow);
+      return (query.data?.data ?? []).map(mapApiAlertToRow);
     }
 
-    // Simulator mode: live alerts first, then API alerts
+    // Simulator mode: live alerts ONLY (exclusive, no API merge)
     const seenIds = new Set<string>();
-    const merged: AlertDisplayRow[] = [];
+    const result: AlertDisplayRow[] = [];
 
     for (const id of storeAlertIds) {
       const live = storeAlerts[id];
       if (!live || seenIds.has(live.id)) continue;
       seenIds.add(live.id);
-      merged.push(mapLiveAlertToRow(live));
+      result.push(mapLiveAlertToRow(live));
     }
 
-    for (const api of apiData) {
-      if (seenIds.has(api.id)) continue;
-      seenIds.add(api.id);
-      merged.push(mapApiAlertToRow(api));
-    }
-
-    return merged;
+    return result;
   }, [query.data, storeAlerts, storeAlertIds, simulatorMode]);
 
-  const total = query.data?.pagination?.total ?? 0;
+  const total = simulatorMode
+    ? storeAlertIds.length
+    : (query.data?.pagination?.total ?? 0);
 
   return {
     alerts,
     total,
     apiTotal: total,
-    isLoading: query.isLoading,
-    isError: query.isError,
+    // When simulator mode is ON, use live alerts directly — ignore API state
+    isLoading: simulatorMode ? false : query.isLoading,
+    isError: simulatorMode ? false : query.isError,
     error: query.error,
     isSocketConnected,
   };

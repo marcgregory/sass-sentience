@@ -107,41 +107,31 @@ export function useEvents(options: UseEventsOptions = {}) {
   const simulatorMode = useSimulatorModeStore((s) => s.enabled);
 
   // Merge API events with live overlay (only in simulator mode)
-  const events = useMemo<EventDisplayRow[]>(() => {
-    const apiData = query.data?.data ?? [];
 
+  // NOTE: When simulator mode is ON, ONLY live socket events are shown.
+  // This is exclusive — no database events are mixed in — so the user
+  // sees a clean simulator-only view. Toggle Sim OFF to see database data.
+  const events = useMemo<EventDisplayRow[]>(() => {
     if (!simulatorMode) {
       // Normal mode: API data only
-      return apiData.map(mapApiEventToRow);
+      return (query.data?.data ?? []).map(mapApiEventToRow);
     }
 
-    // Simulator mode: live events first, then API events
-    const seenIds = new Set<string>();
-    const merged: EventDisplayRow[] = [];
-
-    for (const live of storeEvents) {
-      if (seenIds.has(live.eventId)) continue;
-      seenIds.add(live.eventId);
-      merged.push(mapLiveEventToRow(live));
-    }
-
-    for (const api of apiData) {
-      if (seenIds.has(api.id)) continue;
-      seenIds.add(api.id);
-      merged.push(mapApiEventToRow(api));
-    }
-
-    return merged;
+    // Simulator mode: live events ONLY (exclusive, no API merge)
+    return storeEvents.map(mapLiveEventToRow);
   }, [query.data, storeEvents, simulatorMode]);
 
-  const total = query.data?.pagination?.total ?? 0;
+  const total = simulatorMode
+    ? storeEvents.length
+    : (query.data?.pagination?.total ?? 0);
 
   return {
     events,
     total,
-    apiTotal: total,
-    isLoading: query.isLoading,
-    isError: query.isError,
+    apiTotal: simulatorMode ? 0 : (query.data?.pagination?.total ?? 0),
+    // When simulator mode is ON, use live events directly — ignore API state
+    isLoading: simulatorMode ? false : query.isLoading,
+    isError: simulatorMode ? false : query.isError,
     error: query.error,
   };
 }

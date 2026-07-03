@@ -313,7 +313,7 @@ export default function EventsPage() {
     return d.toISOString();
   }, [dateRange]);
 
-  // Fetch events from API with server-side filtering and pagination (fix: no over-fetching)
+  // Fetch events — in normal mode from API, in sim mode from live store
   const {
     events: sourceEvents,
     isLoading,
@@ -330,7 +330,7 @@ export default function EventsPage() {
     limit: PAGE_SIZE,
   });
 
-  // Deduplicate by eventId (API events + live socket events merged by useEvents)
+  // Deduplicate by eventId — handle both API (pagination can overlap) and live data
   const events = useMemo(() => {
     const seen = new Set<string>();
     return sourceEvents.filter((e) => {
@@ -356,11 +356,8 @@ export default function EventsPage() {
     return options.sort((a, b) => a.name.localeCompare(b.name));
   }, [events]);
 
-  // Total count: use API total for pagination, but account for extra live-only events
-  const liveOnlyCount = events.filter((e) =>
-    !sourceEvents.some((se) => se.eventId === e.eventId),
-  ).length;
-  const safeTotal = Math.max(apiTotal + liveOnlyCount, events.length);
+  // Total count: when simulator mode is on, use events.length directly
+  const safeTotal = simulatorMode ? events.length : Math.max(apiTotal, events.length);
   const totalPages = Math.max(1, Math.ceil(safeTotal / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
 
