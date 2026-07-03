@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import { db } from "../db";
 import { events } from "../db/schema";
 import { eq, and, count, ilike, gte, lte, or, asc, desc, SQL } from "drizzle-orm";
@@ -91,7 +92,7 @@ export async function eventRoutes(app: FastifyInstance) {
   });
 
   app.get("/:id", { preHandler: [requireAuth] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
 
     const [event] = await db.select().from(events).where(eq(events.id, id)).limit(1);
 

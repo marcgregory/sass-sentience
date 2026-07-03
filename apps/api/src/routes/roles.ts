@@ -18,7 +18,7 @@ export async function roleRoutes(app: FastifyInstance) {
   });
 
   app.get("/:id", { preHandler: [requireAuth] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
 
     const [role] = await db.select().from(roles).where(eq(roles.id, id)).limit(1);
 
@@ -35,7 +35,7 @@ export async function roleRoutes(app: FastifyInstance) {
   });
 
   app.post("/:id/permissions", { preHandler: [requireAuth, requireRole("admin")] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = grantPermissionSchema.parse(request.body);
 
     // Verify role exists
@@ -74,7 +74,7 @@ export async function roleRoutes(app: FastifyInstance) {
   });
 
   app.delete("/:id/permissions", { preHandler: [requireAuth, requireRole("admin")] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const query = request.query as { resource?: string; action?: string };
 
     if (!query.resource || !query.action) {

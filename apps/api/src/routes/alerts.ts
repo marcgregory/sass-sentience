@@ -86,7 +86,7 @@ export async function alertRoutes(app: FastifyInstance) {
   });
 
   app.get("/:id", { preHandler: [requireAuth] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
 
     const [alert] = await db.select().from(alerts).where(eq(alerts.id, id)).limit(1);
 
@@ -98,7 +98,7 @@ export async function alertRoutes(app: FastifyInstance) {
   });
 
   app.patch("/:id", { preHandler: [requireAuth, requireRole("admin", "support")] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = updateAlertSchema.parse(request.body);
 
     const updateData: Record<string, unknown> = {

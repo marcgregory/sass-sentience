@@ -120,7 +120,7 @@ export async function userRoutes(app: FastifyInstance) {
   });
 
   app.get("/:id", { preHandler: [requireAuth] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
 
     const [user] = await db
       .select(userWithRole)
@@ -179,7 +179,7 @@ export async function userRoutes(app: FastifyInstance) {
   });
 
   app.patch("/:id", { preHandler: [requireAuth, requireRole("admin")] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = updateUserSchema.parse(request.body);
 
     // If changing role, verify the role exists
@@ -220,7 +220,7 @@ export async function userRoutes(app: FastifyInstance) {
   });
 
   app.delete("/:id", { preHandler: [requireAuth, requireRole("admin")] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
 
     const [deactivated] = await db
       .update(users)

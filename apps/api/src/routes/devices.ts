@@ -93,7 +93,7 @@ export async function deviceRoutes(app: FastifyInstance) {
   });
 
   app.get("/:id", { preHandler: [requireAuth] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
 
     const [device] = await db.select().from(devices).where(eq(devices.id, id)).limit(1);
 
@@ -121,7 +121,7 @@ export async function deviceRoutes(app: FastifyInstance) {
   });
 
   app.patch("/:id", { preHandler: [requireAuth, requireRole("admin", "support")] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = updateDeviceSchema.parse(request.body);
 
     const updateData: Record<string, unknown> = { ...body, updatedAt: new Date() };

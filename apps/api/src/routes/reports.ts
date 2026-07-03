@@ -12,9 +12,9 @@ const createReportSchema = z.object({
   dateRangeStart: z.string(),
   dateRangeEnd: z.string(),
   filters: z.object({
-    estateId: z.string().optional(),
-    siteId: z.string().optional(),
-    deviceId: z.string().optional(),
+    estateId: z.string().uuid().optional(),
+    siteId: z.string().uuid().optional(),
+    deviceId: z.string().uuid().optional(),
     severity: z.array(z.string()).optional(),
   }).optional(),
 });
@@ -330,7 +330,7 @@ export async function reportRoutes(app: FastifyInstance) {
   // ─── Single Report ────────────────────────────────────────────────────
 
   app.get("/:id", { preHandler: [requireAuth] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
 
     const [report] = await db.select().from(reports).where(eq(reports.id, id)).limit(1);
 

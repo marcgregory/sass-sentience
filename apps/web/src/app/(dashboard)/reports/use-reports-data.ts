@@ -266,10 +266,10 @@ export function useReportsData(filter: ReportFilter) {
       }
     }
     if (estateMap.size === 0) {
-      estateMap.set("estate-riverside", "Riverside Complex");
-      estateMap.set("estate-techvalley", "Tech Valley Park");
-      estateMap.set("estate-harbour", "Harbour Terminal");
-      estateMap.set("estate-greenfield", "Greenfield Data Centre");
+      estateMap.set("a1b2c3d4-0001-4000-8000-000000000001", "Riverside Complex");
+      estateMap.set("a1b2c3d4-0002-4000-8000-000000000002", "Tech Valley Park");
+      estateMap.set("a1b2c3d4-0003-4000-8000-000000000003", "Harbour Terminal");
+      estateMap.set("a1b2c3d4-0004-4000-8000-000000000004", "Greenfield Data Centre");
     }
     return Array.from(estateMap.entries()).map(([id, name]) => ({ id, name }));
   }, [deviceEntries]);
@@ -284,8 +284,8 @@ export function useReportsData(filter: ReportFilter) {
       }
     }
     if (siteMap.size === 0 && !filterEstate) {
-      siteMap.set("site-riverside-a", "Building A - Riverside");
-      siteMap.set("site-riverside-b", "Building B - Riverside");
+      siteMap.set("b2c3d4e5-0001-4000-8000-000000000001", "Building A - Riverside");
+      siteMap.set("b2c3d4e5-0002-4000-8000-000000000002", "Building B - Riverside");
     }
     return Array.from(siteMap.entries()).map(([id, name]) => ({ id, name }));
   }, [deviceEntries, filter.estateId]);

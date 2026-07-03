@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import { db } from "../db";
 import { auditLogs } from "../db/schema";
 import { eq, and, count, ilike, or, gte, lte, asc, desc, SQL } from "drizzle-orm";
@@ -80,7 +81,7 @@ export async function auditLogRoutes(app: FastifyInstance) {
   });
 
   app.get("/:id", { preHandler: [requireAuth] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
 
     const [entry] = await db.select().from(auditLogs).where(eq(auditLogs.id, id)).limit(1);
 
