@@ -16,8 +16,8 @@ import type { DeviceDetailResponse } from "@/lib/devices";
 import { queryKeys } from "@/lib/query-keys";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
 import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
-import { deriveDeviceStatus } from "@sentience/utils";
-import type { DeviceStatus } from "@sentience/types";
+import { deriveDeviceHealth } from "@sentience/utils";
+import type { DeviceStatus, StatusReason } from "@sentience/types";
 import type { DeviceEntry } from "@sentience/utils";
 
 // ─── Row Type ─────────────────────────────────────────────────────────────
@@ -28,6 +28,7 @@ export interface DeviceListRow {
   serial: string;
   type: string;
   status: DeviceStatus;
+  reasons: StatusReason[];
   battery: number;
   signal: number;
   temp: number;
@@ -39,12 +40,31 @@ export interface DeviceListRow {
 function mapDeviceToRow(
   d: DeviceDetailResponse & { siteName?: string; estateName?: string },
 ): DeviceListRow {
+  const health = deriveDeviceHealth({
+    deviceId: d.id,
+    deviceType: d.type,
+    status: d.status,
+    telemetry: d.battery != null && d.signalStrength != null && d.temperature != null
+      ? {
+          battery: d.battery,
+          voltage: d.voltage ?? 0,
+          temperature: d.temperature,
+          signalStrength: d.signalStrength,
+          timestamp: d.updatedAt ?? d.lastHeartbeat ?? new Date().toISOString(),
+        }
+      : null,
+    lastSeen: d.lastHeartbeat ?? d.updatedAt ?? new Date().toISOString(),
+    siteId: d.siteId,
+    siteName: d.siteName,
+    estateName: d.estateName,
+  });
   return {
     id: d.id,
     name: d.name,
     serial: d.serialNumber,
-    type: d.type.charAt(0).toUpperCase() + d.type.slice(1), // "sensor" → "Sensor"
-    status: d.status,
+    type: d.type.charAt(0).toUpperCase() + d.type.slice(1),
+    status: health.status,
+    reasons: health.reasons,
     battery: d.battery ?? 0,
     signal: d.signalStrength ?? 0,
     temp: d.temperature ?? 0,
@@ -90,12 +110,14 @@ function mapLiveEntryToRow(
     estateId: entry.estateId,
     estateName: entry.estateName,
   };
+  const health = deriveDeviceHealth(entryForSelector);
   return {
     id: entry.deviceId,
     name: entry.deviceName ?? `Device ${entry.deviceId.slice(0, 8)}`,
     serial: `SIM-${entry.deviceId.slice(0, 8).toUpperCase()}`,
     type: typeLabels[index % typeLabels.length],
-    status: deriveDeviceStatus(entryForSelector),
+    status: health.status,
+    reasons: health.reasons,
     battery: entry.telemetry?.battery ?? 0,
     signal: entry.telemetry?.signalStrength ?? 0,
     temp: entry.telemetry?.temperature ?? 0,
@@ -141,12 +163,31 @@ export function useDevices() {
       const live = liveDevices[api.id];
       if (!live) return mapDeviceToRow(api);
 
+      const health = deriveDeviceHealth({
+        deviceId: live.deviceId,
+        deviceType: live.deviceType,
+        status: live.status,
+        telemetry: live.telemetry
+          ? {
+              battery: live.telemetry.battery,
+              voltage: live.telemetry.voltage,
+              temperature: live.telemetry.temperature,
+              signalStrength: live.telemetry.signalStrength,
+              timestamp: live.telemetry.timestamp,
+            }
+          : null,
+        lastSeen: live.lastSeen,
+        siteId: live.siteId,
+        siteName: live.siteName,
+        estateName: live.estateName,
+      });
       return {
         id: api.id,
         name: api.name,
         serial: api.serialNumber,
         type: api.type.charAt(0).toUpperCase() + api.type.slice(1),
-        status: deriveDeviceStatus(live as Parameters<typeof deriveDeviceStatus>[0]),
+        status: health.status,
+        reasons: health.reasons,
         battery: live.telemetry?.battery ?? api.battery ?? 0,
         signal: live.telemetry?.signalStrength ?? api.signalStrength ?? 0,
         temp: live.telemetry?.temperature ?? api.temperature ?? 0,
@@ -217,12 +258,14 @@ export function useDevice(id: string) {
         estateId: liveEntry.estateId,
         estateName: liveEntry.estateName,
       };
+      const health = deriveDeviceHealth(entryForSelector);
       return {
         id: liveEntry.deviceId,
         name: liveEntry.deviceName ?? `Device ${liveEntry.deviceId.slice(0, 8)}`,
         serial: `SIM-${liveEntry.deviceId.slice(0, 8).toUpperCase()}`,
         type: "Sensor",
-        status: deriveDeviceStatus(entryForSelector),
+        status: health.status,
+        reasons: health.reasons,
         battery: liveEntry.telemetry?.battery ?? 0,
         signal: liveEntry.telemetry?.signalStrength ?? 0,
         temp: liveEntry.telemetry?.temperature ?? 0,
@@ -234,20 +277,76 @@ export function useDevice(id: string) {
     const api = query.data;
     if (!api) return null;
 
+    const apiEntry: DeviceEntry = {
+      deviceId: api.id,
+      deviceType: api.type,
+      status: api.status,
+      telemetry: api.battery != null && api.signalStrength != null && api.temperature != null
+        ? {
+            battery: api.battery,
+            voltage: api.voltage ?? 0,
+            temperature: api.temperature,
+            signalStrength: api.signalStrength,
+            timestamp: api.updatedAt ?? api.lastHeartbeat ?? new Date().toISOString(),
+          }
+        : null,
+      lastSeen: api.lastHeartbeat ?? api.updatedAt ?? new Date().toISOString(),
+      siteId: api.siteId,
+      siteName: api.siteName,
+      estateName: api.estateName,
+    };
+    const apiHealth = deriveDeviceHealth(apiEntry);
+
+    if (liveEntry) {
+      const liveHealth = deriveDeviceHealth({
+        deviceId: liveEntry.deviceId,
+        deviceType: liveEntry.deviceType,
+        status: liveEntry.status,
+        telemetry: liveEntry.telemetry
+          ? {
+              battery: liveEntry.telemetry.battery,
+              voltage: liveEntry.telemetry.voltage,
+              temperature: liveEntry.telemetry.temperature,
+              signalStrength: liveEntry.telemetry.signalStrength,
+              timestamp: liveEntry.telemetry.timestamp,
+            }
+          : null,
+        lastSeen: liveEntry.lastSeen,
+        siteId: liveEntry.siteId,
+        siteName: liveEntry.siteName,
+        estateName: liveEntry.estateName,
+      });
+      return {
+        id: api.id,
+        name: api.name,
+        serial: api.serialNumber,
+        type: api.type.charAt(0).toUpperCase() + api.type.slice(1),
+        status: liveHealth.status,
+        reasons: liveHealth.reasons,
+        battery: liveEntry.telemetry?.battery ?? api.battery ?? 0,
+        signal: liveEntry.telemetry?.signalStrength ?? api.signalStrength ?? 0,
+        temp: liveEntry.telemetry?.temperature ?? api.temperature ?? 0,
+        site: buildSiteLabel(
+          liveEntry?.siteName ?? api.siteName,
+          liveEntry?.estateName ?? api.estateName,
+          api.siteId,
+        ),
+      };
+    }
+
     return {
       id: api.id,
       name: api.name,
       serial: api.serialNumber,
       type: api.type.charAt(0).toUpperCase() + api.type.slice(1),
-      status: liveEntry
-        ? deriveDeviceStatus(liveEntry as Parameters<typeof deriveDeviceStatus>[0])
-        : api.status,
-      battery: liveEntry?.telemetry?.battery ?? api.battery ?? 0,
-      signal: liveEntry?.telemetry?.signalStrength ?? api.signalStrength ?? 0,
-      temp: liveEntry?.telemetry?.temperature ?? api.temperature ?? 0,
+      status: apiHealth.status,
+      reasons: apiHealth.reasons,
+      battery: api.battery ?? 0,
+      signal: api.signalStrength ?? 0,
+      temp: api.temperature ?? 0,
       site: buildSiteLabel(
-        liveEntry?.siteName ?? api.siteName,
-        liveEntry?.estateName ?? api.estateName,
+        api.siteName,
+        api.estateName,
         api.siteId,
       ),
     };

@@ -594,9 +594,10 @@ export default function DeviceDetailPage() {
   const siteName =
     live?.siteName ?? apiDevice?.siteName ?? device.site;
   const estateName = live?.estateName ?? apiDevice?.estateName;
-  // Use device.status (already derived by useDevice hook) — do NOT
+  // Use device.status and device.reasons (already derived by useDevice hook) — do NOT
   // override with raw live store status which skips battery/heartbeat rules.
   const status: DeviceStatus = device.status;
+  const reasons = device.reasons;
   const lastSeen = live?.lastSeen ?? new Date().toISOString();
   const isLive = simulatorMode && !!live;
 
@@ -671,7 +672,7 @@ export default function DeviceDetailPage() {
             <InfoRow label="Type" value={device.type} />
             <InfoRow
               label="Status"
-              value={<StatusBadge status={status} />}
+              value={<StatusBadge status={status} reasons={reasons} />}
             />
             <InfoRow
               label="Site"
@@ -1073,7 +1074,7 @@ export default function DeviceDetailPage() {
               <h1 className="text-2xl font-bold tracking-tight">
                 {device.name}
               </h1>
-              <StatusBadge status={status} />
+              <StatusBadge status={status} reasons={reasons} />
               {isLive && (
                 <span className="flex items-center gap-1 text-xs text-emerald-500">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse-dot" />

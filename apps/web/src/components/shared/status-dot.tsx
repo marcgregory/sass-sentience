@@ -1,13 +1,15 @@
-import { cn } from "@sentience/utils";
-import type { DeviceStatus } from "@sentience/types";
+import { cn, formatStatusLabel } from "@sentience/utils";
+import type { DeviceStatus, StatusReason } from "@sentience/types";
 
 interface StatusDotProps {
   status: DeviceStatus;
   className?: string;
   animated?: boolean;
+  reasons?: StatusReason[];
 }
 
-export function StatusDot({ status, className, animated = true }: StatusDotProps) {
+export function StatusDot({ status, className, animated = true, reasons }: StatusDotProps) {
+  const title = reasons?.length ? formatStatusLabel(status, reasons) : undefined;
   return (
     <span
       className={cn(
@@ -19,6 +21,7 @@ export function StatusDot({ status, className, animated = true }: StatusDotProps
         animated && status === "online" && "animate-pulse-dot",
         className,
       )}
+      title={title}
     />
   );
 }
@@ -27,15 +30,18 @@ interface StatusBadgeProps {
   status: DeviceStatus;
   showDot?: boolean;
   className?: string;
+  reasons?: StatusReason[];
 }
 
-export function StatusBadge({ status, showDot = true, className }: StatusBadgeProps) {
+export function StatusBadge({ status, showDot = true, className, reasons }: StatusBadgeProps) {
   const labels: Record<DeviceStatus, string> = {
     online: "Online",
     offline: "Offline",
     fault: "Fault",
     warning: "Warning",
   };
+
+  const title = reasons?.length ? formatStatusLabel(status, reasons) : undefined;
 
   return (
     <span
@@ -47,8 +53,9 @@ export function StatusBadge({ status, showDot = true, className }: StatusBadgePr
         status === "warning" && "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
         className,
       )}
+      title={title}
     >
-      {showDot && <StatusDot status={status} />}
+      {showDot && <StatusDot status={status} reasons={reasons} />}
       {labels[status]}
     </span>
   );

@@ -8,7 +8,7 @@
  * @see ADR-0002 — Zustand for Client State
  */
 
-import type { DeviceStatus } from "@sentience/types";
+import type { DeviceStatus, StatusReason } from "@sentience/types";
 
 // ─── Constants ────────────────────────────────────────────────────────────
 
@@ -17,6 +17,17 @@ import type { DeviceStatus } from "@sentience/types";
 
 /** Device types that are externally powered and may legitimately lack a battery reading. */
 const EXTERNALLY_POWERED_TYPES = new Set(["controller", "gateway", "relay"]);
+
+/**
+ * Time (ms) without a heartbeat before a device is considered offline.
+ * 3× the default 30s publish interval + 30s grace.
+ */
+const HEARTBEAT_TIMEOUT_MS = 120_000;
+
+export interface DeviceHealth {
+  status: DeviceStatus;
+  reasons: StatusReason[];
+}
 
 export interface DeviceEntry {
   deviceId: string;
@@ -78,61 +89,93 @@ export interface EstateSummary {
 // ─── Status Derivation ──────────────────────────────────────────────────
 
 /**
- * Derive the *effective display status* of a device based on telemetry
- * health, not just the raw stored status.
+ * Derive the *effective display status* and *reasons* of a device based on
+ * telemetry health, not just the raw stored status.
  *
  * Rules (in priority order):
- * 1. Raw status is "offline" → "offline" (truly disconnected).
- * 2. Battery ≤ 10%          → "fault" (critically low — needs immediate attention).
- * 3. Battery ≤ 20%          → "warning" (low battery).
- * 4. Battery null/N/A on a battery-powered device → "warning" (sensor data missing).
- * 5. Battery null/N/A on an externally-powered device → ignored (controller/gateway/relay
- *    may not have a battery at all).
- * 6. Signal ≤ -110 dBm      → "warning" (very weak signal).
- * 7. Temperature ≥ 45°C     → "warning" (overheating risk).
- * 8. Otherwise              → keep the raw status (typically "online").
+ * 1. Raw status "offline" OR lastSeen > heartbeat timeout → "offline" with
+ *    HEARTBEAT_TIMEOUT reason.
+ * 2. Battery ≤ 10%          → "fault" with BATTERY_CRITICAL.
+ * 3. Battery null/N/A on a battery-powered device → "warning" with
+ *    BATTERY_MISSING (sensor data missing).
+ * 4. Battery null/N/A on an externally-powered device → ignored (controller/
+ *    gateway/relay may not have a battery).
+ * 5. Battery 11–20%         → "warning" with LOW_BATTERY.
+ * 6. Signal ≤ -110 dBm      → "warning" with WEAK_SIGNAL.
+ * 7. Temperature ≥ 45°C     → "warning" with OVERHEAT.
+ * 8. Otherwise              → "online" with empty reasons.
  *
  * This is the one shared status selector. Every page (Dashboard, Devices,
  * Device detail, Reports) must use this to keep counts and badges in sync.
  *
+ * @returns {DeviceHealth} object with resolved status and list of reasons.
+ *
  * @see ADR-0002 — Zustand for Client State
  */
-export function deriveDeviceStatus(entry: DeviceEntry): DeviceStatus {
-  const { telemetry, status, deviceType } = entry;
+export function deriveDeviceHealth(entry: DeviceEntry): DeviceHealth {
+  const { telemetry, status, deviceType, lastSeen } = entry;
+  const reasons: StatusReason[] = [];
 
-  // If the raw status says offline, honor it — we don't have a way to
-  // derive "alive" from telemetry for a truly disconnected device.
-  if (status === "offline") return "offline";
+  // 1. Raw status offline OR heartbeat timeout → offline
+  if (status === "offline") {
+    reasons.push("HEARTBEAT_TIMEOUT");
+    return { status: "offline", reasons };
+  }
 
-  // Without telemetry we can't derive — keep the raw status
-  if (!telemetry) return status;
+  // Heartbeat timeout check (even if raw status is "online")
+  if (lastSeen) {
+    const elapsed = Date.now() - new Date(lastSeen).getTime();
+    if (elapsed > HEARTBEAT_TIMEOUT_MS) {
+      reasons.push("HEARTBEAT_TIMEOUT");
+      return { status: "offline", reasons };
+    }
+  }
+
+  // Without telemetry we can't derive further — keep the raw status
+  if (!telemetry) return { status, reasons };
 
   const battery = telemetry.battery;
   const isExternallyPowered = deviceType && EXTERNALLY_POWERED_TYPES.has(deviceType);
 
   // Battery null/N/A — only a concern for battery-powered devices
   if (battery == null || Number.isNaN(battery)) {
-    if (isExternallyPowered) {
-      // Externally-powered devices legitimately have no battery — not a warning
-      return status;
+    if (!isExternallyPowered) {
+      reasons.push("BATTERY_MISSING");
+      return { status: "warning", reasons };
     }
-    return "warning";
+    // Externally-powered — not a concern, fall through to other checks
+  } else if (battery <= 10) {
+    // 2. Battery ≤ 10% → fault
+    reasons.push("BATTERY_CRITICAL");
+    return { status: "fault", reasons };
+  } else if (battery <= 20) {
+    // 5. Battery 11–20% → warning
+    reasons.push("LOW_BATTERY");
   }
 
-  // Battery ≤ 10% → fault
-  if (battery <= 10) return "fault";
+  // 6. Signal ≤ -110 dBm → warning
+  if (telemetry.signalStrength <= -110) {
+    reasons.push("WEAK_SIGNAL");
+  }
 
-  // Battery ≤ 20% → warning
-  if (battery <= 20) return "warning";
+  // 7. Temperature ≥ 45°C → warning
+  if (telemetry.temperature >= 45) {
+    reasons.push("OVERHEAT");
+  }
 
-  // Signal ≤ -110 dBm → warning
-  if (telemetry.signalStrength <= -110) return "warning";
+  // If we found any warning conditions, return "warning"
+  if (reasons.length > 0) return { status: "warning", reasons };
 
-  // Temperature ≥ 45°C → warning
-  if (telemetry.temperature >= 45) return "warning";
+  // All checks pass — healthy
+  return { status, reasons };
+}
 
-  // All checks pass — use the raw status (typically "online")
-  return status;
+/**
+ * Legacy wrapper that returns only the status string.
+ * Prefer `deriveDeviceHealth()` in new code so the UI can surface reasons.
+ */
+export function deriveDeviceStatus(entry: DeviceEntry): DeviceStatus {
+  return deriveDeviceHealth(entry).status;
 }
 
 // ─── Status Counts ──────────────────────────────────────────────────────
@@ -435,4 +478,39 @@ export function colorClassToHex(tailwindClass: string): string {
     "bg-orange-500": "#f97316",
   };
   return map[tailwindClass] ?? "#6366f1";
+}
+
+// ─── Status Reason Labels ───────────────────────────────────────────────
+
+/** Human-readable labels for each StatusReason. */
+const STATUS_REASON_LABELS: Record<StatusReason, string> = {
+  HEARTBEAT_TIMEOUT: "Heartbeat timeout",
+  BATTERY_CRITICAL: "Battery critical",
+  LOW_BATTERY: "Low battery",
+  BATTERY_MISSING: "Battery data missing",
+  WEAK_SIGNAL: "Weak signal",
+  OVERHEAT: "Overheating",
+  HARDWARE_DIAGNOSTIC_FAILED: "Hardware diagnostic failed",
+};
+
+/**
+ * Format a list of StatusReason values into a human-readable string, e.g.
+ * "Low battery, Weak signal" — suitable for a tooltip or aria-label.
+ */
+export function formatStatusReasons(reasons: StatusReason[]): string {
+  if (reasons.length === 0) return "";
+  return reasons.map((r) => STATUS_REASON_LABELS[r] ?? r).join(", ");
+}
+
+/**
+ * Format a status+reasons pair into a compact one-line label, e.g.
+ * "Warning — Low battery" or "Fault — Battery critical".
+ */
+export function formatStatusLabel(
+  status: DeviceStatus,
+  reasons: StatusReason[],
+): string {
+  const base = status.charAt(0).toUpperCase() + status.slice(1);
+  if (reasons.length === 0) return base;
+  return `${base} — ${formatStatusReasons(reasons)}`;
 }

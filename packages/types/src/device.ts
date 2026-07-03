@@ -1,5 +1,26 @@
 export type DeviceStatus = "online" | "offline" | "fault" | "warning";
 
+/**
+ * Reasons that explain *why* a device has its current status.
+ * Each reason maps to a specific telemetry or diagnostic condition.
+ *
+ * - HEARTBEAT_TIMEOUT  → device hasn't checked in (offline)
+ * - BATTERY_CRITICAL   → battery ≤ 10% (fault)
+ * - LOW_BATTERY        → battery 11–20% (warning)
+ * - BATTERY_MISSING    → no battery data on a battery-powered device (warning)
+ * - WEAK_SIGNAL        → signal ≤ -110 dBm (warning)
+ * - OVERHEAT           → temperature ≥ 45°C (warning)
+ * - HARDWARE_DIAGNOSTIC_FAILED → external diagnostic flag (fault, set elsewhere)
+ */
+export type StatusReason =
+  | "HEARTBEAT_TIMEOUT"
+  | "BATTERY_CRITICAL"
+  | "LOW_BATTERY"
+  | "BATTERY_MISSING"
+  | "WEAK_SIGNAL"
+  | "OVERHEAT"
+  | "HARDWARE_DIAGNOSTIC_FAILED";
+
 export type DeviceType =
   | "controller"
   | "sensor"

@@ -1,0 +1,40 @@
+---
+name: status-reasons-arch
+description: Status + Reason separation in deriveDeviceHealth() — the shared status selector
+metadata:
+  type: reference
+---
+
+## Status + Reason Architecture
+
+`deriveDeviceHealth(entry)` in `@sentience/utils/selectors.ts` is the single shared status selector. Returns `{ status: DeviceStatus, reasons: StatusReason[] }` instead of a bare enum.
+
+### Resolution rules (applied in order)
+
+| Condition | Status | Reason(s) |
+|-----------|--------|-----------|
+| Raw status is "offline" | Offline | HEARTBEAT_TIMEOUT |
+| `lastSeen` > 120s ago | Offline | HEARTBEAT_TIMEOUT |
+| Battery ≤ 10% | Fault | BATTERY_CRITICAL |
+| No battery on battery-powered device | Warning | BATTERY_MISSING |
+| Battery 11–20% | Warning | LOW_BATTERY |
+| Signal ≤ -110 dBm | Warning | WEAK_SIGNAL |
+| Temperature ≥ 45°C | Warning | OVERHEAT |
+| No issues found | (raw status, typically "online") | (empty) |
+
+### Key rules
+- **Fault** is only for critical battery or external diagnostic faults — NOT for 11-20% battery (that's Warning).
+- **Externally powered devices** (controller/gateway/relay) are never penalized for missing battery data.
+- `deriveDeviceStatus()` is kept as a legacy wrapper that calls `deriveDeviceHealth()` and extracts `.status`.
+
+### UI display
+- `StatusBadge` and `StatusDot` accept optional `reasons?: StatusReason[]` prop.
+- When reasons are present, the component sets `title` attribute to "Warning — Low battery" etc.
+- `formatStatusLabel(status, reasons)` → "Fault — Battery critical"
+- `formatStatusReasons(reasons)` → "Low battery, Weak signal"
+
+### Related files
+- `@sentience/types/device.ts` — `StatusReason` type
+- `@sentience/utils/selectors.ts` — `deriveDeviceHealth()`, `formatStatusLabel()`, `formatStatusReasons()`
+- `apps/web/components/shared/status-dot.tsx` — `StatusBadge` and `StatusDot` with reason tooltips
+- `apps/web/hooks/use-devices.ts` — `DeviceListRow` includes `reasons: StatusReason[]`
