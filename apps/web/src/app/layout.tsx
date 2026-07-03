@@ -6,7 +6,10 @@ import { Providers } from "@/providers";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Sentience — IoT Monitoring Platform",
+  title: "Sentience - IoT Monitoring Platform",
+  icons: {
+    icon: "/icon.svg",
+  },
   description:
     "Enterprise IoT monitoring platform for managing security devices in real time.",
 };
