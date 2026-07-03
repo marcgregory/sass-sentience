@@ -481,6 +481,7 @@ export default function UsersPage() {
                       touched.name && !isValidName ? "border-destructive" : "border-input"
                     }`}
                     placeholder="John Doe"
+                    autoComplete="name"
                   />
                   {touched.name && !isValidName && (
                     <p className="text-xs text-destructive">Full name is required</p>
@@ -497,6 +498,7 @@ export default function UsersPage() {
                       touched.email && !isValidEmail ? "border-destructive" : "border-input"
                     }`}
                     placeholder="john@example.com"
+                    autoComplete="off"
                   />
                   {touched.email && !isValidEmail && (
                     <p className="text-xs text-destructive">Enter a valid email address</p>
@@ -513,6 +515,7 @@ export default function UsersPage() {
                       touched.password && !isValidPassword ? "border-destructive" : "border-input"
                     }`}
                     placeholder="Min. 6 characters"
+                    autoComplete="new-password"
                   />
                   {touched.password && !isValidPassword && (
                     <p className="text-xs text-destructive">Password must be at least 6 characters</p>
