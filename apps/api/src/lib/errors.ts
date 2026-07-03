@@ -8,14 +8,17 @@ export interface ApiErrorResponse {
 
 export function registerErrorHandler(app: FastifyInstance) {
   app.setErrorHandler((error: Error & { code?: string; statusCode?: number }, _request, reply) => {
-    const err = error as Error & { code?: string; statusCode?: number };
+    const err = error as Error & { code?: string; statusCode?: number; issues?: Array<{ path: (string | number)[]; message: string }> };
 
-    // Zod validation errors
-    if (err.name === "ZodError") {
+    // Zod validation errors — sanitize to avoid leaking schema internals
+    if (err.name === "ZodError" && Array.isArray(err.issues)) {
       return reply.status(400).send({
         message: "Validation error",
         code: "VALIDATION_ERROR",
-        details: err,
+        details: err.issues.map((issue) => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
       } satisfies ApiErrorResponse);
     }
 

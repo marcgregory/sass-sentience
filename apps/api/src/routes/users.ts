@@ -1,10 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import bcrypt from "bcrypt";
 import { db } from "../db";
 import { users, roles } from "../db/schema";
 import { eq, ilike, and, or, asc, desc, count, SQL } from "drizzle-orm";
 import { requireAuth, requireRole } from "../middleware/auth";
-import * as crypto from "crypto";
 
 // ─── Shared Columns ─────────────────────────────────────────────────────────
 const userWithRole = {
@@ -139,7 +139,7 @@ export async function userRoutes(app: FastifyInstance) {
       });
     }
 
-    const hash = crypto.createHash("sha256").update(body.password).digest("hex");
+    const hash = await bcrypt.hash(body.password, 12);
 
     const [newUser] = await db
       .insert(users)

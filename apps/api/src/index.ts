@@ -2,6 +2,8 @@ import Fastify from "fastify";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import jwt from "@fastify/jwt";
+import helmet from "@fastify/helmet";
+import rateLimit from "@fastify/rate-limit";
 import { env } from "./config";
 import { db, pool } from "./db";
 import { registerErrorHandler } from "./lib/errors";
@@ -46,8 +48,18 @@ async function main() {
   // ─── Plugins ────────────────────────────────────────────────────
 
   await app.register(cors, {
-    origin: true,
+    origin: env.CORS_ORIGIN,
     credentials: true,
+  });
+
+  await app.register(helmet, {
+    contentSecurityPolicy: false, // CSP managed by frontend
+    crossOriginResourcePolicy: { policy: "same-origin" },
+  });
+
+  await app.register(rateLimit, {
+    max: env.RATE_LIMIT_MAX,
+    timeWindow: "1 minute",
   });
 
   await app.register(jwt, {

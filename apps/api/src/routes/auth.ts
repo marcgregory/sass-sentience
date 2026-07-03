@@ -1,9 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import bcrypt from "bcrypt";
 import { db } from "../db";
 import { users } from "../db/schema";
 import { eq } from "drizzle-orm";
-import * as crypto from "crypto";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -28,9 +28,9 @@ export async function authRoutes(app: FastifyInstance) {
       });
     }
 
-    // Verify password (simple hash for dev — use bcrypt in production)
-    const hash = crypto.createHash("sha256").update(body.password).digest("hex");
-    if (user.passwordHash !== hash) {
+    // Verify password with bcrypt (cost factor 12)
+    const passwordValid = await bcrypt.compare(body.password, user.passwordHash);
+    if (!passwordValid) {
       return reply.status(401).send({
         message: "Invalid email or password",
         code: "INVALID_CREDENTIALS",

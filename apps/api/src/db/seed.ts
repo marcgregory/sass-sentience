@@ -19,6 +19,7 @@
 import { db, pool } from "./index";
 import * as schema from "./schema";
 import * as crypto from "crypto";
+import bcrypt from "bcrypt";
 
 // Helper: deterministic UUID v4 from a namespace string
 function uuidFrom(name: string): string {
@@ -33,8 +34,8 @@ function uuidFrom(name: string): string {
   ].join("-");
 }
 
-function hashPassword(password: string): string {
-  return crypto.createHash("sha256").update(password).digest("hex");
+function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 12);
 }
 
 function randomBetween(min: number, max: number): number {
@@ -176,7 +177,7 @@ async function seed() {
     await db.insert(schema.users).values({
       id: u.id as any,
       email: u.email,
-      passwordHash: hashPassword(u.password),
+      passwordHash: await hashPassword(u.password),
       name: u.name,
       roleId: rolesMap[u.roleName],
       customerId: u.customerId,
