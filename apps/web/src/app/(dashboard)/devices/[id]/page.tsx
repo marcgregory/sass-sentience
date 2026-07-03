@@ -591,7 +591,9 @@ export default function DeviceDetailPage() {
   const siteName =
     live?.siteName ?? apiDevice?.siteName ?? device.site;
   const estateName = live?.estateName ?? apiDevice?.estateName;
-  const status: DeviceStatus = live?.status ?? device.status;
+  // Use device.status (already derived by useDevice hook) — do NOT
+  // override with raw live store status which skips battery/heartbeat rules.
+  const status: DeviceStatus = device.status;
   const lastSeen = live?.lastSeen ?? new Date().toISOString();
   const isLive = !!live;
 

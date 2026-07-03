@@ -15,6 +15,7 @@ import { getDevices, getDevice } from "@/lib/devices";
 import type { DeviceDetailResponse } from "@/lib/devices";
 import { queryKeys } from "@/lib/query-keys";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
+import { deriveDeviceStatus } from "@sentience/utils";
 import type { DeviceStatus } from "@sentience/types";
 import type { LiveDeviceEntry } from "@/stores/live-device-store";
 
@@ -69,7 +70,7 @@ function liveEntryToRow(entry: LiveDeviceEntry): DeviceListRow {
     name: `Device ${entry.deviceId.slice(0, 8)}`,
     serial: `SN-${entry.deviceId.slice(0, 8).toUpperCase()}`,
     type: pickType(entry.deviceId),
-    status: entry.status,
+    status: deriveDeviceStatus(entry as Parameters<typeof deriveDeviceStatus>[0]),
     battery: entry.telemetry?.battery ?? 100,
     signal: entry.telemetry?.signalStrength ?? -70,
     temp: entry.telemetry?.temperature ?? 25,
@@ -120,7 +121,7 @@ export function useDevices() {
         name: api.name,
         serial: api.serialNumber,
         type: api.type.charAt(0).toUpperCase() + api.type.slice(1),
-        status: live.status,
+        status: deriveDeviceStatus(live as Parameters<typeof deriveDeviceStatus>[0]),
         battery: live.telemetry?.battery ?? api.battery ?? 0,
         signal: live.telemetry?.signalStrength ?? api.signalStrength ?? 0,
         temp: live.telemetry?.temperature ?? api.temperature ?? 0,
@@ -142,7 +143,7 @@ export function useDevices() {
         name: `Device ${live.deviceId.slice(0, 8)}`,
         serial: `SN-${live.deviceId.slice(0, 8).toUpperCase()}`,
         type: pickType(live.deviceId),
-        status: live.status,
+        status: deriveDeviceStatus(live as Parameters<typeof deriveDeviceStatus>[0]),
         battery: live.telemetry?.battery ?? 100,
         signal: live.telemetry?.signalStrength ?? -70,
         temp: live.telemetry?.temperature ?? 25,
@@ -204,7 +205,9 @@ export function useDevice(id: string) {
       name: api.name,
       serial: api.serialNumber,
       type: api.type.charAt(0).toUpperCase() + api.type.slice(1),
-      status: live?.status ?? api.status,
+      status: live
+        ? deriveDeviceStatus(live as Parameters<typeof deriveDeviceStatus>[0])
+        : api.status,
       battery: live?.telemetry?.battery ?? api.battery ?? 0,
       signal: live?.telemetry?.signalStrength ?? api.signalStrength ?? 0,
       temp: live?.telemetry?.temperature ?? api.temperature ?? 0,
