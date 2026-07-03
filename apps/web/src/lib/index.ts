@@ -55,6 +55,8 @@ export type {
   AuditLogListResponse,
   AuditLogParams,
 } from "./audit-logs";
+export { getSettings, updateSetting } from "./settings";
+export type { SettingApiItem, SettingListResponse } from "./settings";
 export { queryKeys } from "./query-keys";
 export { paginationParams, cursorParams } from "./pagination";
 export type { PaginationParams, CursorPaginationParams, Page, CursorPage } from "./pagination";

@@ -48,26 +48,25 @@ Only one sprint may be active at a time. See `docs/implementation/BUILD_PLAN.md`
 
 ## Current Phase
 
-RC2 — Frontend/API Integration
+**RC2 — Frontend/API Integration** ✅ Complete
 
-**Status:** 8 of 9 domains integrated.
+All 9 domains integrated with the backend API. The frontend no longer relies on mock data for core data flows.
 
-| ✅ | Health, Devices, Events, Alerts, Reports, Users, Roles, Audit Log |
-|----|-------------------------------------------------------------------|
-| ⏳ | Settings |
+| ✅ | Health, Devices, Events, Alerts, Reports, Users, Roles, Audit Log, Settings |
+|----|-----------------------------------------------------------------------------|
 
-**Current priority:** Finish API integration.
-Do not introduce new features until RC2 is complete.
+**Next phase:** RC3 — Production Stabilization.
 
-### Rules
+### RC3 Objectives
 
-- Do not redesign the UI. Preserve existing UX.
-- Server state → TanStack Query.
-- Realtime state → Zustand overlay.
-- One integration domain at a time.
-- Remove mock data as each domain completes.
-- Update ROADMAP.md and CHANGELOG.md after each completed domain.
-- Run `pnpm lint` and `pnpm build` before marking a domain complete.
+- Remove any remaining mock data.
+- Verify all pages use backend APIs.
+- Verify all TanStack Query hooks, cache invalidation, and optimistic mutations.
+- Verify error handling, loading states, and empty states.
+- Verify RBAC, responsive layouts, and accessibility.
+- Verify API consistency and documentation.
+- Generate a Production Readiness Report.
+- No new features — only hardening.
 
 ---
 

@@ -130,9 +130,9 @@
 | **Profile** | Live auth data, personal info edit, password change, notification prefs |
 | **Demo role switching** | Header role badge, Switch Role modal, quick-login on login page |
 
-## ✅ In Progress — v1.0 RC2: Frontend Integration
+## ✅ Completed — v1.0 RC2: Frontend Integration
 
-Integrating the frontend with the real backend API one domain at a time. No UI/UX changes — only data source swaps.
+All 9 domains integrated with the backend API. The frontend no longer relies on mock data for core data flows. Settings load from `GET /api/settings` and persist changes via `PATCH /api/settings/:key` through TanStack Query.
 
 | Domain | Status | Notes |
 |--------|--------|-------|
@@ -144,7 +144,7 @@ Integrating the frontend with the real backend API one domain at a time. No UI/U
 | **6. Users** | ✅ Done | Users list loads from `GET /api/users` via TanStack Query. Role drop-down populated from `GET /api/roles`. Create/edit/deactivate via `POST/PATCH/DELETE /api/users` with mutations. Backend users route updated to join with `roles` table so API returns both `roleId` (UUID) and `role` (enum name). Loading spinner, error state with retry, empty state preserved. Search, filters, pagination, dialog, role badges all preserved. New files: `lib/users.ts` (API types + functions), `lib/roles.ts` (API types + functions), `hooks/use-users.ts` (`useUsers`, `useUser`, `useRoles`, `useCreateUser`, `useUpdateUser`, `useDeactivateUser`). No mock user records remain in users page. |
 | **7. Roles** | ✅ Done | Role list loads from `GET /api/roles`, permission detail from `GET /api/roles/:id`. Inline toggle to grant/revoke permissions via `POST/DELETE /api/roles/:id/permissions` with admin-only mutations. Backend: added `POST /api/roles/:id/permissions` and `DELETE /api/roles/:id/permissions` endpoints, Zod validation, duplicate checking, admin role guard. New files: `hooks/use-roles.ts` (`useRole`, `useGrantPermission`, `useRevokePermission`). Updated: `lib/roles.ts` (`getRole`, `grantPermission`, `revokePermission`), `query-keys.ts` (`roles.detail`). Loading spinner, error state with retry (falls back to static matrix), empty state for no roles. Role card granted-resources badges reflect live permission data during expansion. |
 | **8. Audit Log** | ✅ Done | Audit log loads from `GET /api/audit-logs` via TanStack Query. Backend: `apps/api/src/routes/audit-logs.ts` with pagination, action/resource/date/search filters. New files: `lib/audit-logs.ts` (`getAuditLogs`, `getAuditLog`, `AuditLogApiItem`, `AuditLogListResponse`), `hooks/use-audit-logs.ts` (`useAuditLogs`, `useAuditLog`), `query-keys.ts` (`auditLogs.all/list/detail`). Merges API entries with locally-recorded entries (for write-back visibility). Deduplicates by ID. Client-side search, action filter, severity filter, pagination, CSV export, detail drawer preserved. Loading spinner, error state with retry (falls back to local entries), empty state preserved. |
-| **9. Settings** | ⬜ | Read/write settings via API |
+| **9. Settings** | ✅ Done | Settings page loads from `GET /api/settings` via TanStack Query. Changed settings persist through `PATCH /api/settings/:key` mutations. Platform name, timezone, password policy, session timeout, MFA toggle, data retention, maintenance mode, and feature flags (CSV export, MFA) all read/write through the API. Loading spinner, error state with retry, save feedback with error handling. Table-driven local state hydration from API response. New files: `lib/settings.ts` (`getSettings`, `updateSetting`, `SettingApiItem`, `SettingListResponse`), `hooks/use-settings.ts` (`useSettings`, `useUpdateSetting`), `query-keys.ts` (`settings.all`). |
 
 ---
 

@@ -18,6 +18,13 @@
 
 ## Data Layer
 
+### Audit log filtering, searching, sorting, and pagination is client-side
+The audit log page fetches the first 200 API entries as a client-side working set. Search, filter, sort, and pagination all operate in the browser over this set.
+
+**Impact:** As audit log volume grows (tens or hundreds of thousands of records), downloading 200 entries per page won't scale. Users won't be able to search the full history, and pagination will become increasingly inaccurate.
+
+**Resolution:** Move filtering (`?action=`, `?resource=`, `?severity=`, `?from=`, `?to=`, `?search=`), sorting (`?sort=`, `?order=`), and pagination (`?page=`, `?pageSize=`) to the backend before production deployment. The backend route at `apps/api/src/routes/audit-logs.ts` already supports these query parameters — the frontend just needs to pass them through instead of downloading a large working set.
+
 ### REST API exists but frontend is not connected
 The `apps/api` backend is built with Fastify + PostgreSQL + Drizzle — all CRUD endpoints exist, seed data matches the mock data, and JWT auth is functional. However, the frontend still uses hardcoded mock data and Zustand stores rather than querying the API.
 

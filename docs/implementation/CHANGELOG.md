@@ -39,6 +39,21 @@ All notable changes to the Sentience IoT Platform.
 - `lib/index.ts` — Exports `getDevices`, `getDevice`, and their types.
 - `ROADMAP.md` — Devices domain marked complete; Live Devices Hook → Devices Hook description.
 
+### Added
+
+- **Settings API functions** — `getSettings()` and `updateSetting(key, value)` in `apps/web/src/lib/settings.ts` wrapping `GET /api/settings` and `PATCH /api/settings/:key` with typed response interfaces (`SettingApiItem`, `SettingListResponse`). Exported from `lib/index.ts`.
+- **TanStack Query hooks** — `useSettings()` and `useUpdateSetting()` in `apps/web/src/hooks/use-settings.ts`. `useSettings()` fetches all platform settings from the API; `useUpdateSetting()` persists changes with cache invalidation.
+- `queryKeys.settings` — Added `all` query key factory for settings data.
+- **Settings page: loading/error states** — Loading spinner with "Loading settings…" message, error card with retry button, save feedback with success/error indicators.
+- **Table-driven hydration** — Settings page uses `useEffect` to hydrate local form state from API response, matching backend setting keys to UI fields.
+
+### Changed
+
+- **Settings page (`/settings`)** — Now fetches settings from `GET /api/settings` via TanStack Query. Platform name, timezone, password policy, session timeout, MFA toggle, data retention, maintenance mode, and feature flags (CSV export, MFA) all read/write through the API. Changed settings are diffed against current API values and persisted asynchronously. Tenant info, notification channels, backup frequency, and service status remain local-only (no backend storage). Existing UI tabs, Save button, and layout preserved unchanged.
+- `CLAUDE.md` — Updated "Current Development Phase" to show 9 of 9 domains integrated. RC2 marked complete.
+- `ROADMAP.md` — Settings domain marked complete. RC2 integration table moved to "Completed" section.
+- `TECHNICAL_DEBT.md` — Added "Audit log pagination is client-side" entry.
+
 ### Changed
 
 - **Platform Health: API Service now real** — The "API Service" card on `/admin/health` no longer shows mock data. It polls `GET /api/health` via TanStack Query every 15s and displays real uptime, database latency, and online/disconnected/degraded status. Falls back to "disconnected" when the API is unreachable.

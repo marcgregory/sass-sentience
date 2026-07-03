@@ -82,6 +82,11 @@ export const queryKeys = {
     detail: (id: string) => ["auditLogs", "detail", id] as const,
   },
 
+  /** Settings */
+  settings: {
+    all: ["settings"] as const,
+  },
+
   /** Dashboard KPIs */
   dashboard: {
     kpis: (estateId?: string) => ["dashboard", "kpis", estateId] as const,
