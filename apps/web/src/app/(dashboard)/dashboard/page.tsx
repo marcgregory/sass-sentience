@@ -34,9 +34,11 @@ import {
   Zap,
   Radio,
   RefreshCw,
+  Cpu,
 } from "lucide-react";
 import { formatRelativeTime } from "@sentience/utils";
 import { useDashboardData } from "./use-dashboard-data";
+import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 import Link from "next/link";
 
 export default function DashboardPage() {
@@ -56,6 +58,7 @@ export default function DashboardPage() {
     isSocketConnected,
     lastUpdatedAt,
   } = useDashboardData();
+  const simulatorMode = useSimulatorModeStore((s) => s.enabled);
 
   // Compute offline/fault counts from KPIs for quick actions
   const offlineCount = hasLiveData
@@ -84,8 +87,26 @@ export default function DashboardPage() {
         }
       />
 
-      {/* ─── Simulator Banner ──────────────────────────────────────────── */}
-      {!hasLiveData && (
+      {/* ─── Simulator Mode Banner ────────────────────────────────────────── */}
+      {simulatorMode && (
+        <Card className="border-dashed border-amber-300 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
+          <CardContent className="flex items-center gap-4 py-4">
+            <Cpu className="h-6 w-6 shrink-0 text-amber-500" />
+            <div>
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                Simulator Mode Active — {kpis[0].value} simulator devices
+              </p>
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                Showing simulator data only. Toggle Sim OFF in the header to
+                return to database view.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ─── Simulator not running banner (normal mode, no live data) ─────── */}
+      {!simulatorMode && !hasLiveData && (
         <Card className="border-dashed border-amber-300 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
           <CardContent className="flex items-center gap-4 py-4">
             <Radio className="h-6 w-6 shrink-0 text-amber-500" />

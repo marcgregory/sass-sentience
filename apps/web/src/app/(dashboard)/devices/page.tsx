@@ -14,6 +14,7 @@ import {
 import { StatusBadge } from "@/components/shared/status-dot";
 import { useDevices } from "@/hooks/use-devices";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
+import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 import {
   Plus,
   Search,
@@ -25,6 +26,7 @@ import {
   HardDrive,
   AlertTriangle,
   RefreshCw,
+  Cpu,
 } from "lucide-react";
 
 export default function DevicesPage() {
@@ -33,6 +35,7 @@ export default function DevicesPage() {
   const isSocketConnected = useLiveDeviceStore((s) => s.isSocketConnected);
   const hasLiveData =
     Object.keys(useLiveDeviceStore.getState().devices).length > 0;
+  const simulatorMode = useSimulatorModeStore((s) => s.enabled);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -46,6 +49,18 @@ export default function DevicesPage() {
           </Button>
         }
       />
+
+      {/* Simulator Mode banner */}
+      {simulatorMode && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+          <span className="flex items-center gap-2">
+            <Cpu className="h-4 w-4" />
+            Simulator Mode — showing {devices.length} simulated device
+            {devices.length !== 1 ? "s" : ""}. Toggle Sim OFF in the header to
+            return to database view.
+          </span>
+        </div>
+      )}
 
       {/* Connection banner */}
       {!isSocketConnected && (

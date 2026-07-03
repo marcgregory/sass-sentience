@@ -1,12 +1,12 @@
 /**
  * TanStack Query hooks for device data.
  *
- * useDevices — paginated device list from API, merged with live socket overlay.
+ * useDevices — returns devices based on Simulator Mode.
+ *   Simulator Mode ON  → ONLY live store devices (simulator data, no API call).
+ *   Simulator Mode OFF → ONLY API devices with live telemetry overlay.
  * useDevice  — single device detail from API, merged with live socket overlay.
  *
- * Live telemetry/status always wins over API data when available.
- * Only database devices appear in the device list — simulator-only devices
- * that exist in the live feed but not in the API are not appended.
+ * Simulator and database devices are mutually exclusive — never merge sources.
  */
 
 import { useMemo } from "react";
@@ -15,6 +15,7 @@ import { getDevices, getDevice } from "@/lib/devices";
 import type { DeviceDetailResponse } from "@/lib/devices";
 import { queryKeys } from "@/lib/query-keys";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
+import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 import { deriveDeviceStatus } from "@sentience/utils";
 import type { DeviceStatus } from "@sentience/types";
 
@@ -61,23 +62,59 @@ function buildSiteLabel(
   return "Unassigned";
 }
 
+/**
+ * Map a live-device store entry to a DeviceListRow for display.
+ */
+function mapLiveEntryToRow(
+  entry: import("@/stores/live-device-store").LiveDeviceEntry,
+  index: number,
+): DeviceListRow {
+  const typeLabels = ["Sensor", "Controller", "Gateway", "Relay", "Camera"];
+  return {
+    id: entry.deviceId,
+    name: `Device ${entry.deviceId.slice(0, 8)}`,
+    serial: `SIM-${entry.deviceId.slice(0, 8).toUpperCase()}`,
+    type: typeLabels[index % typeLabels.length],
+    status: entry.status,
+    battery: entry.telemetry?.battery ?? 0,
+    signal: entry.telemetry?.signalStrength ?? 0,
+    temp: entry.telemetry?.temperature ?? 0,
+    site: entry.siteName ?? entry.siteId ?? "Unassigned",
+  };
+}
+
 // ─── useDevices ────────────────────────────────────────────────────────────
 
 /**
- * Fetch the device list from the API, overlay live telemetry/status from the
- * socket layer, and append any simulator-only devices that exist in the live
- * feed but not in the database.
+ * Fetch devices based on current Simulator Mode.
+ *
+ * - **Simulator Mode ON:** Returns ONLY devices from the live realtime store.
+ *   No API call is made. The count reflects the simulator device count (5).
+ * - **Simulator Mode OFF:** Returns ONLY API (database) devices with live
+ *   telemetry/status overlaid where available. Simulator-only devices from
+ *   the live feed are ignored.
  */
 export function useDevices() {
+  const simulatorMode = useSimulatorModeStore((s) => s.enabled);
+  const liveDevices = useLiveDeviceStore((s) => s.devices);
+
   const query = useQuery({
     queryKey: queryKeys.devices.list(),
     queryFn: () => getDevices(),
+    // Skip API call in simulator mode — no database data needed
+    enabled: !simulatorMode,
   });
 
-  const liveDevices = useLiveDeviceStore((s) => s.devices);
+  // Simulator Mode: return ONLY live store devices
+  const simulatorDevices = useMemo<DeviceListRow[]>(() => {
+    if (!simulatorMode) return [];
+    const entries = Object.values(liveDevices);
+    return entries.map((entry, i) => mapLiveEntryToRow(entry, i));
+  }, [simulatorMode, liveDevices]);
 
-  // Merge API devices with live overlay — no sim-only devices appended
-  const devices = useMemo<DeviceListRow[]>(() => {
+  // Normal Mode: merge API devices with live overlay — no sim-only devices
+  const apiDevices = useMemo<DeviceListRow[]>(() => {
+    if (simulatorMode) return [];
     const apiData = query.data?.data ?? [];
 
     return apiData.map((api) => {
@@ -100,66 +137,88 @@ export function useDevices() {
         ),
       };
     });
-  }, [query.data, liveDevices]);
+  }, [simulatorMode, query.data, liveDevices]);
+
+  const devices = simulatorMode ? simulatorDevices : apiDevices;
+  const total = simulatorMode ? devices.length : (query.data?.pagination?.total ?? 0);
 
   return {
     devices,
-    total: query.data?.pagination?.total ?? 0,
-    isLoading: query.isLoading,
-    isError: query.isError,
-    error: query.error,
+    total,
+    isLoading: simulatorMode ? false : query.isLoading,
+    isError: simulatorMode ? false : query.isError,
+    error: simulatorMode ? null : query.error,
   };
 }
 
 // ─── useDevice ─────────────────────────────────────────────────────────────
 
 /**
- * Fetch a single device from the API and merge with its live overlay entry.
+ * Fetch a single device — from the API (normal mode) or live store (simulator
+ * mode) — and merge with its live overlay entry.
  *
- * Returns a DeviceListRow (compatible with the detail page's existing
- * template expectations) plus the raw API response for richer detail.
- * The live store entry should still be accessed separately via
- * `useLiveDeviceStore((s) => s.devices[id])` for real-time telemetry.
+ * In simulator mode, the API call is skipped and only the live store entry
+ * is used. This allows simulator devices to be viewed on the detail page.
+ *
+ * In normal mode, the API response provides the base data and any matching
+ * live store entry overlays real-time telemetry/status.
  */
 export function useDevice(id: string) {
+  const simulatorMode = useSimulatorModeStore((s) => s.enabled);
+
   const query = useQuery({
     queryKey: queryKeys.devices.detail(id),
     queryFn: () => getDevice(id),
-    enabled: !!id,
+    enabled: !!id && !simulatorMode,
   });
 
   const liveEntry = useLiveDeviceStore((s) => s.devices[id]);
 
   const device = useMemo<DeviceListRow | null>(() => {
+    // Simulator mode: build from live store entry only
+    if (simulatorMode) {
+      if (!liveEntry) return null;
+      return {
+        id: liveEntry.deviceId,
+        name: `Device ${liveEntry.deviceId.slice(0, 8)}`,
+        serial: `SIM-${liveEntry.deviceId.slice(0, 8).toUpperCase()}`,
+        type: "Sensor",
+        status: liveEntry.status,
+        battery: liveEntry.telemetry?.battery ?? 0,
+        signal: liveEntry.telemetry?.signalStrength ?? 0,
+        temp: liveEntry.telemetry?.temperature ?? 0,
+        site: liveEntry.siteName ?? liveEntry.siteId ?? "Unassigned",
+      };
+    }
+
+    // Normal mode: API data with live overlay
     const api = query.data;
     if (!api) return null;
-
-    const live = liveEntry;
 
     return {
       id: api.id,
       name: api.name,
       serial: api.serialNumber,
       type: api.type.charAt(0).toUpperCase() + api.type.slice(1),
-      status: live
-        ? deriveDeviceStatus(live as Parameters<typeof deriveDeviceStatus>[0])
+      status: liveEntry
+        ? deriveDeviceStatus(liveEntry as Parameters<typeof deriveDeviceStatus>[0])
         : api.status,
-      battery: live?.telemetry?.battery ?? api.battery ?? 0,
-      signal: live?.telemetry?.signalStrength ?? api.signalStrength ?? 0,
-      temp: live?.telemetry?.temperature ?? api.temperature ?? 0,
+      battery: liveEntry?.telemetry?.battery ?? api.battery ?? 0,
+      signal: liveEntry?.telemetry?.signalStrength ?? api.signalStrength ?? 0,
+      temp: liveEntry?.telemetry?.temperature ?? api.temperature ?? 0,
       site: buildSiteLabel(
-        live?.siteName ?? api.siteName,
-        live?.estateName ?? api.estateName,
+        liveEntry?.siteName ?? api.siteName,
+        liveEntry?.estateName ?? api.estateName,
         api.siteId,
       ),
     };
-  }, [query.data, liveEntry]);
+  }, [simulatorMode, query.data, liveEntry]);
 
   return {
     device,
     apiDevice: query.data as DeviceDetailResponse | undefined,
-    isLoading: query.isLoading,
-    isError: query.isError,
-    error: query.error,
+    isLoading: simulatorMode ? false : query.isLoading,
+    isError: simulatorMode ? false : query.isError,
+    error: simulatorMode ? null : query.error,
   };
 }

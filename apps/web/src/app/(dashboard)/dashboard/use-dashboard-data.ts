@@ -1,6 +1,9 @@
 /**
- * Dashboard data hook — merges live realtime device state with mock data
- * fallback for the dashboard operations center display.
+ * Dashboard data hook — provides metrics based on current Simulator Mode.
+ *
+ * When Simulator Mode is active, all metrics reflect the simulator devices
+ * in the live-device store. When inactive, live data is used if available,
+ * otherwise mock data is shown.
  *
  * When live socket data is present, all metrics reflect the actual devices
  * in the live-device store using shared selectors from @sentience/utils.
@@ -8,10 +11,16 @@
  *
  * All derived metrics use the shared selectors so every page displays
  * identical values for identical live data.
+ *
+ * Simulator Mode vs Normal Mode behavior:
+ * - Simulator Mode ON: metrics computed from ALL live store devices (simulator)
+ * - Simulator Mode OFF: metrics computed from live store devices that are
+ *   also in the database (UUID match), or fall back to mock data if none
  */
 
 import { useMemo } from "react";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
+import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 import type { LucideIcon } from "lucide-react";
 import { Monitor, Wifi, WifiOff, AlertTriangle } from "lucide-react";
 import {
@@ -156,11 +165,15 @@ export function useDashboardData() {
   const recentEvents = useLiveDeviceStore((s) => s.recentEvents);
   const isSocketConnected = useLiveDeviceStore((s) => s.isSocketConnected);
   const lastUpdatedAt = useLiveDeviceStore((s) => s.lastUpdatedAt);
+  const simulatorMode = useSimulatorModeStore((s) => s.enabled);
 
-  // Only include live entries whose deviceId is a UUID — non-UUID
-  // entries are simulator-only devices that don't exist in the DB and
-  // should not inflate dashboard counts.
-  const deviceEntries = Object.values(devices).filter((d) => isUUID(d.deviceId));
+  // Simulator Mode: include ALL live store devices (simulator data only).
+  // Normal Mode: include only live entries whose deviceId is a UUID
+  // (database-registered devices). Non-UUID entries are simulator-only
+  // devices that don't exist in the DB and should not inflate counts.
+  const deviceEntries = simulatorMode
+    ? Object.values(devices)
+    : Object.values(devices).filter((d) => isUUID(d.deviceId));
   const hasLiveData = deviceEntries.length > 0;
 
   // ─── Debug: log all tracked devices with classification ─────────

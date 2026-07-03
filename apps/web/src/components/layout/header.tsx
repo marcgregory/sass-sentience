@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useUIStore } from "@/stores/ui-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
+import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 import { useTheme } from "@/providers/theme-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +23,7 @@ import {
   Shield,
   Wrench,
   Eye,
+  Cpu,
 } from "lucide-react";
 import type { UserRole } from "@sentience/types";
 import { ROLE_META } from "@/lib/permissions";
@@ -43,6 +45,8 @@ export function Header() {
   const { user, logout, loginAsRole, demoAccounts } = useAuthStore();
   const { theme, setTheme } = useTheme();
   const isSocketConnected = useLiveDeviceStore((s) => s.isSocketConnected);
+  const simulatorMode = useSimulatorModeStore((s) => s.enabled);
+  const toggleSimulatorMode = useSimulatorModeStore((s) => s.toggle);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showRoleMenu, setShowRoleMenu] = useState(false);
 
@@ -105,6 +109,23 @@ export function Header() {
             </>
           )}
         </div>
+
+        {/* Simulator Mode Toggle */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className={`gap-1.5 text-xs font-medium ${
+            simulatorMode
+              ? "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30"
+              : "text-muted-foreground"
+          }`}
+          onClick={toggleSimulatorMode}
+        >
+          <Cpu
+            className={`h-3.5 w-3.5 ${simulatorMode ? "text-amber-500" : ""}`}
+          />
+          {simulatorMode ? "Sim ON" : "Sim OFF"}
+        </Button>
 
         {/* Theme toggle */}
         <Button
