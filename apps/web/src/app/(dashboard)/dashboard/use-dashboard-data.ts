@@ -1,21 +1,12 @@
 /**
  * Dashboard data hook — provides metrics based on current Simulator Mode.
  *
- * When Simulator Mode is active, all metrics reflect the simulator devices
- * in the live-device store. When inactive, live data is used if available,
- * otherwise mock data is shown.
+ * Simulator Mode ON  → metrics computed from ALL live store devices (simulator).
+ * Simulator Mode OFF → returns mock data only (no live store contamination).
  *
- * When live socket data is present, all metrics reflect the actual devices
- * in the live-device store using shared selectors from @sentience/utils.
- * When absent, they fall back to static mock values so the UI is never empty.
- *
+ * These two modes are mutually exclusive — never mix data sources.
  * All derived metrics use the shared selectors so every page displays
  * identical values for identical live data.
- *
- * Simulator Mode vs Normal Mode behavior:
- * - Simulator Mode ON: metrics computed from ALL live store devices (simulator)
- * - Simulator Mode OFF: metrics computed from live store devices that are
- *   also in the database (UUID match), or fall back to mock data if none
  */
 
 import { useMemo } from "react";
@@ -155,26 +146,18 @@ const MOCK_ESTATES: EstateSummary[] = [
   { id: "estate-greenfield", name: "Greenfield Data Centre", total: 156, online: 148, offline: 4, fault: 1, warning: 3 },
 ];
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-function isUUID(id: string): boolean {
-  return UUID_RE.test(id);
-}
-
 export function useDashboardData() {
+  const simulatorMode = useSimulatorModeStore((s) => s.enabled);
+
+  // Simulator Mode ON → use live store data (simulator devices only)
+  // Simulator Mode OFF → mock data only (ignore live store entirely)
   const devices = useLiveDeviceStore((s) => s.devices);
   const recentEvents = useLiveDeviceStore((s) => s.recentEvents);
   const isSocketConnected = useLiveDeviceStore((s) => s.isSocketConnected);
   const lastUpdatedAt = useLiveDeviceStore((s) => s.lastUpdatedAt);
-  const simulatorMode = useSimulatorModeStore((s) => s.enabled);
 
-  // Simulator Mode: include ALL live store devices (simulator data only).
-  // Normal Mode: include only live entries whose deviceId is a UUID
-  // (database-registered devices). Non-UUID entries are simulator-only
-  // devices that don't exist in the DB and should not inflate counts.
-  const deviceEntries = simulatorMode
-    ? Object.values(devices)
-    : Object.values(devices).filter((d) => isUUID(d.deviceId));
-  const hasLiveData = deviceEntries.length > 0;
+  const deviceEntries = simulatorMode ? Object.values(devices) : [];
+  const hasLiveData = simulatorMode && deviceEntries.length > 0;
 
   // ─── Debug: log all tracked devices with classification ─────────
   if (hasLiveData && process.env.NODE_ENV === "development") {
@@ -243,7 +226,6 @@ export function useDashboardData() {
 
   const systemHealth: SystemHealthItem[] = useMemo(() => {
     if (!hasLiveData) return MOCK_HEALTH;
-    if (deviceEntries.length === 0) return MOCK_HEALTH;
     return computeSystemHealth(deviceEntries);
   }, [deviceEntries, hasLiveData]);
 
@@ -259,7 +241,6 @@ export function useDashboardData() {
   const batteryDistribution: DistributionItem[] = useMemo(() => {
     if (!hasLiveData) return MOCK_BATTERY;
     const result = computeBatteryDistribution(deviceEntries);
-    // When there are entries with telemetry, use real results; when no telemetry available, fall back to mock
     return result.every((d) => d.count === 0) ? MOCK_BATTERY : result;
   }, [deviceEntries, hasLiveData]);
 
@@ -282,6 +263,7 @@ export function useDashboardData() {
   // ─── Live Alerts (severity-filtered events) ───────────────────────
 
   const liveAlerts: LiveAlert[] = useMemo(() => {
+    if (!hasLiveData) return [];
     return recentEvents
       .filter((e) => e.severity === "critical" || e.severity === "warning")
       .slice(0, 4)
@@ -292,13 +274,14 @@ export function useDashboardData() {
         time: e.timestamp,
         site: e.siteName ?? e.siteId ?? "Unknown",
       }));
-  }, [recentEvents]);
+  }, [recentEvents, hasLiveData]);
 
   // ─── Recent Activity (latest 10 events) ───────────────────────────
 
   const recentActivity = useMemo(() => {
+    if (!hasLiveData) return [];
     return recentEvents.slice(0, 10);
-  }, [recentEvents]);
+  }, [recentEvents, hasLiveData]);
 
   // ─── Estate Summary ───────────────────────────────────────────────
 
@@ -342,7 +325,7 @@ export function useDashboardData() {
     devicesOffline,
     eventsToday,
     hasLiveData,
-    isSocketConnected,
-    lastUpdatedAt,
+    isSocketConnected: simulatorMode ? isSocketConnected : false,
+    lastUpdatedAt: simulatorMode ? lastUpdatedAt : null,
   };
 }

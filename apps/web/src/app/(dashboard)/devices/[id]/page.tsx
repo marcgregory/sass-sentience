@@ -40,6 +40,7 @@ import { StatusDot, StatusBadge } from "@/components/shared/status-dot";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useDevice } from "@/hooks/use-devices";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
+import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 import {
   cn,
   formatRelativeTime,
@@ -472,16 +473,18 @@ export default function DeviceDetailPage() {
   // API data source
   const { device, apiDevice, isLoading, isError } = useDevice(deviceId);
 
-  // Live data overlay
+  // Live data overlay (only in simulator mode)
+  const simulatorMode = useSimulatorModeStore((s) => s.enabled);
   const liveDeviceEntry = useLiveDeviceStore((s) => s.devices[deviceId]);
   const recentEvents = useLiveDeviceStore((s) => s.recentEvents);
 
-  // Device-specific events
+  // Device-specific events (use live only in simulator mode)
   const deviceEvents = useMemo(() => {
+    if (!simulatorMode) return getMockEvents(deviceId);
     const live = recentEvents.filter((e) => e.deviceId === deviceId);
     if (live.length > 0) return live;
     return getMockEvents(deviceId);
-  }, [recentEvents, deviceId]);
+  }, [recentEvents, deviceId, simulatorMode]);
 
   // ═══ Loading State ══════════════════════════════════════════════════════
 
@@ -569,7 +572,7 @@ export default function DeviceDetailPage() {
 
   // ═══ Device found — render detail ═══════════════════════════════════════
 
-  const live = liveDeviceEntry;
+  const live = simulatorMode ? liveDeviceEntry : undefined;
 
   // Live telemetry (from store) or fallback to API static values
   const telemetry = live?.telemetry
@@ -595,7 +598,7 @@ export default function DeviceDetailPage() {
   // override with raw live store status which skips battery/heartbeat rules.
   const status: DeviceStatus = device.status;
   const lastSeen = live?.lastSeen ?? new Date().toISOString();
-  const isLive = !!live;
+  const isLive = simulatorMode && !!live;
 
   const firmware = MOCK_FIRMWARE[deviceId] ?? DEFAULT_FIRMWARE;
   const config = MOCK_CONFIG[deviceId] ?? DEFAULT_CONFIG;

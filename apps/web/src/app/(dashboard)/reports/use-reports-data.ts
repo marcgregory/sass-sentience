@@ -15,6 +15,7 @@ import { useReportSummary, useReportTrends } from "@/hooks/use-reports";
 import type { UseReportSummaryOptions, UseReportTrendsOptions } from "@/hooks/use-reports";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
 import { useLiveAlertStore } from "@/stores/live-alert-store";
+import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 import {
   formatBattery,
   formatSignalStrength,
@@ -89,14 +90,16 @@ export function useReportsData(filter: ReportFilter) {
   });
 
   // Live device/alert stores for realtime freshness
+  const simulatorMode = useSimulatorModeStore((s) => s.enabled);
   const devices = useLiveDeviceStore((s) => s.devices);
   const recentEvents = useLiveDeviceStore((s) => s.recentEvents);
   const alerts = useLiveAlertStore((s) => s.alerts);
   const alertIds = useLiveAlertStore((s) => s.alertIds);
   const isSocketConnected = useLiveDeviceStore((s) => s.isSocketConnected);
 
-  const deviceEntries = Object.values(devices);
-  const hasLiveData = deviceEntries.length > 0;
+  // Simulator Mode OFF → ignore live store entirely, use API data only
+  const deviceEntries = simulatorMode ? Object.values(devices) : [];
+  const hasLiveData = simulatorMode && deviceEntries.length > 0;
 
   // ─── Derive FleetSummary from API ─────────────────────────────────
 

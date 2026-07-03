@@ -17,6 +17,7 @@ import { getAlerts, getAlert, updateAlert } from "@/lib/alerts";
 import type { AlertApiItem } from "@/lib/alerts";
 import { queryKeys } from "@/lib/query-keys";
 import { useLiveAlertStore, type LiveAlertEntry } from "@/stores/live-alert-store";
+import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 
 // ─── Display Row Type ───────────────────────────────────────────────────
 
@@ -144,15 +145,22 @@ export function useAlerts(options: UseAlertsOptions = {}) {
   const storeAlerts = useLiveAlertStore((s) => s.alerts);
   const storeAlertIds = useLiveAlertStore((s) => s.alertIds);
   const isSocketConnected = useLiveAlertStore((s) => s.isSocketConnected);
+  const simulatorMode = useSimulatorModeStore((s) => s.enabled);
 
-  // Merge API alerts with live overlay
+  // Merge API alerts with live overlay (only in simulator mode — when
+  // simulator mode is OFF, show API alerts only, no live store contamination)
   const alerts = useMemo<AlertDisplayRow[]>(() => {
     const apiData = query.data?.data ?? [];
-    const liveIds = new Set(storeAlertIds);
+
+    if (!simulatorMode) {
+      // Normal mode: API data only
+      return apiData.map(mapApiAlertToRow);
+    }
+
+    // Simulator mode: live alerts first, then API alerts
     const seenIds = new Set<string>();
     const merged: AlertDisplayRow[] = [];
 
-    // 1. Live alerts first (most recent at the beginning)
     for (const id of storeAlertIds) {
       const live = storeAlerts[id];
       if (!live || seenIds.has(live.id)) continue;
@@ -160,7 +168,6 @@ export function useAlerts(options: UseAlertsOptions = {}) {
       merged.push(mapLiveAlertToRow(live));
     }
 
-    // 2. API alerts that aren't already covered by live alerts
     for (const api of apiData) {
       if (seenIds.has(api.id)) continue;
       seenIds.add(api.id);
@@ -168,7 +175,7 @@ export function useAlerts(options: UseAlertsOptions = {}) {
     }
 
     return merged;
-  }, [query.data, storeAlerts, storeAlertIds]);
+  }, [query.data, storeAlerts, storeAlertIds, simulatorMode]);
 
   const total = query.data?.pagination?.total ?? 0;
 

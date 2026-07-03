@@ -15,6 +15,7 @@ import { getEvents, getEvent } from "@/lib/events";
 import type { EventApiItem, EventDisplayRow } from "@/lib/events";
 import { queryKeys } from "@/lib/query-keys";
 import { useLiveDeviceStore, type LiveEventEntry } from "@/stores/live-device-store";
+import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -103,22 +104,27 @@ export function useEvents(options: UseEventsOptions = {}) {
   });
 
   const storeEvents = useLiveDeviceStore((s) => s.recentEvents);
+  const simulatorMode = useSimulatorModeStore((s) => s.enabled);
 
-  // Merge API events with live overlay
+  // Merge API events with live overlay (only in simulator mode)
   const events = useMemo<EventDisplayRow[]>(() => {
     const apiData = query.data?.data ?? [];
-    const liveIds = new Set(storeEvents.map((e) => e.eventId));
+
+    if (!simulatorMode) {
+      // Normal mode: API data only
+      return apiData.map(mapApiEventToRow);
+    }
+
+    // Simulator mode: live events first, then API events
     const seenIds = new Set<string>();
     const merged: EventDisplayRow[] = [];
 
-    // 1. Live events first (most recent at the beginning)
     for (const live of storeEvents) {
       if (seenIds.has(live.eventId)) continue;
       seenIds.add(live.eventId);
       merged.push(mapLiveEventToRow(live));
     }
 
-    // 2. API events that aren't already covered by live events
     for (const api of apiData) {
       if (seenIds.has(api.id)) continue;
       seenIds.add(api.id);
@@ -126,7 +132,7 @@ export function useEvents(options: UseEventsOptions = {}) {
     }
 
     return merged;
-  }, [query.data, storeEvents]);
+  }, [query.data, storeEvents, simulatorMode]);
 
   const total = query.data?.pagination?.total ?? 0;
 
