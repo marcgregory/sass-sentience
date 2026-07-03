@@ -1,0 +1,2 @@
+- [Status Reason Priority](status-reason-priority.md) — Severity-based priority in deriveDeviceHealth
+- [Status Reasons Architecture](status-reasons-arch) — Original status reasons implementation

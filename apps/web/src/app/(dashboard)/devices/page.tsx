@@ -15,10 +15,10 @@ import { StatusBadge } from "@/components/shared/status-dot";
 import { useDevices } from "@/hooks/use-devices";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
 import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
+import type { StatusReason } from "@sentience/types";
 import {
   Plus,
   Search,
-  Filter,
   Monitor,
   Battery,
   Wifi,
@@ -27,7 +27,31 @@ import {
   AlertTriangle,
   RefreshCw,
   Cpu,
+  X,
+  BatteryWarning,
+  ThermometerSun,
+  WifiOff,
+  HeartOff,
+  ClipboardX,
 } from "lucide-react";
+import { useState, useMemo } from "react";
+
+// ─── Status Reason Filter Configuration ──────────────────────────────
+
+const REASON_FILTERS: {
+  reason: StatusReason;
+  label: string;
+  icon: React.ElementType;
+  color: string;
+}[] = [
+  { reason: "HEARTBEAT_TIMEOUT", label: "Heartbeat Timeout", icon: HeartOff, color: "text-slate-500" },
+  { reason: "BATTERY_CRITICAL", label: "Battery Critical", icon: BatteryWarning, color: "text-red-500" },
+  { reason: "LOW_BATTERY", label: "Low Battery", icon: BatteryWarning, color: "text-amber-500" },
+  { reason: "BATTERY_MISSING", label: "Battery Missing", icon: BatteryWarning, color: "text-amber-500" },
+  { reason: "WEAK_SIGNAL", label: "Weak Signal", icon: WifiOff, color: "text-amber-500" },
+  { reason: "OVERHEAT", label: "Overheating", icon: ThermometerSun, color: "text-amber-500" },
+  { reason: "HARDWARE_DIAGNOSTIC_FAILED", label: "Hardware Fault", icon: ClipboardX, color: "text-red-500" },
+];
 
 export default function DevicesPage() {
   const router = useRouter();
@@ -36,6 +60,43 @@ export default function DevicesPage() {
   const hasLiveData =
     Object.keys(useLiveDeviceStore.getState().devices).length > 0;
   const simulatorMode = useSimulatorModeStore((s) => s.enabled);
+
+  // ── Search & filter state ───────────────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeReasonFilters, setActiveReasonFilters] = useState<StatusReason[]>([]);
+
+  const toggleReasonFilter = (reason: StatusReason) => {
+    setActiveReasonFilters((prev) =>
+      prev.includes(reason)
+        ? prev.filter((r) => r !== reason)
+        : [...prev, reason],
+    );
+  };
+
+  // ── Filtered devices ────────────────────────────────────────────────
+  const filteredDevices = useMemo(() => {
+    let result = devices;
+
+    // Text search
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (d) =>
+          d.name.toLowerCase().includes(q) ||
+          d.serial.toLowerCase().includes(q) ||
+          d.site.toLowerCase().includes(q),
+      );
+    }
+
+    // Reason filters
+    if (activeReasonFilters.length > 0) {
+      result = result.filter((d) =>
+        activeReasonFilters.some((r) => d.reasons.includes(r)),
+      );
+    }
+
+    return result;
+  }, [devices, searchQuery, activeReasonFilters]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -71,27 +132,67 @@ export default function DevicesPage() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="search"
-            aria-label="Search devices"
-            placeholder="Search by name, serial, or site..."
-            className="w-full rounded-md border bg-background py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-ring"
-          />
+      {/* Search + Filters */}
+      <div className="space-y-3">
+        {/* Top row — search bar */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="search"
+              aria-label="Search devices"
+              placeholder="Search by name, serial, or site..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-md border bg-background py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => {
+              setSearchQuery("");
+              setActiveReasonFilters([]);
+            }}
+            disabled={!searchQuery && activeReasonFilters.length === 0}
+          >
+            <X className="h-4 w-4" />
+            Clear
+          </Button>
         </div>
-        <Button variant="outline" size="sm">
-          <Filter className="h-4 w-4" />
-          Filter
-        </Button>
-        <Button variant="outline" size="sm">
-          All Types
-        </Button>
-        <Button variant="outline" size="sm">
-          All Status
-        </Button>
+
+        {/* Bottom row — reason filter chips */}
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by status reason">
+          {REASON_FILTERS.map(({ reason, label, icon: Icon, color }) => {
+            const isActive = activeReasonFilters.includes(reason);
+            return (
+              <button
+                key={reason}
+                type="button"
+                aria-pressed={isActive}
+                onClick={() => toggleReasonFilter(reason)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors
+                  ${
+                    isActive
+                      ? "bg-foreground text-background"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}
+              >
+                <Icon className={`h-3 w-3 ${isActive ? "" : color}`} />
+                {label}
+                {isActive && (
+                  <X className="h-3 w-3 ml-0.5" />
+                )}
+              </button>
+            );
+          })}
+          {activeReasonFilters.length > 0 && (
+            <span className="text-xs text-muted-foreground ml-1">
+              {filteredDevices.length} device{filteredDevices.length !== 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Error State */}
@@ -168,16 +269,25 @@ export default function DevicesPage() {
       )}
 
       {/* Empty State */}
-      {!isLoading && !isError && devices.length === 0 && (
+      {!isLoading && !isError && filteredDevices.length === 0 && (
         <EmptyState
           icon={HardDrive}
-          title="No devices found"
-          description="No devices are registered yet. Add a device or start the MQTT simulator to get started."
+          title={activeReasonFilters.length > 0 || searchQuery ? "No matching devices" : "No devices found"}
+          description={
+            activeReasonFilters.length > 0 || searchQuery
+              ? "No devices match the current filters. Try adjusting your search or clearing the filters."
+              : "No devices are registered yet. Add a device or start the MQTT simulator to get started."
+          }
+          action={
+            activeReasonFilters.length > 0 || searchQuery
+              ? { label: "Clear Filters", onClick: () => { setSearchQuery(""); setActiveReasonFilters([]); } }
+              : undefined
+          }
         />
       )}
 
       {/* Device Table */}
-      {!isLoading && devices.length > 0 && (
+      {!isLoading && filteredDevices.length > 0 && (
         <div className="overflow-x-auto rounded-lg border">
           <table className="w-full">
             <thead>
@@ -209,7 +319,7 @@ export default function DevicesPage() {
               </tr>
             </thead>
             <tbody>
-              {devices.map((device) => (
+              {filteredDevices.map((device) => (
                 <tr
                   key={device.id}
                   className="border-b hover:bg-muted/30 transition-colors cursor-pointer"
@@ -273,8 +383,10 @@ export default function DevicesPage() {
       {/* Pagination */}
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>
-          Showing 1-{devices.length} of{" "}
-          {total > 0 ? total.toLocaleString() : devices.length} devices
+          {activeReasonFilters.length > 0 || searchQuery
+            ? `Showing ${filteredDevices.length} of ${devices.length} devices`
+            : `Showing 1-${devices.length} of ${total > 0 ? total.toLocaleString() : devices.length} devices`
+          }
         </span>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" disabled>

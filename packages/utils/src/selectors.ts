@@ -92,17 +92,24 @@ export interface EstateSummary {
  * Derive the *effective display status* and *reasons* of a device based on
  * telemetry health, not just the raw stored status.
  *
- * Rules (in priority order):
+ * The function collects ALL applicable status reasons first, then derives the
+ * final status from the **most severe** reason present. This means status is
+ * determined by severity priority rather than check order:
+ *
+ *   Offline > Fault > Warning > Online
+ *
+ * This prevents inconsistent results if someone later reorders the checks.
+ *
+ * Rules:
  * 1. Raw status "offline" OR lastSeen > heartbeat timeout → "offline" with
  *    HEARTBEAT_TIMEOUT reason.
- * 2. Battery ≤ 10%          → "fault" with BATTERY_CRITICAL.
- * 3. Battery null/N/A on a battery-powered device → "warning" with
- *    BATTERY_MISSING (sensor data missing).
+ * 2. Battery ≤ 10%          → adds BATTERY_CRITICAL.
+ * 3. Battery null/N/A on a battery-powered device → adds BATTERY_MISSING.
  * 4. Battery null/N/A on an externally-powered device → ignored (controller/
  *    gateway/relay may not have a battery).
- * 5. Battery 11–20%         → "warning" with LOW_BATTERY.
- * 6. Signal ≤ -110 dBm      → "warning" with WEAK_SIGNAL.
- * 7. Temperature ≥ 45°C     → "warning" with OVERHEAT.
+ * 5. Battery 11–20%         → adds LOW_BATTERY.
+ * 6. Signal ≤ -110 dBm      → adds WEAK_SIGNAL.
+ * 7. Temperature ≥ 45°C     → adds OVERHEAT.
  * 8. Otherwise              → "online" with empty reasons.
  *
  * This is the one shared status selector. Every page (Dashboard, Devices,
@@ -116,58 +123,59 @@ export function deriveDeviceHealth(entry: DeviceEntry): DeviceHealth {
   const { telemetry, status, deviceType, lastSeen } = entry;
   const reasons: StatusReason[] = [];
 
-  // 1. Raw status offline OR heartbeat timeout → offline
+  // ── Offline check (highest severity — immediate return) ────────────────
+  // If the raw database status is "offline" or heartbeat has expired, the
+  // device is definitively offline regardless of telemetry values.
   if (status === "offline") {
-    reasons.push("HEARTBEAT_TIMEOUT");
-    return { status: "offline", reasons };
+    return { status: "offline", reasons: ["HEARTBEAT_TIMEOUT"] };
   }
 
-  // Heartbeat timeout check (even if raw status is "online")
   if (lastSeen) {
     const elapsed = Date.now() - new Date(lastSeen).getTime();
     if (elapsed > HEARTBEAT_TIMEOUT_MS) {
-      reasons.push("HEARTBEAT_TIMEOUT");
-      return { status: "offline", reasons };
+      return { status: "offline", reasons: ["HEARTBEAT_TIMEOUT"] };
     }
   }
 
-  // Without telemetry we can't derive further — keep the raw status
-  if (!telemetry) return { status, reasons };
+  // ── Without telemetry we can't derive further ─────────────────────────
+  if (!telemetry) return { status, reasons: [] };
 
+  // ── Collect ALL telemetry-based reasons ────────────────────────────────
   const battery = telemetry.battery;
-  const isExternallyPowered = deviceType && EXTERNALLY_POWERED_TYPES.has(deviceType);
+  const isExternallyPowered =
+    deviceType && EXTERNALLY_POWERED_TYPES.has(deviceType);
 
   // Battery null/N/A — only a concern for battery-powered devices
   if (battery == null || Number.isNaN(battery)) {
     if (!isExternallyPowered) {
       reasons.push("BATTERY_MISSING");
-      return { status: "warning", reasons };
     }
     // Externally-powered — not a concern, fall through to other checks
   } else if (battery <= 10) {
-    // 2. Battery ≤ 10% → fault
     reasons.push("BATTERY_CRITICAL");
-    return { status: "fault", reasons };
   } else if (battery <= 20) {
-    // 5. Battery 11–20% → warning
     reasons.push("LOW_BATTERY");
   }
 
-  // 6. Signal ≤ -110 dBm → warning
   if (telemetry.signalStrength <= -110) {
     reasons.push("WEAK_SIGNAL");
   }
 
-  // 7. Temperature ≥ 45°C → warning
   if (telemetry.temperature >= 45) {
     reasons.push("OVERHEAT");
   }
 
-  // If we found any warning conditions, return "warning"
-  if (reasons.length > 0) return { status: "warning", reasons };
+  // ── Derive status from the most severe reason ─────────────────────────
+  // Severity hierarchy (highest first): fault > warning
+  // (Offline already handled above, so only fault/warning remain.)
+  if (reasons.length === 0) return { status, reasons: [] };
 
-  // All checks pass — healthy
-  return { status, reasons };
+  const hasFault = reasons.some(
+    (r) => r === "BATTERY_CRITICAL" || r === "HARDWARE_DIAGNOSTIC_FAILED",
+  );
+  if (hasFault) return { status: "fault", reasons };
+
+  return { status: "warning", reasons };
 }
 
 /**
