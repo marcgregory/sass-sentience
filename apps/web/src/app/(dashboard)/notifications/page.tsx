@@ -2,6 +2,7 @@
 
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/shared/empty-state";
 import {
   Card,
   CardContent,
@@ -10,7 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Bell, CheckCheck, AlertTriangle, Info, Monitor, FileText } from "lucide-react";
+import { Bell, BellOff, CheckCheck, AlertTriangle, Info, Monitor, FileText } from "lucide-react";
 import { formatRelativeTime } from "@sentience/utils";
 
 const notifications = [
@@ -51,6 +52,13 @@ export default function NotificationsPage() {
         }
       />
 
+      {notifications.length === 0 ? (
+        <EmptyState
+          icon={BellOff}
+          title="No notifications"
+          description="You have no notifications at this time. Notifications will appear here when there is activity."
+        />
+      ) : (
       <div className="space-y-2">
         {notifications.map((n) => {
           const Icon = categoryIcons[n.category as keyof typeof categoryIcons] || Bell;
@@ -78,6 +86,7 @@ export default function NotificationsPage() {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

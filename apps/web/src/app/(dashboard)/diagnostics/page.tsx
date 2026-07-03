@@ -2,6 +2,7 @@
 
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/shared/empty-state";
 import {
   Card,
   CardContent,
@@ -10,7 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Stethoscope, Play, CheckCircle2, XCircle, AlertCircle, Monitor } from "lucide-react";
+import { Stethoscope, Play, CheckCircle2, XCircle, AlertCircle, Monitor, Activity } from "lucide-react";
 
 const recentDiagnostics = [
   { id: "DG-001", device: "Gate Controller A3", type: "Ping", status: "passed", time: "5 min ago", ranBy: "System" },
@@ -70,6 +71,14 @@ export default function DiagnosticsPage() {
           <CardDescription>Latest diagnostic results across all devices</CardDescription>
         </CardHeader>
         <CardContent>
+          {recentDiagnostics.length === 0 ? (
+            <EmptyState
+              icon={Activity}
+              title="No diagnostics run yet"
+              description="Diagnostic results will appear here after the first test is run."
+              action={{ label: "Run Diagnostic", onClick: () => {} }}
+            />
+          ) : (
           <div className="divide-y">
             {recentDiagnostics.map((d) => (
               <div key={d.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
@@ -94,6 +103,7 @@ export default function DiagnosticsPage() {
               </div>
             ))}
           </div>
+          )}
         </CardContent>
       </Card>
     </div>

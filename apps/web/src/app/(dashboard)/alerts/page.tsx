@@ -426,6 +426,8 @@ export default function AlertsPage() {
           {SEVERITY_OPTIONS.map((opt) => (
             <button
               key={opt.key}
+              role="radio"
+              aria-checked={severityFilter === opt.key}
               onClick={() => setSeverityFilter(opt.key)}
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
@@ -447,6 +449,8 @@ export default function AlertsPage() {
           {STATUS_OPTIONS.map((opt) => (
             <button
               key={opt.key}
+              role="radio"
+              aria-checked={statusFilter === opt.key}
               onClick={() => setStatusFilter(opt.key)}
               className={cn(
                 "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",

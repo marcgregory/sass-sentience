@@ -268,6 +268,7 @@ export default function AuditLogPage() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="search"
+              aria-label="Search audit log"
               placeholder="Search audit log..."
               value={search}
               onChange={(e) => { handleSearch(e.target.value); }}

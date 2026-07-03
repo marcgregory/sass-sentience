@@ -2,7 +2,7 @@
 
 > **Engineering execution.** Details each sprint's goal, scope, tasks, and definition of done.
 > Product backlog (what/why) lives in `ROADMAP.md`.
-> Last updated: 2026-07-03
+> Last updated: 2026-07-03 (Phase 2 accepted, Phase 3 delivered)
 
 ---
 ## Sprint 8: v1.0 RC1 — Backend API + PostgreSQL
@@ -407,3 +407,72 @@ The infrastructure phase is complete. The current architecture supports all rema
 ### Completed
 
 2026-07-03 — Sprint 7 delivered. Admin overview page (`/admin`), enhanced settings (tenant settings, feature flags, maintenance mode), API key management with create/revoke/masked display, audit log enhancements (severity filter, detail drawer), notification rules with alert thresholds and channel/role toggles, platform health dashboard with service monitoring. All admin pages protected via `RequirePermission` with `admin` resource. 26 static pages generated. TypeScript and production build pass cleanly.
+
+---
+
+## RC3 Phase 2: UX Audit & Fixes
+
+**Goal:** Improve usability, accessibility, and resilience across all 20 pages. No new features — only hardening.
+
+### Tasks
+
+- [x] Audit all 20 pages for loading, empty, and error states
+- [x] Audit all 20 pages for accessibility (ARIA labels, keyboard nav, form labels)
+- [x] Audit all 20 pages for responsive layout and dark mode
+- [x] Fix discovered issues across 17 files
+- [x] Deliver UX Audit Report
+- [x] `pnpm lint` and `pnpm build` pass
+
+### Acceptance Criteria
+
+1. [x] All data-driven views handle loading, empty, and error states (100% of API-backed pages)
+2. [x] All pages render correctly in dark mode
+3. [x] All pages responsive at 375px, 768px, 1280px+
+4. [x] 14 accessibility issues fixed (ARIA labels, radio roles, form validation)
+5. [x] Mutation feedback on user role changes and profile saves
+6. [x] `pnpm lint` and `pnpm build` pass
+
+### Completed
+
+2026-07-03 — RC3 Phase 2 delivered. 17 files changed across UX criteria. UX Audit Report delivered. ~20 remaining icon-only ARIA labels tracked as debt.
+
+---
+
+## RC3 Phase 3: API Audit & RBAC Hardening
+
+**Goal:** Audit every backend API endpoint for correctness, consistency, and security. Fix critical RBAC gaps.
+
+### Tasks
+
+- [x] Audit HTTP status codes — all endpoints
+- [x] Audit error response format — all endpoints
+- [x] Audit Zod validation coverage — all schemas
+- [x] Audit authentication enforcement — all routes
+- [x] Audit RBAC enforcement — all routes (4 critical gaps found)
+- [x] Audit pagination consistency — all list endpoints
+- [x] Audit filtering and sorting — all queries
+- [x] Audit search coverage — all endpoints
+- [x] Audit response shape consistency — all endpoints
+- [x] Audit documentation gaps — backend-api.md
+- [x] Fix critical RBAC: settings PATCH → admin-only
+- [x] Fix critical RBAC: users PATCH → admin-only
+- [x] Fix critical RBAC: devices PATCH → admin/support
+- [x] Fix critical RBAC: alerts PATCH → admin/support
+- [x] Fix medium RBAC: users GET → admin-only
+- [x] Fix medium validation: roleId existence check
+- [x] Deliver API Audit Report
+- [x] `pnpm lint` and `pnpm build` pass
+
+### Acceptance Criteria
+
+1. [x] All mutation endpoints have appropriate RBAC guards
+2. [x] User management endpoints properly restricted to admin
+3. [x] Settings changes require admin role
+4. [x] Device/alert mutations require admin or support role
+5. [x] Customers cannot list all platform users
+6. [x] API Audit Report documents all findings and remaining debt
+7. [x] `pnpm lint` and `pnpm build` pass
+
+### Completed
+
+2026-07-03 — RC3 Phase 3 delivered. API Audit Report documents 16 findings (4 critical, 3 medium, 9 low). All critical and medium RBAC/validation issues fixed. 6 files changed (settings, users, devices, alerts route files + docs). Remaining API debt tracked in TECHNICAL_DEBT.md.

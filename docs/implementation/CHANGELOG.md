@@ -4,6 +4,78 @@ All notable changes to the Sentience IoT Platform.
 
 ---
 
+## v1.0.0-rc.3 — 2026-07-03
+
+### RC3 Phase 2 — UX Audit & Fixes
+
+### Changed
+
+- **UX improvements across 17 files (see `UX_AUDIT_REPORT.md`)** — Accessibility (ARIA labels, `htmlFor`, `aria-checked`, `role="radio"`, `aria-pressed`), form validation (`min="0"` on number inputs), empty states (Estates, Notifications, Diagnostics), mutation feedback (Users toast, Profile error handling), keyboard navigation.
+
+### RC3 Phase 3 — API Audit
+
+### Fixed
+
+- **Critical RBAC gap: `PATCH /api/settings/:key`** — Added `requireRole("admin")`. Previously any authenticated user could update platform settings (maintenance mode, security, feature flags).
+- **Critical RBAC gap: `PATCH /api/users/:id`** — Added `requireRole("admin")` + role ID existence validation. Previously any user could change another user's role (including self-promotion to admin).
+- **Critical RBAC gap: `PATCH /api/devices/:id`** — Added `requireRole("admin", "support")`. Previously any role could update device metadata.
+- **Critical RBAC gap: `PATCH /api/alerts/:id`** — Added `requireRole("admin", "support")`. Previously any role could acknowledge or resolve alerts.
+- **Medium RBAC gap: `GET /api/users`** — Added `requireRole("admin")`. Previously customers could list all platform users.
+
+### Removed
+
+- **Dead code: `use-live-devices.ts`** — The `useLiveDevices()` hook was never imported anywhere. `useDevices()` in `use-devices.ts` is the active implementation with the same merge semantics.
+- **Mock seed data from audit store** — Removed 5 hardcoded audit entries from `audit-store.ts`. The store now starts empty; entries are added at runtime via `addEntry()`.
+- **`@sentience/mock` from next.config.ts transpilePackages** — Not imported in any production code. Cleanup only.
+
+### Changed
+
+- **Optimistic updates for user mutations** — `useCreateUser`, `useUpdateUser`, `useDeactivateUser` now cancel outgoing queries, snapshot previous data on `onMutate`, and rollback on `onError`.
+- **Optimistic updates for role permission mutations** — `useGrantPermission` and `useRevokePermission` now cancel outgoing queries, snapshot previous data on `onMutate`, and rollback on `onError`.
+- **Optimistic update for settings mutation** — `useUpdateSetting` now cancels outgoing queries, applies an optimistic cache update on `onMutate`, and rolls back on `onError`.
+- **Device detail page: local `cn()` replaced** — Removed duplicate `cn()` function and imported from `@sentience/utils`.
+
+### Added
+
+- **API Audit Report** — `docs/implementation/API_AUDIT_REPORT.md` with comprehensive audit of all 10 API route groups across 12 dimensions. Documents 14 issues found (4 critical, 3 medium, 7 low) and tracks remaining API debt.
+
+### Fixed
+
+- Initial audit store entries would show stale mock data before any API fetch.
+
+### Known Issues
+
+- Auth store `login()` still uses mock demo accounts and issues `"mock-jwt-token"` — no backend auth endpoint exists yet.
+- 4 pages still use partial mock data: API Keys, Notification Rules, Notifications, and device detail fallback tabs.
+- `useGenerateReport` has no optimistic update (report generation is async with no instant UI feedback).
+- Customer-level data isolation not implemented on devices/events endpoints (customers can see all data).
+- No transactions on multi-query write operations.
+- No OpenAPI/Swagger spec generation.
+- No rate limiting installed (error handler has the branch but no `@fastify/rate-limit` plugin).
+- SHA-256 password hashing (dev only — needs bcrypt/argon2 for production).
+- CORS `origin: true` allows any origin.
+
+- **Dead code: `use-live-devices.ts`** — The `useLiveDevices()` hook was never imported anywhere. `useDevices()` in `use-devices.ts` is the active implementation with the same merge semantics.
+- **Mock seed data from audit store** — Removed 5 hardcoded audit entries from `audit-store.ts`. The store now starts empty; entries are added at runtime via `addEntry()`.
+- **`@sentience/mock` from next.config.ts transpilePackages** — Not imported in any production code. Cleanup only.
+
+### Changed
+
+- **Optimistic updates for user mutations** — `useCreateUser`, `useUpdateUser`, `useDeactivateUser` now cancel outgoing queries, snapshot previous data on `onMutate`, and rollback on `onError`.
+- **Optimistic updates for role permission mutations** — `useGrantPermission` and `useRevokePermission` now cancel outgoing queries, snapshot previous data on `onMutate`, and rollback on `onError`.
+- **Optimistic update for settings mutation** — `useUpdateSetting` now cancels outgoing queries, applies an optimistic cache update on `onMutate`, and rolls back on `onError`.
+- **Device detail page: local `cn()` replaced** — Removed duplicate `cn()` function and imported from `@sentience/utils`.
+
+### Fixed
+
+- Initial audit store entries would show stale mock data before any API fetch.
+
+### Known Issues
+
+- Auth store `login()` still uses mock demo accounts and issues `"mock-jwt-token"` — no backend auth endpoint exists yet.
+- 4 pages still use partial mock data: API Keys, Notification Rules, Notifications, and device detail fallback tabs.
+- `useGenerateReport` has no optimistic update (report generation is async with no instant UI feedback).
+
 ---
 
 ## v1.0.0-rc.2 — 2026-07-03

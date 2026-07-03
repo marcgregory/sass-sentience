@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "../db";
 import { settings } from "../db/schema";
 import { eq } from "drizzle-orm";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requireRole } from "../middleware/auth";
 
 const updateSettingSchema = z.object({
   value: z.any(),
@@ -15,7 +15,7 @@ export async function settingRoutes(app: FastifyInstance) {
     return reply.send({ data: result });
   });
 
-  app.patch("/:key", { preHandler: [requireAuth] }, async (request, reply) => {
+  app.patch("/:key", { preHandler: [requireAuth, requireRole("admin")] }, async (request, reply) => {
     const { key } = request.params as { key: string };
     const body = updateSettingSchema.parse(request.body);
 

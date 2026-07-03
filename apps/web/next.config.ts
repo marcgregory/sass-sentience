@@ -6,7 +6,6 @@ const nextConfig: NextConfig = {
     "@sentience/utils",
     "@sentience/ui",
     "@sentience/hooks",
-    "@sentience/mock",
   ],
   experimental: {
     optimizePackageImports: [

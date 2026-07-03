@@ -2,6 +2,7 @@
 
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/shared/empty-state";
 import {
   Card,
   CardContent,
@@ -9,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Plus, Building2, MapPin, Monitor, AlertTriangle } from "lucide-react";
+import { Plus, Building2, MapPin, Monitor, AlertTriangle, Building } from "lucide-react";
 
 const estates = [
   {
@@ -73,6 +74,14 @@ export default function EstatesPage() {
         }
       />
 
+      {estates.length === 0 ? (
+        <EmptyState
+          icon={Building}
+          title="No estates found"
+          description="No estates are registered yet. Add an estate to get started."
+          action={{ label: "Add Estate", onClick: () => {} }}
+        />
+      ) : (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {estates.map((estate) => (
           <Card key={estate.id} className="hover:border-primary/50 transition-colors cursor-pointer">
@@ -135,6 +144,7 @@ export default function EstatesPage() {
           </Card>
         ))}
       </div>
+      )}
     </div>
   );
 }

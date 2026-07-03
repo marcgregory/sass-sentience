@@ -62,6 +62,7 @@ export default function DevicesPage() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="search"
+            aria-label="Search devices"
             placeholder="Search by name, serial, or site..."
             className="w-full rounded-md border bg-background py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-ring"
           />

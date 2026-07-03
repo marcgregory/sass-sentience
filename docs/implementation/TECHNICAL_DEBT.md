@@ -1,7 +1,7 @@
 # Technical Debt
 
 > Items intentionally deferred or known to need cleanup.
-> Last updated: 2026-07-03 (consistency audit — removed Resolved items)
+> Last updated: 2026-07-03 (API audit — added Backend API section)
 
 ---
 
@@ -168,6 +168,41 @@ The `/devices/[id]` page has no Vitest tests. Mock data generators and computed 
 **Resolution:** Add tests when extracting mock data to hooks (see Data Layer debt).
 
 ---
+
+### Backend API: No customer-level data isolation
+The `GET /api/devices` and `GET /api/events` endpoints return data for all customers. There is no scoping by the authenticated user's customer association — a customer role user can see devices and events from all estates.
+
+**Impact:** Customers could access data belonging to other organizations.
+
+**Resolution:** Add middleware to scope list/detail queries by `customerId` from the authenticated user's JWT payload. This requires the user's `customerId` to be included in the JWT (currently only `sub`, `email`, `role`, `name` are signed).
+
+### Backend API: No transactions on multi-query operations
+Several endpoints execute sequential queries without isolation: `GET /api/devices/:id` (device → site → estate), `POST /api/reports` (insert → update), and the seed script.
+
+**Impact:** Under concurrent requests, partial writes or inconsistent reads are possible.
+
+**Resolution:** Wrap multi-query operations in `db.transaction()`.
+
+### Backend API: CORS origin: true allows any origin
+The CORS configuration in `apps/api/src/index.ts` uses `origin: true`, which reflects the requesting origin.
+
+**Impact:** Any website can make API requests from a browser (no same-origin restriction).
+
+**Resolution:** Restrict to known origins before production deployment.
+
+### Backend API: No OpenAPI/Swagger spec
+The API has no auto-generated OpenAPI specification. Documentation is maintained manually in `docs/backend-api.md` and is missing several endpoints and response shapes.
+
+**Impact:** API consumers and tooling cannot discover or validate endpoints programmatically.
+
+**Resolution:** Integrate `@fastify/swagger` and `@fastify/swagger-ui` to auto-generate OpenAPI specs from route schemas.
+
+### Backend API: No WebSocket event emission from REST mutations
+When alerts are acknowledged or resolved via `PATCH /api/alerts/:id`, no Socket.IO event is emitted to notify connected clients. The realtime bridge does not listen for database changes.
+
+**Impact:** Users on the Alerts page only see live updates from MQTT simulator events, not from REST API mutations made by other users.
+
+**Resolution:** Either emit socket events from the API route handler after successful mutations, or set up a database publication/notification mechanism (e.g., PostgreSQL LISTEN/NOTIFY) that the realtime bridge can subscribe to.
 
 ## Infrastructure
 

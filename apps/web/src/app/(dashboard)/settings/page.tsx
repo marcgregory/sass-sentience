@@ -524,6 +524,8 @@ export default function SettingsPage() {
                     <input
                       type="number"
                       value={passwordMinLength}
+                      min={4}
+                      max={128}
                       onChange={(e) => setPasswordMinLength(Number(e.target.value))}
                       disabled={!canManage}
                       className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
@@ -534,6 +536,8 @@ export default function SettingsPage() {
                     <input
                       type="number"
                       value={sessionTimeout}
+                      min={1}
+                      max={1440}
                       onChange={(e) => setSessionTimeout(Number(e.target.value))}
                       disabled={!canManage}
                       className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
@@ -610,6 +614,8 @@ export default function SettingsPage() {
                     <input
                       type="number"
                       value={dataRetentionDays}
+                      min={1}
+                      max={3650}
                       onChange={(e) => setDataRetentionDays(Number(e.target.value))}
                       disabled={!canManage}
                       className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"

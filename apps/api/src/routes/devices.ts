@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "../db";
 import { devices, sites, estates } from "../db/schema";
 import { eq, and, count, ilike, SQL, asc, desc, inArray } from "drizzle-orm";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requireRole } from "../middleware/auth";
 
 const updateDeviceSchema = z.object({
   name: z.string().min(1).optional(),
@@ -120,7 +120,7 @@ export async function deviceRoutes(app: FastifyInstance) {
     });
   });
 
-  app.patch("/:id", { preHandler: [requireAuth] }, async (request, reply) => {
+  app.patch("/:id", { preHandler: [requireAuth, requireRole("admin", "support")] }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = updateDeviceSchema.parse(request.body);
 

@@ -39,7 +39,7 @@ const updateUserSchema = z.object({
 });
 
 export async function userRoutes(app: FastifyInstance) {
-  app.get("/", { preHandler: [requireAuth] }, async (request, reply) => {
+  app.get("/", { preHandler: [requireAuth, requireRole("admin")] }, async (request, reply) => {
     const query = request.query as {
       search?: string;
       role?: string;
@@ -164,9 +164,25 @@ export async function userRoutes(app: FastifyInstance) {
     return reply.status(201).send(created);
   });
 
-  app.patch("/:id", { preHandler: [requireAuth] }, async (request, reply) => {
+  app.patch("/:id", { preHandler: [requireAuth, requireRole("admin")] }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = updateUserSchema.parse(request.body);
+
+    // If changing role, verify the role exists
+    if (body.roleId) {
+      const [role] = await db
+        .select({ id: roles.id })
+        .from(roles)
+        .where(eq(roles.id, body.roleId))
+        .limit(1);
+      if (!role) {
+        return reply.status(400).send({
+          message: "Role not found",
+          code: "VALIDATION_ERROR",
+          details: { roleId: body.roleId },
+        });
+      }
+    }
 
     const [updated] = await db
       .update(users)

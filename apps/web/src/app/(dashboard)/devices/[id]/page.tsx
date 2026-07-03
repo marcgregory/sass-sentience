@@ -41,6 +41,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { useDevice } from "@/hooks/use-devices";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
 import {
+  cn,
   formatRelativeTime,
   formatDateTime,
   formatVoltage,
@@ -460,10 +461,6 @@ function MetricBar({
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────
-
-function cn(...classes: (string | boolean | undefined | null)[]): string {
-  return classes.filter(Boolean).join(" ");
-}
 
 export default function DeviceDetailPage() {
   const router = useRouter();
@@ -1062,6 +1059,7 @@ export default function DeviceDetailPage() {
             size="icon"
             className="mt-0.5"
             onClick={() => router.push("/devices")}
+            aria-label="Back to devices"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>

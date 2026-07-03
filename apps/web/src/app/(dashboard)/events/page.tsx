@@ -467,6 +467,7 @@ export default function EventsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
+              aria-label="Search events"
               placeholder="Search events..."
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
@@ -513,6 +514,8 @@ export default function EventsPage() {
             {SEVERITY_OPTIONS.map((opt) => (
               <button
                 key={opt.key}
+                role="radio"
+                aria-checked={severityFilter === opt.key}
                 onClick={() => { setSeverityFilter(opt.key); setPage(0); }}
                 className={cn(
                   "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
@@ -535,6 +538,8 @@ export default function EventsPage() {
             {DATE_OPTIONS.map((opt) => (
               <button
                 key={opt.key}
+                role="radio"
+                aria-checked={dateRange === opt.key}
                 onClick={() => { setDateRange(opt.key); setPage(0); }}
                 className={cn(
                   "rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",

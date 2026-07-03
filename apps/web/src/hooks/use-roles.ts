@@ -53,8 +53,18 @@ export function useGrantPermission() {
       resource: string;
       action: string;
     }) => grantPermission(roleId, { resource, action }),
+    onMutate: async ({ roleId }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.roles.detail(roleId) });
+      const previousData = queryClient.getQueryData(queryKeys.roles.detail(roleId));
+      return { previousData };
+    },
     onSuccess: (_data, { roleId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.roles.detail(roleId) });
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(queryKeys.roles.all, context.previousData);
+      }
     },
   });
 }
@@ -77,8 +87,18 @@ export function useRevokePermission() {
       resource: string;
       action: string;
     }) => revokePermission(roleId, { resource, action }),
+    onMutate: async ({ roleId }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.roles.detail(roleId) });
+      const previousData = queryClient.getQueryData(queryKeys.roles.detail(roleId));
+      return { previousData };
+    },
     onSuccess: (_data, { roleId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.roles.detail(roleId) });
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(queryKeys.roles.all, context.previousData);
+      }
     },
   });
 }

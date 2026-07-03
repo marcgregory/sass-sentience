@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,6 +57,14 @@ export default function UsersPage() {
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
   const deactivateMutation = useDeactivateUser();
+  const [mutationFeedback, setMutationFeedback] = useState<string | null>(null);
+  const mutationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showFeedback = useCallback((message: string) => {
+    if (mutationTimeoutRef.current) clearTimeout(mutationTimeoutRef.current);
+    setMutationFeedback(message);
+    mutationTimeoutRef.current = setTimeout(() => setMutationFeedback(null), 3000);
+  }, []);
 
   // ─── Dialog state ──────────────────────────────────────────────────────
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -117,15 +125,30 @@ export default function UsersPage() {
   };
 
   const handleRoleChange = (userId: string, newRoleId: string) => {
-    updateMutation.mutate({ id: userId, payload: { roleId: newRoleId } });
+    updateMutation.mutate(
+      { id: userId, payload: { roleId: newRoleId } },
+      {
+        onSuccess: () => showFeedback("User role updated successfully"),
+        onError: () => showFeedback("Failed to update user role"),
+      },
+    );
   };
 
   const handleToggleActive = (user: { id: string; isActive: boolean }) => {
     if (user.isActive) {
-      deactivateMutation.mutate(user.id);
+      deactivateMutation.mutate(user.id, {
+        onSuccess: () => showFeedback("User deactivated successfully"),
+        onError: () => showFeedback("Failed to deactivate user"),
+      });
     } else {
       // Re-activate: update isActive to true
-      updateMutation.mutate({ id: user.id, payload: { isActive: true } });
+      updateMutation.mutate(
+        { id: user.id, payload: { isActive: true } },
+        {
+          onSuccess: () => showFeedback("User activated successfully"),
+          onError: () => showFeedback("Failed to activate user"),
+        },
+      );
     }
   };
 
@@ -231,6 +254,7 @@ export default function UsersPage() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="search"
+              aria-label="Search users"
               placeholder="Search users..."
               value={search}
               onChange={(e) => {
@@ -289,6 +313,13 @@ export default function UsersPage() {
               </Button>
             </CardContent>
           </Card>
+        )}
+
+        {/* ─── Mutation Feedback ───────────────────────────────────────────── */}
+        {mutationFeedback && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300 animate-fade-in">
+            {mutationFeedback}
+          </div>
         )}
 
         {/* ─── Empty State ─────────────────────────────────────────────── */}

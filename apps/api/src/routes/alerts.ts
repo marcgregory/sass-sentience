@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "../db";
 import { alerts } from "../db/schema";
 import { eq, and, count, SQL, asc, desc } from "drizzle-orm";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requireRole } from "../middleware/auth";
 
 const updateAlertSchema = z.object({
   status: z.enum(["open", "acknowledged", "resolved"]),
@@ -97,7 +97,7 @@ export async function alertRoutes(app: FastifyInstance) {
     return reply.send(alert);
   });
 
-  app.patch("/:id", { preHandler: [requireAuth] }, async (request, reply) => {
+  app.patch("/:id", { preHandler: [requireAuth, requireRole("admin", "support")] }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = updateAlertSchema.parse(request.body);
 

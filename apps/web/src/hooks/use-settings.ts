@@ -52,8 +52,30 @@ export function useUpdateSetting() {
   return useMutation({
     mutationFn: ({ key, value }: { key: string; value: unknown }) =>
       updateSetting(key, value),
+    onMutate: async ({ key, value }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.settings.all });
+      const previousData = queryClient.getQueryData(queryKeys.settings.all);
+      // Optimistically update the cache
+      queryClient.setQueryData(queryKeys.settings.all, (old: unknown) => {
+        if (!old || typeof old !== "object") return old;
+        const rec = old as { data?: Array<Record<string, unknown>> };
+        if (!rec.data) return old;
+        return {
+          ...rec,
+          data: rec.data.map((s) =>
+            s.key === key ? { ...s, value } : s,
+          ),
+        };
+      });
+      return { previousData };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.settings.all });
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(queryKeys.settings.all, context.previousData);
+      }
     },
   });
 }

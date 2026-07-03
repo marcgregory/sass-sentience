@@ -35,6 +35,7 @@ export default function ProfilePage() {
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
   const [name, setName] = useState(user?.name ?? "");
@@ -55,7 +56,8 @@ export default function ProfilePage() {
   const handleSaveProfile = () => {
     if (!canEdit) return;
     setSaving(true);
-    setTimeout(() => {
+    setSaveError(null);
+    try {
       const oldName = user.name;
       useAuthStore.getState().setUser({ ...user, name, email, updatedAt: new Date().toISOString() });
       addAuditEntry({
@@ -72,13 +74,17 @@ export default function ProfilePage() {
       setSaving(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    }, 500);
+    } catch (err) {
+      setSaving(false);
+      setSaveError((err as Error).message ?? "Failed to save profile");
+    }
   };
 
   const handleChangePassword = () => {
     if (!canEdit || !currentPassword || !newPassword || newPassword !== confirmPassword) return;
     setSaving(true);
-    setTimeout(() => {
+    setSaveError(null);
+    try {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -94,7 +100,10 @@ export default function ProfilePage() {
       setSaving(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    }, 500);
+    } catch (err) {
+      setSaving(false);
+      setSaveError((err as Error).message ?? "Failed to change password");
+    }
   };
 
   return (
@@ -157,8 +166,9 @@ export default function ProfilePage() {
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Full Name</label>
+                  <label className="text-sm font-medium" htmlFor="profile-name">Full Name</label>
                   <input
+                    id="profile-name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     disabled={!canEdit}
@@ -166,8 +176,9 @@ export default function ProfilePage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Email</label>
+                  <label className="text-sm font-medium" htmlFor="profile-email">Email</label>
                   <input
+                    id="profile-email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -176,6 +187,11 @@ export default function ProfilePage() {
                   />
                 </div>
               </div>
+              {saveError && (
+                <div className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">
+                  {saveError}
+                </div>
+              )}
               {canEdit && (
                 <div className="flex items-center gap-3">
                   <Button onClick={handleSaveProfile} disabled={saving}>
