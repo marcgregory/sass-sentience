@@ -23,6 +23,7 @@ import {
 import { formatRelativeTime, formatDateTime } from "@sentience/utils";
 import { cn } from "@sentience/utils";
 import { useEvents } from "@/hooks/use-events";
+import { useDebounce } from "@/hooks/use-debounce";
 import type { EventDisplayRow } from "@/lib/events";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
 import type { EventSeverity } from "@sentience/types";
@@ -295,6 +296,7 @@ export default function EventsPage() {
   const [deviceFilter, setDeviceFilter] = useState<string>("all");
   const [dateRange, setDateRange] = useState<DateRange>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebounce(searchQuery, 300);
   const [page, setPage] = useState(0);
   const [selectedEvent, setSelectedEvent] = useState<EventDisplayRow | null>(null);
 
@@ -319,7 +321,7 @@ export default function EventsPage() {
     severity: severityFilter !== "all" ? severityFilter : undefined,
     category: categoryFilter !== "all" ? categoryFilter : undefined,
     deviceId: deviceFilter !== "all" ? deviceFilter : undefined,
-    search: searchQuery || undefined,
+    search: debouncedSearch || undefined,
     startDate,
     page: page + 1,
     limit: PAGE_SIZE,

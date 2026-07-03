@@ -81,7 +81,9 @@ export async function roleRoutes(app: FastifyInstance) {
       return reply.status(400).send({ message: "resource and action query params are required", code: "VALIDATION_ERROR" });
     }
 
-    const [deleted] = await db
+    // Idempotent: if the permission doesn't exist as its own row (e.g. it was
+    // implied by a "manage" permission), treat the revoke as a no-op success.
+    await db
       .delete(rolePermissions)
       .where(
         and(
@@ -89,12 +91,7 @@ export async function roleRoutes(app: FastifyInstance) {
           eq(rolePermissions.resource, query.resource),
           eq(rolePermissions.action, query.action),
         ),
-      )
-      .returning({ id: rolePermissions.id });
-
-    if (!deleted) {
-      return reply.status(404).send({ message: "Permission not found", code: "NOT_FOUND" });
-    }
+      );
 
     return reply.status(204).send();
   });
