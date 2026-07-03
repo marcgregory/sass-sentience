@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -74,6 +74,14 @@ export default function UsersPage() {
   const [newRoleId, setNewRoleId] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
   const [touched, setTouched] = useState({ name: false, email: false, password: false });
+
+  // When roles load and the dialog is open but no role is selected yet,
+  // set the default to Customer so the form is ready to go.
+  useEffect(() => {
+    if (showCreateDialog && !newRoleId && roles.length > 0) {
+      setNewRoleId(roles.find((r) => r.name === "customer")?.id ?? roles[0].id);
+    }
+  }, [showCreateDialog, newRoleId, roles]);
 
   // ─── Permissions ──────────────────────────────────────────────────────
   const canManage = hasPermission(currentUser?.role, "users", "manage");
@@ -518,11 +526,19 @@ export default function UsersPage() {
                   <select
                     value={newRoleId}
                     onChange={(e) => setNewRoleId(e.target.value)}
-                    className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    className={`flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring ${
+                      !newRoleId ? "text-muted-foreground" : ""
+                    }`}
                   >
-                    {roles.map((r) => (
-                      <option key={r.id} value={r.id}>{r.label}</option>
-                    ))}
+                    {roles.length === 0 && <option value="">Loading roles...</option>}
+                    {roles.length > 0 && (
+                      <>
+                        <option value="" disabled>Select a role</option>
+                        {roles.map((r) => (
+                          <option key={r.id} value={r.id}>{r.label}</option>
+                        ))}
+                      </>
+                    )}
                   </select>
                 </div>
               </div>
