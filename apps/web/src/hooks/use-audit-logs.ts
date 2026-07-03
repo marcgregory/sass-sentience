@@ -22,6 +22,7 @@ export function useAuditLogs(params?: AuditLogParams) {
   const query = useQuery({
     queryKey: queryKeys.auditLogs.list(params),
     queryFn: () => getAuditLogs(params),
+    staleTime: 60_000,
   });
 
   return {

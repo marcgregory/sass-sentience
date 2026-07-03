@@ -35,5 +35,6 @@ export const alerts = pgTable(
     deviceIdx: index("alerts_device_idx").on(table.deviceId),
     estateIdx: index("alerts_estate_idx").on(table.estateId),
     occurredIdx: index("alerts_occurred_idx").on(table.occurredAt),
+    statusOccurredIdx: index("alerts_status_occurred_idx").on(table.status, table.occurredAt),
   }),
 );

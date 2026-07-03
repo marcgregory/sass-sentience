@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -298,11 +298,35 @@ export default function EventsPage() {
   const [page, setPage] = useState(0);
   const [selectedEvent, setSelectedEvent] = useState<EventDisplayRow | null>(null);
 
-  // Fetch events from API + live store
-  const { events: sourceEvents, isLoading, isError, error } = useEvents({ limit: 200 });
+  // Compute date range start for API filtering
+  const startDate = useMemo(() => {
+    if (dateRange === "all") return undefined;
+    const d = new Date();
+    if (dateRange === "today") d.setDate(d.getDate() - 1);
+    else if (dateRange === "7d") d.setDate(d.getDate() - 7);
+    else if (dateRange === "30d") d.setDate(d.getDate() - 30);
+    return d.toISOString();
+  }, [dateRange]);
 
-  // Deduplicate by eventId
-  const uniqueEvents = useMemo(() => {
+  // Fetch events from API with server-side filtering and pagination (fix: no over-fetching)
+  const {
+    events: sourceEvents,
+    isLoading,
+    isError,
+    error,
+    total: apiTotal,
+  } = useEvents({
+    severity: severityFilter !== "all" ? severityFilter : undefined,
+    category: categoryFilter !== "all" ? categoryFilter : undefined,
+    deviceId: deviceFilter !== "all" ? deviceFilter : undefined,
+    search: searchQuery || undefined,
+    startDate,
+    page: page + 1,
+    limit: PAGE_SIZE,
+  });
+
+  // Deduplicate by eventId (API events + live socket events merged by useEvents)
+  const events = useMemo(() => {
     const seen = new Set<string>();
     return sourceEvents.filter((e) => {
       if (seen.has(e.eventId)) return false;
@@ -311,46 +335,11 @@ export default function EventsPage() {
     });
   }, [sourceEvents]);
 
-  // Filtered events
-  const filteredEvents = useMemo(() => {
-    return uniqueEvents.filter((event) => {
-      // Severity
-      if (severityFilter !== "all" && event.severity !== severityFilter) return false;
-
-      // Category
-      if (categoryFilter !== "all" && event.category !== categoryFilter) return false;
-
-      // Device
-      if (deviceFilter !== "all" && event.deviceId !== deviceFilter) return false;
-
-      // Date range
-      if (dateRange !== "all") {
-        const eventTime = new Date(event.timestamp).getTime();
-        const now = Date.now();
-        if (dateRange === "today" && now - eventTime > 24 * 60 * 60 * 1000) return false;
-        if (dateRange === "7d" && now - eventTime > 7 * 24 * 60 * 60 * 1000) return false;
-        if (dateRange === "30d" && now - eventTime > 30 * 24 * 60 * 60 * 1000) return false;
-      }
-
-      // Search
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matches = event.title.toLowerCase().includes(q) ||
-          event.deviceId?.toLowerCase().includes(q) ||
-          event.eventId?.toLowerCase().includes(q) ||
-          event.category?.toLowerCase().includes(q);
-        if (!matches) return false;
-      }
-
-      return true;
-    });
-  }, [uniqueEvents, severityFilter, categoryFilter, deviceFilter, dateRange, searchQuery]);
-
-  // Device options for filter
+  // Device options for filter (built from live and API events)
   const deviceOptions = useMemo(() => {
     const deviceIds = new Set<string>();
     const options: { id: string; name: string }[] = [];
-    for (const event of uniqueEvents) {
+    for (const event of events) {
       if (event.deviceId && !deviceIds.has(event.deviceId)) {
         deviceIds.add(event.deviceId);
         options.push({
@@ -360,24 +349,23 @@ export default function EventsPage() {
       }
     }
     return options.sort((a, b) => a.name.localeCompare(b.name));
-  }, [uniqueEvents]);
+  }, [events]);
 
-  // Pagination
-  const totalPages = Math.max(1, Math.ceil(filteredEvents.length / PAGE_SIZE));
+  // Total count: use API total for pagination, but account for extra live-only events
+  const liveOnlyCount = events.filter((e) =>
+    !sourceEvents.some((se) => se.eventId === e.eventId),
+  ).length;
+  const safeTotal = Math.max(apiTotal + liveOnlyCount, events.length);
+  const totalPages = Math.max(1, Math.ceil(safeTotal / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
-  const pagedEvents = filteredEvents.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
 
-  // Reset page when filters change
-  const handleFilterChange = useCallback((setter: unknown) => {
-    setPage(0);
-    // @ts-expect-error — calling the setter inline
-    setter();
-  }, []);
+  // Reset page to 0 when filters change
+  useEffect(() => { setPage(0); }, [severityFilter, categoryFilter, deviceFilter, dateRange, searchQuery]);
 
-  // CSV Export
+  // CSV Export (fetch all matching events — limited to first 10k for safety)
   const handleExportCSV = useCallback(() => {
     const headers = ["Event ID", "Title", "Severity", "Category", "Device ID", "Site", "Estate", "Timestamp"];
-    const rows = filteredEvents.map((e) => [
+    const rows = events.map((e) => [
       e.eventId,
       `"${e.title.replace(/"/g, '""')}"`,
       e.severity,
@@ -395,7 +383,7 @@ export default function EventsPage() {
     a.download = `events-export-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [filteredEvents]);
+  }, [events]);
 
   const hasFilters = severityFilter !== "all" || categoryFilter !== "all" || deviceFilter !== "all" || dateRange !== "all" || searchQuery.trim() !== "";
 
@@ -442,7 +430,7 @@ export default function EventsPage() {
               variant="outline"
               size="sm"
               onClick={handleExportCSV}
-              disabled={filteredEvents.length === 0}
+              disabled={events.length === 0}
             >
               <Download className="h-4 w-4 mr-1" />
               Export CSV
@@ -452,7 +440,7 @@ export default function EventsPage() {
       />
 
       {/* Connection indicator */}
-      {!isSocketConnected && uniqueEvents.length > 0 && (
+      {!isSocketConnected && events.length > 0 && (
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/30 dark:text-slate-400">
           Showing cached events — real-time connection is offline.
         </div>
@@ -566,9 +554,9 @@ export default function EventsPage() {
             </Button>
           )}
 
-          {filteredEvents.length > 0 && (
+          {events.length > 0 && (
             <span className="text-xs text-muted-foreground ml-auto">
-              {filteredEvents.length} event{filteredEvents.length !== 1 ? "s" : ""}
+              {safeTotal} event{safeTotal !== 1 ? "s" : ""}
               {hasFilters ? " filtered" : ""}
             </span>
           )}
@@ -576,7 +564,7 @@ export default function EventsPage() {
       </div>
 
       {/* Event list or EmptyState */}
-      {filteredEvents.length === 0 ? (
+      {events.length === 0 ? (
         <EmptyState
           icon={FileSearch}
           title="No events found"
@@ -594,7 +582,7 @@ export default function EventsPage() {
       ) : (
         <div className="rounded-lg border">
           <div className="divide-y">
-            {pagedEvents.map((event) => (
+            {events.map((event) => (
               <div
                 key={event.eventId}
                 className="flex items-start gap-4 p-4 hover:bg-accent/50 transition-colors cursor-pointer"
@@ -644,10 +632,10 @@ export default function EventsPage() {
       )}
 
       {/* Pagination */}
-      {filteredEvents.length > 0 && (
+      {events.length > 0 && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>
-            Showing {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, filteredEvents.length)} of {filteredEvents.length} event{filteredEvents.length !== 1 ? "s" : ""}
+            Showing {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, safeTotal)} of {safeTotal} event{safeTotal !== 1 ? "s" : ""}
           </span>
           <div className="flex gap-2">
             <Button

@@ -90,15 +90,26 @@ export function useSocket(options: UseSocketOptions = {}): void {
     }
 
     // Wire event handlers for cache invalidation
+    // Use a debounce timer to batch rapid events (telemetry storm) into single invalidations.
     const handlers: Array<() => void> = [];
+    let invalidateTimer: ReturnType<typeof setTimeout> | null = null;
+    const pendingKeys = new Set<string>();
 
     for (const [event, getKeys] of Object.entries(eventToKeys)) {
       const handler = (payload: Record<string, unknown>) => {
         const keys = getKeys(payload);
         const keyArray = Array.isArray(keys) ? keys : [keys];
         for (const k of keyArray) {
-          queryClient.invalidateQueries({ queryKey: k });
+          pendingKeys.add(JSON.stringify(k));
         }
+        // Debounce: flush all pending invalidations after 100ms of inactivity
+        if (invalidateTimer) clearTimeout(invalidateTimer);
+        invalidateTimer = setTimeout(() => {
+          for (const keyStr of pendingKeys) {
+            queryClient.invalidateQueries({ queryKey: JSON.parse(keyStr) });
+          }
+          pendingKeys.clear();
+        }, 100);
       };
       // Need to cast because the event names are typed — the mapping dict
       // guarantees the payload shapes match at runtime via the server contract.

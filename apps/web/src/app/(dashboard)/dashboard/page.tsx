@@ -8,12 +8,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import dynamic from "next/dynamic";
 import { PageHeader } from "@/components/shared/page-header";
 import { FleetHealthGauge } from "@/components/shared/fleet-health-gauge";
-import { DistributionBar } from "@/components/shared/distribution-bar";
 import { RecentActivity } from "@/components/shared/recent-activity";
 import { EstateSummaryCards } from "@/components/shared/estate-summary-cards";
 import { QuickActions } from "@/components/shared/quick-actions";
+
+// Lazy-load DistributionBar (depends on Recharts, ~120 kB — code-split so it
+// doesn't block the initial dashboard render).
+const DistributionBar = dynamic(
+  () => import("@/components/shared/distribution-bar").then((m) => ({ default: m.DistributionBar })),
+  { ssr: false, loading: () => <div className="h-48 animate-pulse rounded-lg bg-muted" /> },
+);
 import {
   ArrowUpRight,
   ArrowDownRight,

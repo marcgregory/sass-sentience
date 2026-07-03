@@ -46,6 +46,7 @@ export function useUsers(options: UseUsersOptions = {}) {
   const query = useQuery({
     queryKey: queryKeys.users.list(apiParams),
     queryFn: () => getUsers(apiParams),
+    staleTime: 60_000,
   });
 
   return {

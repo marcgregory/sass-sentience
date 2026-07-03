@@ -28,5 +28,6 @@ export const events = pgTable(
     deviceIdx: index("events_device_idx").on(table.deviceId),
     occurredIdx: index("events_occurred_idx").on(table.occurredAt),
     estateIdx: index("events_estate_idx").on(table.estateId),
+    estateOccurredIdx: index("events_estate_occurred_idx").on(table.estateId, table.occurredAt),
   }),
 );
