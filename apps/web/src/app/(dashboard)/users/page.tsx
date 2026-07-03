@@ -73,6 +73,7 @@ export default function UsersPage() {
   const [newPassword, setNewPassword] = useState("");
   const [newRoleId, setNewRoleId] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
+  const [touched, setTouched] = useState({ name: false, email: false, password: false });
 
   // ─── Permissions ──────────────────────────────────────────────────────
   const canManage = hasPermission(currentUser?.role, "users", "manage");
@@ -96,6 +97,13 @@ export default function UsersPage() {
     return map;
   }, [roles]);
 
+  // Derived validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const isValidName = newName.trim().length > 0;
+  const isValidEmail = emailRegex.test(newEmail.trim());
+  const isValidPassword = newPassword.length >= 6;
+  const canCreate = isValidName && isValidEmail && isValidPassword && !!newRoleId && !createMutation.isPending;
+
   // Set default role ID when roles load and dialog opens
   const resetCreateForm = () => {
     setNewName("");
@@ -103,6 +111,7 @@ export default function UsersPage() {
     setNewPassword("");
     setNewRoleId(roles.find((r) => r.name === "customer")?.id ?? "");
     setCreateError(null);
+    setTouched({ name: false, email: false, password: false });
   };
 
   // ─── Actions ───────────────────────────────────────────────────────────
@@ -458,30 +467,51 @@ export default function UsersPage() {
                   <label className="text-sm font-medium">Full Name</label>
                   <input
                     value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    onChange={(e) => { setNewName(e.target.value); setTouched((prev) => ({ ...prev, name: true })); }}
+                    onBlur={() => setTouched((prev) => ({ ...prev, name: true }))}
+                    className={`flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring ${
+                      touched.name && !isValidName ? "border-destructive" : "border-input"
+                    }`}
                     placeholder="John Doe"
                   />
+                  {touched.name && !isValidName && (
+                    <p className="text-xs text-destructive">Full name is required</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Email</label>
                   <input
                     type="email"
                     value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                    className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    onChange={(e) => { setNewEmail(e.target.value); setTouched((prev) => ({ ...prev, email: true })); }}
+                    onBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
+                    className={`flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring ${
+                      touched.email && !isValidEmail ? "border-destructive" : "border-input"
+                    }`}
                     placeholder="john@example.com"
                   />
+                  {touched.email && !isValidEmail && (
+                    <p className="text-xs text-destructive">Enter a valid email address</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Password</label>
                   <input
                     type="password"
                     value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    onChange={(e) => { setNewPassword(e.target.value); setTouched((prev) => ({ ...prev, password: true })); }}
+                    onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
+                    className={`flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring ${
+                      touched.password && !isValidPassword ? "border-destructive" : "border-input"
+                    }`}
                     placeholder="Min. 6 characters"
                   />
+                  {touched.password && !isValidPassword && (
+                    <p className="text-xs text-destructive">Password must be at least 6 characters</p>
+                  )}
+                  {newPassword.length > 0 && isValidPassword && (
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400">✓ Password meets minimum length</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Role</label>
@@ -500,7 +530,7 @@ export default function UsersPage() {
                 <Button variant="outline" onClick={() => setShowCreateDialog(false)}>Cancel</Button>
                 <Button
                   onClick={handleCreate}
-                  disabled={!newName.trim() || !newEmail.trim() || !newPassword.trim() || !newRoleId || createMutation.isPending}
+                  disabled={!canCreate}
                 >
                   {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   Create User
