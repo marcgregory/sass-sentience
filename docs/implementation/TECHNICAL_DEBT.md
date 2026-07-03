@@ -179,7 +179,7 @@ When alerts are acknowledged or resolved via `PATCH /api/alerts/:id`, no Socket.
 
 **Impact:** In a dev build served on a network-accessible URL, anyone who discovers the feature can authenticate as any role.
 
-**Resolution:** Gate behind `process.env.NODE_ENV !== "production"` check or a dedicated `NEXT_PUBLIC_ENABLE_DEMO_MODE` flag.
+**Resolution:** Now gated behind `NEXT_PUBLIC_ENABLE_DEMO_LOGIN` (defaults to `false` in production). The login page role cards, header role-switch button, and the `loginAsRole()` method itself all check this flag. ✅ Resolved in RC3 follow-up.
 
 ---
 

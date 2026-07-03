@@ -29,6 +29,9 @@ const quickAccounts: { role: UserRole; email: string }[] = [
   { role: "customer", email: "customer@sentience.io" },
 ];
 
+const DEMO_LOGIN_ENABLED =
+  process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === "true";
+
 export default function LoginPage() {
   const router = useRouter();
   const { login, loginAsRole, isLoading, error, clearError } = useAuthStore();
@@ -61,43 +64,47 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Quick role login cards */}
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground text-center">
-              Quick demo login — pick a role
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {quickAccounts.map(({ role, email }) => {
-                const meta = ROLE_META[role];
-                const Icon = roleIcons[role];
-                return (
-                  <button
-                    key={role}
-                    onClick={() => handleQuickLogin(role)}
-                    disabled={isLoading}
-                    className="flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center transition-colors hover:border-primary/50 hover:bg-accent disabled:opacity-50"
-                  >
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-full ${meta.bgColor}`}>
-                      <Icon className={`h-4 w-4 ${meta.color}`} />
-                    </div>
-                    <span className="text-xs font-medium">{meta.label}</span>
-                    <span className="text-[10px] text-muted-foreground">{email}</span>
-                  </button>
-                );
-              })}
+          {/* Quick role login cards (dev/demo only) */}
+          {DEMO_LOGIN_ENABLED && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground text-center">
+                Quick demo login — pick a role
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {quickAccounts.map(({ role, email }) => {
+                  const meta = ROLE_META[role];
+                  const Icon = roleIcons[role];
+                  return (
+                    <button
+                      key={role}
+                      onClick={() => handleQuickLogin(role)}
+                      disabled={isLoading}
+                      className="flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center transition-colors hover:border-primary/50 hover:bg-accent disabled:opacity-50"
+                    >
+                      <div className={`flex h-8 w-8 items-center justify-center rounded-full ${meta.bgColor}`}>
+                        <Icon className={`h-4 w-4 ${meta.color}`} />
+                      </div>
+                      <span className="text-xs font-medium">{meta.label}</span>
+                      <span className="text-[10px] text-muted-foreground">{email}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
+          {DEMO_LOGIN_ENABLED && (
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">
+                  Or sign in with email
+                </span>
+              </div>
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">
-                Or sign in with email
-              </span>
-            </div>
-          </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -192,9 +199,11 @@ export default function LoginPage() {
               )}
             </Button>
 
-            <p className="text-center text-xs text-muted-foreground">
-              Demo: use quick login buttons above for instant access
-            </p>
+            {DEMO_LOGIN_ENABLED && (
+              <p className="text-center text-xs text-muted-foreground">
+                Demo: use quick login buttons above for instant access
+              </p>
+            )}
           </form>
         </CardContent>
       </Card>

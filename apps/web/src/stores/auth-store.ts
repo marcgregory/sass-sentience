@@ -5,6 +5,11 @@ import { hasPermission, type Resource, type Action } from "@/lib/permissions";
 import { useAuditStore } from "./audit-store";
 import { post } from "@/lib/api-client";
 
+const DEMO_LOGIN_ENABLED =
+  typeof window !== "undefined"
+    ? process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === "true"
+    : false;
+
 interface AuthState {
   user: User | null;
   token: string | null;
@@ -155,9 +160,13 @@ export const useAuthStore = create<AuthState>()(
        * product review sessions.
        *
        * It stores a synthetic token and MUST be removed or gated behind
-       * NEXT_PUBLIC_ENABLE_DEMO_MODE before production.
+       * NEXT_PUBLIC_ENABLE_DEMO_LOGIN before production.
        */
       loginAsRole: (role: UserRole) => {
+        if (!DEMO_LOGIN_ENABLED) {
+          console.warn("Demo login is disabled in this environment.");
+          return;
+        }
         const account = DEMO_ACCOUNTS.find((a) => a.role === role);
         if (!account) return;
 

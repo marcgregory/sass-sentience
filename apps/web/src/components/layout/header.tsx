@@ -33,6 +33,9 @@ const roleIcons: Record<UserRole, React.ComponentType<{ className?: string }>> =
   customer: Eye,
 };
 
+const DEMO_LOGIN_ENABLED =
+  process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === "true";
+
 export function Header() {
   const router = useRouter();
   const { setMobileMenuOpen } = useUIStore();
@@ -169,13 +172,15 @@ export function Header() {
                     <User className="h-4 w-4" />
                     Profile
                   </button>
-                  <button
-                    onClick={() => { setShowUserMenu(false); setShowRoleMenu(true); }}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Switch Role (Demo)
-                  </button>
+                  {DEMO_LOGIN_ENABLED && (
+                    <button
+                      onClick={() => { setShowUserMenu(false); setShowRoleMenu(true); }}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Switch Role (Demo)
+                    </button>
+                  )}
                   <div className="border-t mt-1 pt-1">
                     <button
                       onClick={handleLogout}
