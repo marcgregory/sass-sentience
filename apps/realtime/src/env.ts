@@ -33,11 +33,15 @@ export function loadEnv(): Env {
     MQTT_URL: process.env.MQTT_URL ?? "mqtt://localhost:1883",
     MQTT_USERNAME: process.env.MQTT_USERNAME || undefined,
     MQTT_PASSWORD: process.env.MQTT_PASSWORD || undefined,
-    SOCKET_PORT: parseInt(process.env.SOCKET_PORT ?? "3002", 10),
     CORS_ORIGIN: process.env.CORS_ORIGIN ?? "http://localhost:3000",
+    SOCKET_PORT: parseInt(
+      process.env.PORT ?? process.env.SOCKET_PORT ?? "3002",
+      10,
+    ),
     MQTT_TOPIC_PREFIX: process.env.MQTT_TOPIC_PREFIX ?? "sentience",
     LOG_LEVEL: process.env.LOG_LEVEL ?? "info",
-    JWT_SECRET: process.env.JWT_SECRET ?? "change-me-to-a-random-secret-in-production",
+    JWT_SECRET:
+      process.env.JWT_SECRET ?? "change-me-to-a-random-secret-in-production",
     ALLOW_UNAUTHENTICATED: process.env.SOCKET_ALLOW_UNAUTHENTICATED === "true",
   };
 }

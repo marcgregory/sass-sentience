@@ -85,13 +85,19 @@ export interface SocketServerOptions {
   allowUnauthenticated: boolean;
 }
 
-export async function createSocketServer(options: SocketServerOptions): Promise<SocketIOServer> {
+export async function createSocketServer(
+  options: SocketServerOptions,
+): Promise<SocketIOServer> {
   const { port, corsOrigin, jwtSecret, allowUnauthenticated } = options;
 
   const inUse = await isPortInUse(port);
   if (inUse) {
-    console.error(`[socket] ERROR: Port ${port} is already in use. Is another realtime bridge running?`);
-    console.error(`[socket]        Kill the existing process or use a different SOCKET_PORT.`);
+    console.error(
+      `[socket] ERROR: Port ${port} is already in use. Is another realtime bridge running?`,
+    );
+    console.error(
+      `[socket]        Kill the existing process or use a different PORT/SOCKET_PORT.`,
+    );
     process.exit(1);
   }
 
@@ -118,7 +124,12 @@ export async function createSocketServer(options: SocketServerOptions): Promise<
     }
 
     try {
-      const decoded = jwt.verify(token, jwtSecret) as { sub: string; email: string; role: string; name: string };
+      const decoded = jwt.verify(token, jwtSecret) as {
+        sub: string;
+        email: string;
+        role: string;
+        name: string;
+      };
       (socket as any).user = decoded;
       next();
     } catch {
