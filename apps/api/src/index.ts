@@ -55,6 +55,20 @@ async function main() {
     allowedHeaders: ["Content-Type", "Authorization"],
   });
 
+  // Allow empty JSON body (DELETE requests from frontend send Content-Type but no body)
+  app.addContentTypeParser("application/json", { parseAs: "string" }, (req, body, done) => {
+    if (body === "") {
+      done(null, {});
+      return;
+    }
+    try {
+      done(null, JSON.parse(body as string));
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err : new Error("Invalid JSON");
+      done(e, undefined);
+    }
+  });
+
   await app.register(helmet, {
     contentSecurityPolicy: false, // CSP managed by frontend
     crossOriginResourcePolicy: { policy: "same-origin" },
