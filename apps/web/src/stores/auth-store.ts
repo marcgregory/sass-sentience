@@ -19,9 +19,6 @@ interface AuthState {
   /** Available demo accounts for role switching (DEV MODE only) */
   demoAccounts: User[];
 
-  /** True once Zustand persist has finished rehydrating from localStorage */
-  hasHydrated: boolean;
-
   login: (email: string, password: string) => Promise<void>;
   /**
    * DEV/ DEMO ONLY: Bypasses backend auth and logs in with a hardcoded
@@ -102,7 +99,6 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       error: null,
       demoAccounts: DEMO_ACCOUNTS,
-      hasHydrated: false,
 
       login: async (email: string, password: string) => {
         set({ isLoading: true, error: null });
@@ -236,11 +232,6 @@ export const useAuthStore = create<AuthState>()(
         token: state.token,
         isAuthenticated: state.isAuthenticated,
       }),
-      onRehydrateStorage: () => () => {
-        // Mark hydration complete so AuthGuard knows the persisted
-        // state has been loaded before deciding to redirect.
-        useAuthStore.setState({ hasHydrated: true });
-      },
     },
   ),
 );
