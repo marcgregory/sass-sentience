@@ -158,19 +158,25 @@ Deploy the `eclipse-mosquitto:2` image as a Railway service. Mount a custom `mos
 
 ### 2c. Socket.IO + API Service
 
-This service is **not yet implemented** — the deployment documentation shows where it will run. The service will:
+This service is **implemented** in `apps/api` (REST API) and `apps/realtime` (Socket.IO bridge). The API service hosts:
 
-- Host the REST API endpoints for TanStack Query hooks
-- Host the Socket.IO server that bridges MQTT → browser WebSocket
-- Subscribe to `sentience/#` on the MQTT broker
-- Transform MQTT payloads into Socket.IO events (see `apps/web/src/lib/socket-client.ts` for the typed event contracts)
-- Manage room subscriptions by estate/site/device
-- Handle authentication (JWT validation)
+- REST API endpoints consumed by TanStack Query hooks (9 domain route groups)
+- JWT authentication (`POST /api/auth/login`, JWT verification on all protected routes)
+- PostgreSQL database via Drizzle ORM (13 tables)
+
+The realtime service (`apps/realtime`) provides:
+
+- The Socket.IO server that bridges MQTT → browser WebSocket
+- MQTT client that subscribes to `sentience/#` on the broker
+- Event normalizer that transforms MQTT payloads into Socket.IO events
+- Device registry for site/estate filtering
+- Room management by estate/site/device
+- JWT validation on socket handshake
 
 To deploy on **Railway** or **Render**:
 
 1. Create a new web service from the repo.
-2. Set **Root Directory** to `apps/api` (once it exists).
+2. Set **Root Directory** to the relevant app directory.
 3. Build command: `pnpm build`
 4. Start command: `node dist/server.js`
 5. Add the environment variables below.

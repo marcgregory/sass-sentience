@@ -234,7 +234,7 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 
 ---
 
-## ✅ Completed — RC3 Phase 3: API Audit
+## ✅ Completed — RC3 Phase 3: API Audit & RBAC Hardening
 
 | Checklist Item | Status | Notes |
 |----------------|--------|-------|
@@ -263,10 +263,65 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 - Customer-level data isolation not implemented
 - No transactions on multi-query operations
 - No rate limiting (`@fastify/rate-limit`)
-- SHA-256 passwords (needs bcrypt/argon2)
 - CORS `origin: true` allows any origin
 - No OpenAPI/Swagger spec
 - No WebSocket event emission from REST mutations
+
+---
+
+## ✅ Completed — RC3 Phase 4: Performance Audit
+
+| Checklist Item | Status | Notes |
+|----------------|--------|-------|
+| Shared JS bundle | ✅ < 150 kB | **102 kB** ✅ |
+| Dashboard first-load JS | ✅ Reduced | **123 kB** (was 222 kB — Recharts lazy-loaded) |
+| All other pages | ✅ < 140 kB | Range: 107–138 kB |
+| Database indexing | ✅ Done | Indexes added for high-frequency query patterns |
+| TanStack Query staleTime | ✅ Done | 30s staleTime on non-critical queries |
+| Socket invalidation debounce | ✅ Done | 100ms debounce window |
+| **Deliverable: Performance Audit Report** | ✅ Done | `docs/implementation/PERFORMANCE_AUDIT_REPORT.md` |
+
+---
+
+## ✅ Completed — RC3 Phase 5: Security Audit
+
+| Checklist Item | Status | Notes |
+|----------------|--------|-------|
+| Authentication flow | ✅ Fixed | Real login via `POST /api/auth/login`, JWT stored in Zustand |
+| JWT secret | ✅ Fixed | No default — required at startup |
+| Password hashing | ✅ Fixed | bcrypt (cost 12), was SHA-256 |
+| Socket.IO auth | ✅ Fixed | JWT verified during handshake |
+| RBAC enforcement | ✅ Fixed | 4 critical gaps patched |
+| Input validation | ⚠️ Partial | 2 Zod gaps tracked as debt |
+| CORS | ⚠️ Debt | `origin: true` allows any origin |
+| Secrets management | ✅ Fixed | Dev `.env` gitignored |
+| **Deliverable: Security Audit Report** | ✅ Done | `docs/implementation/SECURITY_AUDIT_REPORT.md` |
+
+### Issues Fixed
+- SHA-256 → bcrypt password hashing (C-1)
+- JWT secret has no default fallback (C-2)
+- Dev .env gitignored, unique secret (C-3)
+- Real auth endpoint (H-1)
+- Socket.IO JWT verification (H-2)
+- Demo login isolated (H-3)
+- JWT stored/reused by api-client (H-4)
+
+---
+
+## ✅ Completed — RC3 Phase 6: Documentation & Release Readiness
+
+| Checklist Item | Status | Notes |
+|----------------|--------|-------|
+| CLAUDE.md aligned | ✅ Done | RC3 complete, real RBAC, real auth |
+| BUILD_PLAN.md complete | ✅ Done | All RC3 phases added |
+| ROADMAP.md deduplicated | ✅ Done | Future section fixed |
+| CHANGELOG.md deduplicated | ✅ Done | All RC3 phases recorded |
+| RELEASE_PLAN.md updated | ✅ Done | Criteria match current state |
+| TECHNICAL_DEBT.md pruned | ✅ Done | Outdated entries removed |
+| DEPLOYMENT.md aligned | ✅ Done | Realtime bridge reflected |
+| Production Readiness Report | ✅ Done | `docs/implementation/PRODUCTION_READINESS.md` |
+| pnpm lint | ✅ Passed | Zero errors |
+| pnpm build | ✅ Passed | 26/26 pages |
 
 ---
 
@@ -276,13 +331,3 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 - E2E Tests — Playwright or Cypress
 - Deployment pipeline — CI/CD
 - Advanced scaling — Kubernetes, Redis, multi-region
-
-- E2E Tests — Playwright or Cypress
-- Deployment pipeline — CI/CD
-- Advanced scaling — Kubernetes, Redis, multi-region
-
----
-
-## ❌ Blocked
-
-- *Nothing currently blocked.*

@@ -48,25 +48,32 @@ Only one sprint may be active at a time. See `docs/implementation/BUILD_PLAN.md`
 
 ## Current Phase
 
-**RC2 — Frontend/API Integration** ✅ Complete
+**RC3 — Production Stabilization** ✅ Complete
 
-All 9 domains integrated with the backend API. The frontend no longer relies on mock data for core data flows.
+All 6 RC3 phases delivered. The project is ready for v1.0 release candidate tagging.
 
-| ✅ | Health, Devices, Events, Alerts, Reports, Users, Roles, Audit Log, Settings |
-|----|-----------------------------------------------------------------------------|
+| Phase | Focus | Status |
+|-------|-------|--------|
+| **Phase 1** | Application Audit | ✅ Delivered |
+| **Phase 2** | UX Audit & Fixes | ✅ Delivered |
+| **Phase 3** | API Audit & RBAC | ✅ Delivered |
+| **Phase 4** | Performance Audit | ✅ Delivered |
+| **Phase 5** | Security Audit | ✅ Delivered |
+| **Phase 6** | Documentation & Release Readiness | ✅ Delivered |
 
-**Next phase:** RC3 — Production Stabilization.
+**Next:** v1.0 Release — tag and ship.
 
-### RC3 Objectives
+### RC3 Achievements
 
-- Remove any remaining mock data.
-- Verify all pages use backend APIs.
-- Verify all TanStack Query hooks, cache invalidation, and optimistic mutations.
-- Verify error handling, loading states, and empty states.
-- Verify RBAC, responsive layouts, and accessibility.
-- Verify API consistency and documentation.
-- Generate a Production Readiness Report.
-- No new features — only hardening.
+- **Real authentication** — Frontend login now calls `POST /api/auth/login`, receives JWT, stores it in Zustand (persisted). `api-client.ts` injects `Authorization: Bearer <token>` automatically. Backend verifies JWT on every protected route.
+- **Socket.IO authentication** — JWT sent during socket handshake (`s.auth = { token }`). Backend `socket-server.ts` verifies the JWT before accepting connections. Socket reconnects on login/logout.
+- **Bcrypt password hashing** — Passwords hashed with bcrypt (cost 12) instead of SHA-256.
+- **JWT secret required** — No default fallback for `JWT_SECRET`. Server refuses to start without it.
+- **RBAC enforced** — 4 critical and 1 medium RBAC gaps fixed across settings, users, devices, alerts routes. Admin-only operations are properly gated.
+- **Optimistic mutations** — 6 mutations now have optimistic updates with rollback.
+- **Lazy-loaded Recharts** — Dashboard JS reduced from 222 kB to 123 kB.
+- **17 UX issues fixed** — ARIA labels, empty states, form validation, dark mode.
+- **18 security issues triaged** — 8 fixed, 10 documented as remaining debt.
 
 ---
 
@@ -176,9 +183,9 @@ import type { Device, DeviceStatus, Site, Alert } from "@sentience/types";
 
 The `@sentience/utils` package exports `cn()` (clsx + tailwind-merge), date/time/signal/temp formatters, and status/severity color constant maps.
 
-### RBAC (Stub)
+### RBAC
 
-The `auth-store` has `hasRole()` and `hasPermission()` methods. Currently admin always returns true. The 4 roles (`admin`, `support`, `installer`, `customer`) are defined in `UserRole` type. Navigation items are not yet filtered by role — all 13 links show for all users.
+The `auth-store` has `hasRole()` and `hasPermission()` methods that return real results based on the authenticated user's role. The 4 roles (`admin`, `support`, `installer`, `customer`) are defined in `UserRole` type with a full permission matrix (4 roles × 14 resources × 5 actions) in `apps/web/src/lib/permissions.ts`. Navigation items are filtered by role — Admin sees 13 links, Support sees 10, Customer sees 5. Route guards (`RequirePermission`) block unauthorized access to admin pages.
 
 ---
 

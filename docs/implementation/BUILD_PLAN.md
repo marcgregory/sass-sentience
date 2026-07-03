@@ -476,3 +476,113 @@ The infrastructure phase is complete. The current architecture supports all rema
 ### Completed
 
 2026-07-03 — RC3 Phase 3 delivered. API Audit Report documents 16 findings (4 critical, 3 medium, 9 low). All critical and medium RBAC/validation issues fixed. 6 files changed (settings, users, devices, alerts route files + docs). Remaining API debt tracked in TECHNICAL_DEBT.md.
+
+---
+
+## RC3 Phase 4: Performance Audit
+
+**Goal:** Measure and optimize frontend bundle sizes, API response times, database query performance, and real-time event latency.
+
+### Tasks
+
+- [x] Measure bundle sizes for all pages
+- [x] Measure API response times for all endpoints
+- [x] Analyze database query patterns and indexing coverage
+- [x] Analyze real-time event latency and Socket.IO overhead
+- [x] Lazy-load Recharts on Dashboard (reduced from 222 kB to 123 kB)
+- [x] Add database indexes for high-frequency query patterns
+- [x] Add `staleTime` to TanStack Query hooks to reduce API calls
+- [x] Debounce rapid socket event invalidations
+- [x] Deliver Performance Audit Report
+- [x] `pnpm lint` and `pnpm build` pass
+
+### Acceptance Criteria
+
+1. [x] Shared JS bundle < 150 kB (actual: 102 kB)
+2. [x] Dashboard lazy-loads Recharts (actual: 123 kB, was 222 kB)
+3. [x] All remaining pages under 140 kB first-load JS
+4. [x] Database indexes added for filtered/sorted query patterns
+5. [x] TanStack Query staleTime configured for non-critical data
+6. [x] Socket event invalidations debounced (100ms window)
+7. [x] Performance Audit Report delivered
+8. [x] `pnpm lint` and `pnpm build` pass
+
+### Completed
+
+2026-07-03 — RC3 Phase 4 delivered. Bundle sizes optimized (shared 102 kB, dashboard 123 kB). Database indexing improved. Query staleTime configured. Socket invalidation debounced. Performance Audit Report delivered.
+
+---
+
+## RC3 Phase 5: Security Audit
+
+**Goal:** Audit authentication, authorization, password handling, input validation, injection vectors, CORS, WebSocket auth, and secrets management across the full stack.
+
+### Tasks
+
+- [x] Audit authentication flow (login, JWT, token storage, socket auth)
+- [x] Audit authorization (RBAC, route guards, permission enforcement)
+- [x] Audit password handling (hashing algorithm, strength requirements)
+- [x] Audit input validation (Zod schemas, SQL injection, XSS)
+- [x] Audit CORS configuration
+- [x] Audit WebSocket/Socket.IO auth
+- [x] Audit secrets management (.env, JWT secret, API keys)
+- [x] Audit security headers and CSRF protection
+- [x] Fix critical: bcrypt password hashing (was SHA-256)
+- [x] Fix critical: JWT secret no default (was hardcoded fallback)
+- [x] Fix critical: Dev .env secrets (gitignored, unique secret)
+- [x] Fix high: Real auth endpoint (login calls POST /api/auth/login, receives JWT)
+- [x] Fix high: Socket.IO JWT auth (handshake verifies token)
+- [x] Fix high: Demo login isolated (loginAsRole remains but gated by NODE_ENV guard)
+- [x] Fix high: JWT stored in Zustand, reused by api-client
+- [x] Deliver Security Audit Report
+- [x] `pnpm lint` and `pnpm build` pass
+
+### Acceptance Criteria
+
+1. [x] Passwords hashed with bcrypt (not SHA-256)
+2. [x] JWT_SECRET has no default — server refuses to start without it
+3. [x] Frontend login calls backend API (not mock)
+4. [x] Socket.IO connection requires valid JWT in handshake
+5. [x] Demo login (loginAsRole) documented as DEV ONLY
+6. [x] api-client injects Authorization header from Zustand store
+7. [x] Dev .env is gitignored
+8. [x] 18 security issues triaged (8 fixed, 10 documented)
+9. [x] `pnpm lint` and `pnpm build` pass
+
+### Completed
+
+2026-07-03 — RC3 Phase 5 delivered. Real authentication architecture (login → POST /api/auth/login → JWT → Zustand → api-client bearer token). Socket.IO JWT verification. Bcrypt password hashing. JWT secret required. Security Audit Report documents all findings. 8 of 18 issues fixed.
+
+---
+
+## RC3 Phase 6: Documentation & Release Readiness
+
+**Goal:** Verify all documentation matches the implementation, update all plan/roadmap files, generate Production Readiness Report, and perform final verification.
+
+### Tasks
+
+- [x] Verify CLAUDE.md reflects current architecture
+- [x] Verify BUILD_PLAN.md includes all phases
+- [x] Verify ROADMAP.md reflects completed work and deduplicates
+- [x] Verify CHANGELOG.md includes all RC3 phases (no duplication)
+- [x] Verify RELEASE_PLAN.md criteria match current state
+- [x] Verify DEPLOYMENT.md matches actual architecture
+- [x] Update TECHNICAL_DEBT.md — remove outdated entries, reflect current state
+- [x] Create root CHANGELOG.md pointer
+- [x] Generate PRODUCTION_READINESS.md
+- [x] `pnpm lint` and `pnpm build` pass as final verification
+
+### Acceptance Criteria
+
+1. [x] All documentation references match current codebase state
+2. [x] No duplicated content across CHANGELOG.md
+3. [x] ROADMAP.md deduplicated and complete
+4. [x] RELEASE_PLAN.MD reflects real auth, real API, real socket auth
+5. [x] TECHNICAL_DEBT.md pruned of resolved items
+6. [x] DEPLOYMENT.md reflects the realtime bridge exists
+7. [x] Production Readiness Report generated
+8. [x] `pnpm lint` and `pnpm build` pass
+
+### Completed
+
+2026-07-03 — RC3 Phase 6 delivered. All documentation aligned with implementation. Production Readiness Report generated. Final build verification passed.
