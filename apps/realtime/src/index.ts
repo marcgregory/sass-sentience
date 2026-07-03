@@ -61,6 +61,8 @@ async function main(): Promise<void> {
   const io = await createSocketServer({
     port: env.SOCKET_PORT,
     corsOrigin: env.CORS_ORIGIN,
+    jwtSecret: env.JWT_SECRET,
+    allowUnauthenticated: env.ALLOW_UNAUTHENTICATED,
   });
 
   // ─── MQTT Client ────────────────────────────────────────────────

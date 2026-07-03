@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 import type { User, UserRole } from "@sentience/types";
 import { hasPermission, type Resource, type Action } from "@/lib/permissions";
 import { useAuditStore } from "./audit-store";
-import type { AuditAction } from "@sentience/types";
+import { post } from "@/lib/api-client";
 
 interface AuthState {
   user: User | null;
@@ -12,10 +12,15 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
 
-  /** Available demo accounts for role switching */
+  /** Available demo accounts for role switching (DEV MODE only) */
   demoAccounts: User[];
 
   login: (email: string, password: string) => Promise<void>;
+  /**
+   * DEV/ DEMO ONLY: Bypasses backend auth and logs in with a hardcoded
+   * demo user. This is NOT secure and MUST be removed or gated behind
+   * a feature flag before production.
+   */
   loginAsRole: (role: UserRole) => void;
   logout: () => void;
   setUser: (user: User) => void;
@@ -25,7 +30,7 @@ interface AuthState {
   clearError: () => void;
 }
 
-/** Demo accounts available for switching */
+/** Demo accounts available for quick dev role switching. DEV MODE ONLY. */
 const DEMO_ACCOUNTS: User[] = [
   {
     id: "user-1",
@@ -91,48 +96,67 @@ export const useAuthStore = create<AuthState>()(
       error: null,
       demoAccounts: DEMO_ACCOUNTS,
 
-      login: async (email: string, _password: string) => {
+      login: async (email: string, password: string) => {
         set({ isLoading: true, error: null });
         try {
-          // Simulate API delay
-          await new Promise((r) => setTimeout(r, 600));
+          const response = await post<{
+            token: string;
+            user: {
+              id: string;
+              email: string;
+              name: string;
+              role: string;
+              isActive: boolean;
+              mfaEnabled: boolean;
+              avatar?: string;
+            };
+          }>("/auth/login", { email, password });
 
-          // Find a matching demo account, or create a default admin
-          const demoAccount = DEMO_ACCOUNTS.find((a) => a.email === email);
-          const mockUser: User = demoAccount ?? {
-            id: "user-1",
-            email,
-            name: email.split("@")[0],
-            role: "admin",
-            isActive: true,
-            mfaEnabled: false,
+          const user: User = {
+            id: response.user.id,
+            email: response.user.email,
+            name: response.user.name,
+            role: response.user.role as UserRole,
+            isActive: response.user.isActive,
+            mfaEnabled: response.user.mfaEnabled,
+            avatar: response.user.avatar,
+            lastLogin: new Date().toISOString(),
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            lastLogin: new Date().toISOString(),
           };
 
           set({
-            user: mockUser,
-            token: "mock-jwt-token",
+            user,
+            token: response.token,
             isAuthenticated: true,
             isLoading: false,
           });
 
-          // Log audit entry
           useAuditStore.getState().addEntry({
-            userId: mockUser.id,
-            userName: mockUser.name,
-            userRole: mockUser.role,
+            userId: user.id,
+            userName: user.name,
+            userRole: user.role,
             action: "login",
             resource: "Session",
-            description: `User ${mockUser.name} logged in as ${ROLE_LABELS[mockUser.role]}`,
+            description: `User ${user.name} logged in as ${ROLE_LABELS[user.role]}`,
             ipAddress: "192.168.1.100",
           });
         } catch (err) {
-          set({ error: (err as Error).message, isLoading: false });
+          const message =
+            err instanceof Error ? err.message : "Login failed. Please check your credentials.";
+          set({ error: message, isLoading: false });
         }
       },
 
+      /**
+       * ⚠️ DEV / DEMO ONLY
+       * This method bypasses the backend auth entirely. It exists so developers
+       * and stakeholders can quickly switch between roles during development and
+       * product review sessions.
+       *
+       * It stores a synthetic token and MUST be removed or gated behind
+       * NEXT_PUBLIC_ENABLE_DEMO_MODE before production.
+       */
       loginAsRole: (role: UserRole) => {
         const account = DEMO_ACCOUNTS.find((a) => a.role === role);
         if (!account) return;
@@ -151,7 +175,7 @@ export const useAuthStore = create<AuthState>()(
           userRole: account.role,
           action: "login",
           resource: "Session",
-          description: `User ${account.name} logged in as ${ROLE_LABELS[account.role]}`,
+          description: `[DEMO] User ${account.name} logged in as ${ROLE_LABELS[account.role]}`,
           ipAddress: "192.168.1.100",
         });
       },

@@ -7,6 +7,7 @@ import rateLimit from "@fastify/rate-limit";
 import { env } from "./config";
 import { db, pool } from "./db";
 import { registerErrorHandler } from "./lib/errors";
+import { initSocketIO } from "./socket";
 
 // ─── Type augmentation ────────────────────────────────────────────
 
@@ -87,6 +88,10 @@ async function main() {
   await app.register(reportRoutes, { prefix: "/api/reports" });
   await app.register(settingRoutes, { prefix: "/api/settings" });
   await app.register(auditLogRoutes, { prefix: "/api/audit-logs" });
+
+  // ─── Socket.IO (shares the same HTTP server) ────────────────────
+
+  initSocketIO(app.server);
 
   // ─── Start ──────────────────────────────────────────────────────
 

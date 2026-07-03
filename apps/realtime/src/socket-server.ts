@@ -15,6 +15,7 @@
 
 import { Server as SocketIOServer } from "socket.io";
 import { createServer } from "net";
+import jwt from "jsonwebtoken";
 
 // ─── Re-export types for normalizer ─────────────────────────────────
 
@@ -80,10 +81,12 @@ function isPortInUse(port: number): Promise<boolean> {
 export interface SocketServerOptions {
   port: number;
   corsOrigin: string;
+  jwtSecret: string;
+  allowUnauthenticated: boolean;
 }
 
 export async function createSocketServer(options: SocketServerOptions): Promise<SocketIOServer> {
-  const { port, corsOrigin } = options;
+  const { port, corsOrigin, jwtSecret, allowUnauthenticated } = options;
 
   const inUse = await isPortInUse(port);
   if (inUse) {
@@ -99,6 +102,32 @@ export async function createSocketServer(options: SocketServerOptions): Promise<
     },
     pingInterval: 25_000,
     pingTimeout: 20_000,
+  });
+
+  // ─── JWT Authentication middleware ───────────────────────────────
+
+  io.use((socket, next) => {
+    const token = socket.handshake.auth?.token as string | undefined;
+
+    if (!token) {
+      if (allowUnauthenticated) {
+        (socket as any).user = null;
+        return next();
+      }
+      return next(new Error("Authentication required: no token provided"));
+    }
+
+    try {
+      const decoded = jwt.verify(token, jwtSecret) as { sub: string; email: string; role: string; name: string };
+      (socket as any).user = decoded;
+      next();
+    } catch {
+      if (allowUnauthenticated) {
+        (socket as any).user = null;
+        return next();
+      }
+      return next(new Error("Authentication failed: invalid or expired token"));
+    }
   });
 
   io.on("connection", (socket) => {
