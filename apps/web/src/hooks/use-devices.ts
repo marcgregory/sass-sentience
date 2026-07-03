@@ -16,6 +16,7 @@ import type { DeviceDetailResponse } from "@/lib/devices";
 import { queryKeys } from "@/lib/query-keys";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
 import type { DeviceStatus } from "@sentience/types";
+import type { LiveDeviceEntry } from "@/stores/live-device-store";
 
 // ─── Row Type ─────────────────────────────────────────────────────────────
 
@@ -35,6 +36,12 @@ export interface DeviceListRow {
 
 const SIM_DEVICE_TYPES = ["controller", "sensor", "gateway", "relay", "camera"];
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUUID(id: string): boolean {
+  return UUID_RE.test(id);
+}
+
 function pickType(id: string): string {
   const hash = id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
   return SIM_DEVICE_TYPES[hash % SIM_DEVICE_TYPES.length];
@@ -53,6 +60,20 @@ function mapDeviceToRow(
     signal: d.signalStrength ?? 0,
     temp: d.temperature ?? 0,
     site: d.siteName ?? `Site ${d.siteId.slice(0, 8)}`,
+  };
+}
+
+function liveEntryToRow(entry: LiveDeviceEntry): DeviceListRow {
+  return {
+    id: entry.deviceId,
+    name: `Device ${entry.deviceId.slice(0, 8)}`,
+    serial: `SN-${entry.deviceId.slice(0, 8).toUpperCase()}`,
+    type: pickType(entry.deviceId),
+    status: entry.status,
+    battery: entry.telemetry?.battery ?? 100,
+    signal: entry.telemetry?.signalStrength ?? -70,
+    temp: entry.telemetry?.temperature ?? 25,
+    site: buildSiteLabel(entry.siteName, entry.estateName, entry.siteId),
   };
 }
 
@@ -150,17 +171,29 @@ export function useDevices() {
  * template expectations) plus the raw API response for richer detail.
  * The live store entry should still be accessed separately via
  * `useLiveDeviceStore((s) => s.devices[id])` for real-time telemetry.
+ *
+ * For non-UUID IDs (simulator-only devices), the API call is skipped
+ * and the device is resolved entirely from the live device store.
  */
 export function useDevice(id: string) {
+  const isUuid = isUUID(id);
+
   const query = useQuery({
     queryKey: queryKeys.devices.detail(id),
     queryFn: () => getDevice(id),
-    enabled: !!id,
+    enabled: !!id && isUuid,
   });
 
   const liveEntry = useLiveDeviceStore((s) => s.devices[id]);
 
   const device = useMemo<DeviceListRow | null>(() => {
+    // Non-UUID: resolve from live store only
+    if (!isUuid) {
+      if (!liveEntry) return null;
+      return liveEntryToRow(liveEntry);
+    }
+
+    // UUID: merge API data with live overlay
     const api = query.data;
     if (!api) return null;
 
@@ -181,13 +214,14 @@ export function useDevice(id: string) {
         api.siteId,
       ),
     };
-  }, [query.data, liveEntry]);
+  }, [query.data, liveEntry, id, isUuid]);
 
   return {
     device,
     apiDevice: query.data as DeviceDetailResponse | undefined,
-    isLoading: query.isLoading,
-    isError: query.isError,
+    // For non-UUID IDs, never show loading/error from the skipped query
+    isLoading: isUuid && query.isLoading,
+    isError: isUuid && query.isError,
     error: query.error,
   };
 }

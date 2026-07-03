@@ -167,7 +167,7 @@ export function generateDevice(seedFn?: () => number): Device {
     faker.seed(seedFn());
   }
 
-  const id = faker.string.nanoid(12);
+  const id = faker.string.uuid();
   const type = pickType();
   const now = new Date();
 
