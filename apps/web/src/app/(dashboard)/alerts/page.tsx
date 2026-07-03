@@ -22,6 +22,8 @@ import { useLiveAlertStore, type AlertHistoryEntry } from "@/stores/live-alert-s
 import { useAlerts, useAcknowledgeAlert, useResolveAlert } from "@/hooks/use-alerts";
 import type { AlertDisplayRow } from "@/hooks/use-alerts";
 import { cn } from "@sentience/utils";
+import { useAuthStore } from "@/stores/auth-store";
+import { hasPermission } from "@/lib/permissions";
 
 // ─── Constants ────────────────────────────────────────────────────
 
@@ -129,12 +131,14 @@ function AlertDetailSheet({
   onClose,
   onAcknowledge,
   onResolve,
+  canManageAlerts,
 }: {
   alert: AlertDisplayRow;
   history: AlertHistoryEntry[];
   onClose: () => void;
   onAcknowledge: (id: string) => void;
   onResolve: (id: string) => void;
+  canManageAlerts: boolean;
 }) {
   return (
     <>
@@ -237,7 +241,7 @@ function AlertDetailSheet({
           </div>
 
           {/* Actions */}
-          {alert.status !== "resolved" && (
+          {canManageAlerts && alert.status !== "resolved" && (
             <div className="flex gap-2 pt-2 border-t">
               {alert.status === "open" && (
                 <Button
@@ -342,6 +346,9 @@ function AlertsPageError({ error, onRetry }: { error: Error; onRetry: () => void
 // ─── Main Page ───────────────────────────────────────────────────
 
 export default function AlertsPage() {
+  const currentUser = useAuthStore((s) => s.user);
+  const canManageAlerts = hasPermission(currentUser?.role, "alerts", "update");
+
   const { alerts, total, isLoading, isError, error, isSocketConnected } = useAlerts();
   const acknowledgeMutation = useAcknowledgeAlert();
   const resolveMutation = useResolveAlert();
@@ -520,7 +527,7 @@ export default function AlertsPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-1 ml-4 shrink-0" onClick={(e) => e.stopPropagation()}>
-                  {alert.status === "open" && (
+                  {canManageAlerts && alert.status === "open" && (
                     <Button
                       variant="ghost"
                       size="icon"
@@ -531,7 +538,7 @@ export default function AlertsPage() {
                       <CheckCircle className="h-4 w-4" />
                     </Button>
                   )}
-                  {alert.status !== "resolved" && (
+                  {canManageAlerts && alert.status !== "resolved" && (
                     <Button
                       variant="ghost"
                       size="icon"
@@ -557,6 +564,7 @@ export default function AlertsPage() {
         <AlertDetailSheet
           alert={selectedAlert}
           history={selectedHistory}
+          canManageAlerts={canManageAlerts}
           onClose={() => setSelectedAlertId(null)}
           onAcknowledge={(id) => {
             acknowledgeMutation.mutate({ id });
