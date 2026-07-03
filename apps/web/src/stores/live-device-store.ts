@@ -50,6 +50,8 @@ export interface LiveDeviceEntry {
 export interface LiveEventEntry {
   eventId: string;
   deviceId?: string;
+  deviceName?: string;
+  serial?: string;
   siteId?: string;
   siteName?: string;
   estateId?: string;

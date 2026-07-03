@@ -102,6 +102,8 @@ export interface AlertEvent {
   status: "open" | "acknowledged" | "resolved";
   category?: string;
   deviceId?: string;
+  deviceName?: string;
+  serial?: string;
   siteId?: string;
   siteName?: string;
   estateId?: string;
@@ -121,6 +123,8 @@ export interface NotificationEvent {
 export interface EventStreamEvent {
   eventId: string;
   deviceId?: string;
+  deviceName?: string;
+  serial?: string;
   siteId?: string;
   siteName?: string;
   estateId?: string;

@@ -29,6 +29,8 @@ export interface AlertDisplayRow {
   status: "open" | "acknowledged" | "resolved";
   category: string;
   deviceId?: string;
+  deviceName?: string;
+  serial?: string;
   siteId?: string;
   siteName?: string;
   estateId?: string;
@@ -86,6 +88,8 @@ function mapLiveAlertToRow(e: LiveAlertEntry): AlertDisplayRow {
     status: e.status,
     category: e.category,
     deviceId: e.deviceId,
+    deviceName: e.deviceName,
+    serial: e.serial,
     siteId: e.siteId,
     siteName: e.siteName,
     estateId: e.estateId,

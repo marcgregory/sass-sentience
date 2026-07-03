@@ -48,7 +48,13 @@ export function RecentActivity({ events, className }: RecentActivityProps) {
           >
             <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", cfg.color)} />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">{event.title}</p>
+              <p className="text-sm font-medium truncate">
+                {event.deviceName && <span className="font-semibold">{event.deviceName}</span>}
+                {!event.deviceName && event.title}
+              </p>
+              {event.deviceName && (
+                <p className="text-xs text-muted-foreground truncate">{event.title}</p>
+              )}
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {event.siteName ?? event.siteId ?? "Unknown"}
                 {event.category && ` · ${event.category}`}

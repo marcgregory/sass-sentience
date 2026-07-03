@@ -204,10 +204,15 @@ function EventDetailPanel({
                 <p className="text-xs font-medium text-muted-foreground">Device</p>
                 <Link
                   href={`/devices/${event.deviceId}`}
-                  className="text-sm font-mono text-primary hover:underline"
+                  className="text-sm font-medium text-primary hover:underline"
                 >
-                  {event.deviceId}
+                  {event.deviceName ?? event.deviceId}
                 </Link>
+                {event.serial && (
+                  <p className="text-xs font-mono text-muted-foreground mt-0.5">
+                    {event.serial}
+                  </p>
+                )}
               </div>
             )}
             {event.siteName && (
@@ -342,14 +347,14 @@ export default function EventsPage() {
 
   // Device options for filter (built from live and API events)
   const deviceOptions = useMemo(() => {
-    const deviceIds = new Set<string>();
+    const deviceIds = new Map<string, string>();
     const options: { id: string; name: string }[] = [];
     for (const event of events) {
       if (event.deviceId && !deviceIds.has(event.deviceId)) {
-        deviceIds.add(event.deviceId);
+        deviceIds.set(event.deviceId, event.deviceName ?? "");
         options.push({
           id: event.deviceId,
-          name: `Device ${event.deviceId.slice(0, 8)}`,
+          name: event.deviceName ?? `Device ${event.deviceId.slice(0, 8)}`,
         });
       }
     }
@@ -618,12 +623,13 @@ export default function EventsPage() {
                     {event.deviceId && (
                       <Link
                         href={`/devices/${event.deviceId}`}
-                        className="font-mono hover:underline"
+                        className="hover:underline"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {event.deviceId}
+                        {event.deviceName ?? event.deviceId}
                       </Link>
                     )}
+                    {event.deviceId && event.serial && <span className="font-mono text-[10px]"> · {event.serial.slice(0, 8)}</span>}
                     {event.deviceId && event.siteName && <span> · </span>}
                     {event.siteName && <span>{event.siteName}</span>}
                     {event.siteName && <span> · </span>}

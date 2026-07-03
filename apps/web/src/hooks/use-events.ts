@@ -62,6 +62,8 @@ function mapLiveEventToRow(e: LiveEventEntry): EventDisplayRow {
     severity: e.severity,
     category: e.category,
     deviceId: e.deviceId,
+    deviceName: e.deviceName,
+    serial: e.serial,
     siteId: e.siteId,
     siteName: e.siteName,
     estateId: e.estateId,

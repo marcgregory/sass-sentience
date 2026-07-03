@@ -23,6 +23,8 @@ export interface LiveAlertEntry {
   status: AlertStatus;
   category: AlertCategory;
   deviceId?: string;
+  deviceName?: string;
+  serial?: string;
   siteId?: string;
   siteName?: string;
   estateId?: string;
@@ -74,6 +76,8 @@ interface LiveAlertState {
     status?: AlertStatus;
     category?: string;
     deviceId?: string;
+    deviceName?: string;
+    serial?: string;
     siteId?: string;
     siteName?: string;
     estateId?: string;
@@ -143,6 +147,8 @@ export const useLiveAlertStore = create<LiveAlertState>()((set) => ({
         status: "open",
         category,
         deviceId: payload.deviceId,
+        deviceName: payload.deviceName,
+        serial: payload.serial,
         siteId: payload.siteId,
         siteName: payload.siteName,
         estateId: payload.estateId,

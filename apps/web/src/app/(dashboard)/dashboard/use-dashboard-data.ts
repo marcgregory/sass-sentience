@@ -321,7 +321,7 @@ export function useDashboardData() {
       .filter((d) => d.status === "offline")
       .map((d) => ({
         id: d.deviceId,
-        name: d.deviceName ?? `Device ${d.deviceId.slice(0, 8)}`,
+        name: d.deviceName ?? d.deviceId,
         site: d.siteName ?? d.siteId ?? "Unknown",
         lastSeen: d.lastSeen,
       }))

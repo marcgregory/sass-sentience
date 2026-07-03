@@ -4,6 +4,7 @@ import {
   toStatusEvent,
   toEventStreamEvent,
   toDiagnosticEvent,
+  toAlertEvent,
 } from "../normalizer";
 
 describe("normalizer", () => {
@@ -33,6 +34,14 @@ describe("normalizer", () => {
         signalStrength: -65,
         timestamp: "2026-07-02T19:30:00.000Z",
       });
+    });
+
+    it("preserves deviceName when present", () => {
+      const result = toTelemetryEvent(deviceId, {
+        ...basePayload,
+        deviceName: "Main Controller",
+      });
+      expect(result.deviceName).toBe("Main Controller");
     });
 
     it("preserves siteId when present", () => {
@@ -105,7 +114,7 @@ describe("normalizer", () => {
   });
 
   describe("toEventStreamEvent", () => {
-    it("maps battery_low event with title and category", () => {
+    it("maps battery_low event with title, category and severity", () => {
       const result = toEventStreamEvent(deviceId, {
         ...basePayload,
         eventType: "battery_low",
@@ -115,12 +124,25 @@ describe("normalizer", () => {
 
       expect(result.deviceId).toBe(deviceId);
       expect(result.category).toBe("threshold_breach");
+      // Severity derived from event type, not device status
       expect(result.severity).toBe("warning");
       expect(result.title).toContain("battery low");
       expect(result.title).toContain("12%");
     });
 
-    it("sets critical severity for fault status", () => {
+    it("uses deviceName in title when available", () => {
+      const result = toEventStreamEvent(deviceId, {
+        ...basePayload,
+        deviceName: "Main Controller",
+        eventType: "signal_weak",
+        signal: -105,
+      });
+      expect(result.title).toContain("Main Controller");
+      expect(result.title).not.toContain("Device ");
+      expect(result.title).toContain("-105");
+    });
+
+    it("sets critical severity for device_fault", () => {
       const result = toEventStreamEvent(deviceId, {
         ...basePayload,
         eventType: "device_fault",
@@ -128,6 +150,31 @@ describe("normalizer", () => {
         status: "fault",
       });
       expect(result.severity).toBe("critical");
+    });
+
+    it("sets critical severity for device_offline", () => {
+      const result = toEventStreamEvent(deviceId, {
+        ...basePayload,
+        eventType: "device_offline",
+      });
+      expect(result.severity).toBe("critical");
+    });
+
+    it("sets info severity for non-alert event types", () => {
+      const result = toEventStreamEvent(deviceId, {
+        ...basePayload,
+        eventType: "config_change",
+      });
+      expect(result.severity).toBe("info");
+    });
+
+    it("includes serial when present", () => {
+      const result = toEventStreamEvent(deviceId, {
+        ...basePayload,
+        eventType: "signal_weak",
+        serial: "SN-ABCD1234",
+      });
+      expect(result.serial).toBe("SN-ABCD1234");
     });
 
     it("generates a unique eventId", () => {
@@ -159,6 +206,54 @@ describe("normalizer", () => {
         warning: true,
       });
       expect(result.diagnostic.status).toBe("warning");
+    });
+  });
+
+  describe("toAlertEvent", () => {
+    it("returns alert for battery_low event", () => {
+      const result = toAlertEvent(deviceId, {
+        ...basePayload,
+        eventType: "battery_low",
+        battery: 12,
+        deviceName: "Zone Sensor A",
+      });
+
+      expect(result).not.toBeNull();
+      expect(result!.severity).toBe("warning");
+      expect(result!.title).toContain("Zone Sensor A");
+      expect(result!.title).toContain("12%");
+      expect(result!.deviceName).toBe("Zone Sensor A");
+    });
+
+    it("returns null for non-alert event types", () => {
+      const result = toAlertEvent(deviceId, {
+        ...basePayload,
+        eventType: "config_change",
+      });
+      expect(result).toBeNull();
+    });
+
+    it("uses deviceName in description", () => {
+      const result = toAlertEvent(deviceId, {
+        ...basePayload,
+        eventType: "signal_weak",
+        signal: -105,
+        deviceName: "Perimeter Gateway",
+      });
+
+      expect(result).not.toBeNull();
+      expect(result!.description).toContain("Perimeter Gateway");
+    });
+
+    it("falls back to truncated ID when deviceName absent", () => {
+      const result = toAlertEvent(deviceId, {
+        ...basePayload,
+        eventType: "battery_low",
+        battery: 5,
+      });
+
+      expect(result).not.toBeNull();
+      expect(result!.title).toContain(deviceId.slice(0, 8));
     });
   });
 });

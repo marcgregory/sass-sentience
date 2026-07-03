@@ -193,7 +193,10 @@ function AlertDetailSheet({
             {alert.deviceId && (
               <div>
                 <p className="text-xs font-medium text-muted-foreground">Device</p>
-                <p className="text-sm font-mono">{alert.deviceId}</p>
+                <p className="text-sm font-medium">{alert.deviceName ?? alert.deviceId}</p>
+                {alert.serial && (
+                  <p className="text-xs font-mono text-muted-foreground mt-0.5">{alert.serial}</p>
+                )}
               </div>
             )}
             {alert.siteName && (
@@ -536,7 +539,7 @@ export default function AlertsPage() {
                   <p className="font-medium truncate">{alert.title}</p>
                   <p className="text-sm text-muted-foreground mt-0.5">
                     {alert.siteName && <span>{alert.siteName} · </span>}
-                    {alert.deviceId && <span className="font-mono">{alert.deviceId} · </span>}
+                    {alert.deviceId && <span>{alert.deviceName ?? alert.deviceId}{alert.serial ? <span className="font-mono text-[10px] ml-0.5">({alert.serial.slice(0, 8)})</span> : null} · </span>}
                     <time dateTime={alert.occurredAt}>{formatRelativeTime(alert.occurredAt)}</time>
                   </p>
                 </div>

@@ -148,6 +148,8 @@ export function useSocket(options: UseSocketOptions = {}): void {
       useLiveDeviceStore.getState().addLiveEvent({
         eventId: payload.eventId,
         deviceId: payload.deviceId,
+        deviceName: payload.deviceName,
+        serial: payload.serial,
         siteId: payload.siteId,
         siteName: payload.siteName,
         estateId: payload.estateId,

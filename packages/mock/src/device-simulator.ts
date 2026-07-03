@@ -89,7 +89,7 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
     brokerUrl = process.env.MQTT_URL ?? "mqtt://localhost:1883",
     topicPrefix = process.env.MQTT_TOPIC_PREFIX ?? "sentience",
     telemetryInterval = 10,
-    statusChangeProbability = 0.02,
+    statusChangeProbability = 0.015,
     clientId = `sentience-sim-${Math.random().toString(36).slice(2, 8)}`,
   } = options;
 
@@ -139,9 +139,17 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
 
   for (const sd of devices) {
     const tick = () => {
-      // Simulate battery drain (faster for fault/warning devices)
-      const drain = sd.status === "fault" ? 2 : sd.status === "warning" ? 1 : 0.2;
-      sd.battery = Math.max(0, sd.battery - drain * (0.5 + Math.random()));
+      // Battery drain — skip for externally-powered devices
+      const isExternallyPowered = (
+        sd.device.type === "controller" ||
+        sd.device.type === "gateway" ||
+        sd.device.type === "relay"
+      );
+      if (!isExternallyPowered) {
+        // Simulate battery drain (faster for fault/warning devices)
+        const drain = sd.status === "fault" ? 2 : sd.status === "warning" ? 1 : 0.2;
+        sd.battery = Math.max(0, sd.battery - drain * (0.5 + Math.random()));
+      }
 
       // Simulate signal fluctuation
       sd.signal = Math.min(-40, Math.max(-120, sd.signal + (Math.random() - 0.5) * 10));
@@ -154,15 +162,16 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
       sd.inputState = Math.random() > 0.9 ? !sd.inputState : sd.inputState;
       sd.outputState = Math.random() > 0.95 ? !sd.outputState : sd.outputState;
 
-      // Status transitions
+      // Status transitions — keep low probability so most devices stay online
       if (Math.random() < statusChangeProbability) {
+        const prevStatus = sd.status;
         const nextStatus = computeNextStatus(sd.status);
         if (nextStatus !== sd.status) {
           sd.status = nextStatus;
           sd.fault = nextStatus === "fault";
           sd.warning = nextStatus === "warning";
           // Publish status change as an event
-          publishEvent(client, sd, `status: ${sd.status} → ${sd.status}`, topicPrefix);
+          publishEvent(client, sd, `status: ${prevStatus} → ${nextStatus}`, topicPrefix);
           publishStatus(client, sd, topicPrefix);
         }
       }
@@ -235,6 +244,7 @@ function basePayload(sd: SimulatedDevice): Record<string, unknown> {
     deviceName: sd.device.name,
     name: sd.device.name,
     deviceType: sd.device.type,
+    serial: sd.device.serialNumber,
     status: sd.status,
     battery: Math.round(sd.battery),
     signal: sd.signal,
@@ -293,27 +303,28 @@ function computeNextStatus(current: DeviceStatus): DeviceStatus {
   const r = Math.random();
   switch (current) {
     case "online":
-      // Mostly stays online, occasional warning
-      if (r < 0.05) return "warning";
-      if (r < 0.07) return "fault";
-      if (r < 0.08) return "offline";
+      // Mostly stays online (~93%), occasional warning (~4%), rare fault/offline (~3%)
+      if (r < 0.04) return "warning";
+      if (r < 0.06) return "fault";
+      if (r < 0.07) return "offline";
       return "online";
     case "warning":
-      // Warning can clear or escalate
-      if (r < 0.20) return "online";
+      // Warning tends to self-clear (~25%), escalate (~10%), or stay (~65%)
+      if (r < 0.25) return "online";
       if (r < 0.35) return "fault";
       if (r < 0.40) return "offline";
       return "warning";
     case "fault":
-      // Fault tends to autocorrect or stay
-      if (r < 0.10) return "online";
-      if (r < 0.15) return "warning";
-      if (r < 0.20) return "offline";
+      // Fault autocorrects (~15%), degrades to offline (~10%), or stays (~75%)
+      if (r < 0.15) return "online";
+      if (r < 0.25) return "warning";
+      if (r < 0.35) return "offline";
       return "fault";
     case "offline":
-      // Offline comes back eventually
-      if (r < 0.15) return "online";
-      if (r < 0.10) return "fault";
+      // Offline comes back eventually (~35%), or stays (~65%)
+      if (r < 0.35) return "online";
+      if (r < 0.40) return "warning";
+      if (r < 0.45) return "fault";
       return "offline";
   }
 }

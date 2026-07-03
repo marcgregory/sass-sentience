@@ -46,6 +46,9 @@ export interface MqttPayload {
 
   // Real-device fields (optional — older simulators don't set these)
   voltage?: number;
+
+  // Serial number
+  serial?: string;
 }
 
 // ─── Normalized Socket.IO Event Payloads ───────────────────────────
@@ -81,6 +84,8 @@ export interface DeviceStatusEvent {
 export interface EventStreamEvent {
   eventId: string;
   deviceId?: string;
+  deviceName?: string;
+  serial?: string;
   siteId?: string;
   siteName?: string;
   estateId?: string;
@@ -103,6 +108,8 @@ export interface AlertEvent {
   status: "open" | "acknowledged" | "resolved";
   category?: string;
   deviceId?: string;
+  deviceName?: string;
+  serial?: string;
   siteId?: string;
   siteName?: string;
   estateId?: string;
@@ -178,18 +185,20 @@ export function toEventStreamEvent(
   payload: MqttPayload,
 ): EventStreamEvent {
   const eventType = payload.eventType ?? "unknown";
-  const status = validStatus(payload.status);
+  const severity = severityForEventType(eventType, payload);
 
   return {
     eventId: `${deviceId}-${eventType}-${Date.now()}`,
     deviceId,
+    deviceName: resolveName(payload),
+    serial: payload.serial,
     siteId: payload.siteId ?? "unknown",
     siteName: payload.siteName ?? undefined,
     estateId: payload.estateId ?? undefined,
     estateName: payload.estateName ?? undefined,
     category: mapEventTypeToCategory(eventType),
-    severity: status === "fault" ? "critical" : status === "warning" ? "warning" : "info",
-    title: formatEventTitle(eventType, deviceId, payload),
+    severity,
+    title: formatEventTitle(eventType, payload),
     timestamp: payload.timestamp ?? new Date().toISOString(),
   };
 }
@@ -219,7 +228,7 @@ export function toDiagnosticEvent(
     diagnostic: {
       type: payload.eventType ?? "system",
       status: payload.fault ? "failed" : payload.warning ? "warning" : "passed",
-      message: formatEventTitle(payload.eventType ?? "event", deviceId, payload),
+      message: formatEventTitle(payload.eventType ?? "event", payload),
     },
     timestamp: payload.timestamp ?? new Date().toISOString(),
   };
@@ -235,12 +244,29 @@ const ALERT_EVENT_TYPES = new Set([
   "device_fault",
 ]);
 
+/**
+ * Derive severity from event type, not device status.
+ *
+ * Rules:
+ *   device_fault     → critical
+ *   device_offline   → critical
+ *   battery_low (<10%) → critical
+ *   temperature_high (>50°C) → critical
+ *   signal_weak      → warning
+ *   battery_low (≥10%) → warning
+ *   temperature_high (≤50°C) → warning
+ */
 function severityForEventType(eventType: string, payload: MqttPayload): "critical" | "warning" | "info" {
-  if (eventType === "device_fault" || (payload.fault)) return "critical";
-  if (eventType === "battery_low" && (payload.battery ?? 100) < 10) return "critical";
+  if (eventType === "device_fault") return "critical";
   if (eventType === "device_offline") return "critical";
+  if (eventType === "battery_low" && (payload.battery ?? 100) < 10) return "critical";
   if (eventType === "temperature_high" && (payload.temperature ?? 0) > 50) return "critical";
-  return "warning";
+
+  // Remaining alert-worthy events → warning
+  if (ALERT_EVENT_TYPES.has(eventType)) return "warning";
+
+  // Non-alert events → info
+  return "info";
 }
 
 /**
@@ -255,32 +281,34 @@ export function toAlertEvent(
   if (!eventType || !ALERT_EVENT_TYPES.has(eventType)) return null;
 
   const severity = severityForEventType(eventType, payload);
-  const id = deviceId.slice(0, 8);
+  const deviceName = resolveName(payload) ?? deviceId.slice(0, 8);
 
   const titles: Record<string, string> = {
-    battery_low: `Battery Low — Device ${id} (${safeNumber(payload.battery, 0)}%)`,
-    signal_weak: `Signal Weak — Device ${id} (${safeNumber(payload.signal, 0)} dBm)`,
-    temperature_high: `Temperature High — Device ${id} (${safeNumber(payload.temperature, 0)}°C)`,
-    device_offline: `Device Offline — ${id}`,
-    device_fault: `Device Fault — ${id}`,
+    battery_low: `Battery Low — ${deviceName} (${safeNumber(payload.battery, 0)}%)`,
+    signal_weak: `Signal Weak — ${deviceName} (${safeNumber(payload.signal, 0)} dBm)`,
+    temperature_high: `Temperature High — ${deviceName} (${safeNumber(payload.temperature, 0)}°C)`,
+    device_offline: `Device Offline — ${deviceName}`,
+    device_fault: `Device Fault — ${deviceName}`,
   };
 
   const descriptions: Record<string, string> = {
-    battery_low: `Battery level dropped below threshold (${safeNumber(payload.battery, 0)}%). Device requires maintenance or replacement.`,
-    signal_weak: `Signal strength degraded to ${safeNumber(payload.signal, 0)} dBm. Possible range issue or obstruction.`,
-    temperature_high: `Temperature reading of ${safeNumber(payload.temperature, 0)}°C exceeds safe operating range.`,
-    device_offline: `Device has stopped communicating. Last known state: ${payload.status ?? "unknown"}.`,
-    device_fault: `Device reported a fault condition. Manual inspection may be required.`,
+    battery_low: `Battery level dropped below threshold (${safeNumber(payload.battery, 0)}%). ${deviceName} requires maintenance or replacement.`,
+    signal_weak: `Signal strength degraded to ${safeNumber(payload.signal, 0)} dBm. ${deviceName} may have a range issue or obstruction.`,
+    temperature_high: `Temperature reading of ${safeNumber(payload.temperature, 0)}°C exceeds safe operating range for ${deviceName}.`,
+    device_offline: `${deviceName} has stopped communicating. Last known state: ${payload.status ?? "unknown"}.`,
+    device_fault: `${deviceName} reported a fault condition. Manual inspection may be required.`,
   };
 
   return {
     alertId: `alert-${deviceId}-${eventType}-${Date.now()}`,
-    title: titles[eventType] ?? `Device ${id}: ${eventType}`,
-    description: descriptions[eventType] ?? `Event: ${eventType} for device ${id}.`,
+    title: titles[eventType] ?? `${deviceName}: ${eventType}`,
+    description: descriptions[eventType] ?? `Event: ${eventType} for ${deviceName}.`,
     severity,
     status: "open",
     category: eventType,
     deviceId,
+    deviceName: resolveName(payload),
+    serial: payload.serial,
     siteId: payload.siteId ?? "unknown",
     siteName: payload.siteName ?? undefined,
     estateId: payload.estateId ?? undefined,
@@ -304,16 +332,16 @@ function mapEventTypeToCategory(eventType: string): string {
   return map[eventType] ?? eventType;
 }
 
-function formatEventTitle(eventType: string, deviceId: string, payload: MqttPayload): string {
-  const id = deviceId.slice(0, 8);
+function formatEventTitle(eventType: string, payload: MqttPayload): string {
+  const deviceName = resolveName(payload) ?? payload.deviceId.slice(0, 8);
   switch (eventType) {
     case "battery_low":
-      return `Device ${id} battery low (${safeNumber(payload.battery, 0)}%)`;
+      return `${deviceName} battery low (${safeNumber(payload.battery, 0)}%)`;
     case "signal_weak":
-      return `Device ${id} signal weak (${safeNumber(payload.signal, 0)} dBm)`;
+      return `${deviceName} signal weak (${safeNumber(payload.signal, 0)} dBm)`;
     case "temperature_high":
-      return `Device ${id} temperature high (${safeNumber(payload.temperature, 0)}°C)`;
+      return `${deviceName} temperature high (${safeNumber(payload.temperature, 0)}°C)`;
     default:
-      return `Device ${id}: ${eventType}`;
+      return `${deviceName}: ${eventType}`;
   }
 }

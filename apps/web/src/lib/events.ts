@@ -82,6 +82,8 @@ export interface EventDisplayRow {
   severity: string;
   category: string;
   deviceId?: string;
+  deviceName?: string;
+  serial?: string;
   siteId?: string;
   siteName?: string;
   estateId?: string;
