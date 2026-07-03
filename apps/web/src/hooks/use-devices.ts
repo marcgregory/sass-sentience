@@ -5,8 +5,8 @@
  * useDevice  — single device detail from API, merged with live socket overlay.
  *
  * Live telemetry/status always wins over API data when available.
- * Devices that only exist in the live feed (simulator-only) are appended
- * to the list so they remain visible.
+ * Only database devices appear in the device list — simulator-only devices
+ * that exist in the live feed but not in the API are not appended.
  */
 
 import { useMemo } from "react";
@@ -17,7 +17,6 @@ import { queryKeys } from "@/lib/query-keys";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
 import { deriveDeviceStatus } from "@sentience/utils";
 import type { DeviceStatus } from "@sentience/types";
-import type { LiveDeviceEntry } from "@/stores/live-device-store";
 
 // ─── Row Type ─────────────────────────────────────────────────────────────
 
@@ -35,19 +34,6 @@ export interface DeviceListRow {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
-const SIM_DEVICE_TYPES = ["controller", "sensor", "gateway", "relay", "camera"];
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function isUUID(id: string): boolean {
-  return UUID_RE.test(id);
-}
-
-function pickType(id: string): string {
-  const hash = id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  return SIM_DEVICE_TYPES[hash % SIM_DEVICE_TYPES.length];
-}
-
 function mapDeviceToRow(
   d: DeviceDetailResponse & { siteName?: string; estateName?: string },
 ): DeviceListRow {
@@ -61,20 +47,6 @@ function mapDeviceToRow(
     signal: d.signalStrength ?? 0,
     temp: d.temperature ?? 0,
     site: d.siteName ?? `Site ${d.siteId.slice(0, 8)}`,
-  };
-}
-
-function liveEntryToRow(entry: LiveDeviceEntry): DeviceListRow {
-  return {
-    id: entry.deviceId,
-    name: `Device ${entry.deviceId.slice(0, 8)}`,
-    serial: `SN-${entry.deviceId.slice(0, 8).toUpperCase()}`,
-    type: pickType(entry.deviceId),
-    status: deriveDeviceStatus(entry as Parameters<typeof deriveDeviceStatus>[0]),
-    battery: entry.telemetry?.battery ?? 100,
-    signal: entry.telemetry?.signalStrength ?? -70,
-    temp: entry.telemetry?.temperature ?? 25,
-    site: buildSiteLabel(entry.siteName, entry.estateName, entry.siteId),
   };
 }
 
@@ -104,15 +76,11 @@ export function useDevices() {
 
   const liveDevices = useLiveDeviceStore((s) => s.devices);
 
-  // Merge API devices with live overlay + sim-only devices
+  // Merge API devices with live overlay — no sim-only devices appended
   const devices = useMemo<DeviceListRow[]>(() => {
     const apiData = query.data?.data ?? [];
-    const liveIds = new Set(Object.keys(liveDevices));
-    const seenIds = new Set<string>();
 
-    // 1. Map API devices and overlay live data
-    const merged = apiData.map((api) => {
-      seenIds.add(api.id);
+    return apiData.map((api) => {
       const live = liveDevices[api.id];
       if (!live) return mapDeviceToRow(api);
 
@@ -132,26 +100,6 @@ export function useDevices() {
         ),
       };
     });
-
-    // 2. Append simulator-only devices (live data, no API match)
-    for (const id of liveIds) {
-      if (seenIds.has(id)) continue;
-      const live = liveDevices[id];
-
-      merged.push({
-        id: live.deviceId,
-        name: `Device ${live.deviceId.slice(0, 8)}`,
-        serial: `SN-${live.deviceId.slice(0, 8).toUpperCase()}`,
-        type: pickType(live.deviceId),
-        status: deriveDeviceStatus(live as Parameters<typeof deriveDeviceStatus>[0]),
-        battery: live.telemetry?.battery ?? 100,
-        signal: live.telemetry?.signalStrength ?? -70,
-        temp: live.telemetry?.temperature ?? 25,
-        site: buildSiteLabel(live.siteName, live.estateName, live.siteId),
-      });
-    }
-
-    return merged;
   }, [query.data, liveDevices]);
 
   return {
@@ -172,29 +120,17 @@ export function useDevices() {
  * template expectations) plus the raw API response for richer detail.
  * The live store entry should still be accessed separately via
  * `useLiveDeviceStore((s) => s.devices[id])` for real-time telemetry.
- *
- * For non-UUID IDs (simulator-only devices), the API call is skipped
- * and the device is resolved entirely from the live device store.
  */
 export function useDevice(id: string) {
-  const isUuid = isUUID(id);
-
   const query = useQuery({
     queryKey: queryKeys.devices.detail(id),
     queryFn: () => getDevice(id),
-    enabled: !!id && isUuid,
+    enabled: !!id,
   });
 
   const liveEntry = useLiveDeviceStore((s) => s.devices[id]);
 
   const device = useMemo<DeviceListRow | null>(() => {
-    // Non-UUID: resolve from live store only
-    if (!isUuid) {
-      if (!liveEntry) return null;
-      return liveEntryToRow(liveEntry);
-    }
-
-    // UUID: merge API data with live overlay
     const api = query.data;
     if (!api) return null;
 
@@ -217,14 +153,13 @@ export function useDevice(id: string) {
         api.siteId,
       ),
     };
-  }, [query.data, liveEntry, id, isUuid]);
+  }, [query.data, liveEntry]);
 
   return {
     device,
     apiDevice: query.data as DeviceDetailResponse | undefined,
-    // For non-UUID IDs, never show loading/error from the skipped query
-    isLoading: isUuid && query.isLoading,
-    isError: isUuid && query.isError,
+    isLoading: query.isLoading,
+    isError: query.isError,
     error: query.error,
   };
 }

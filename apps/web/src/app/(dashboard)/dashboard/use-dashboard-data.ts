@@ -146,13 +146,21 @@ const MOCK_ESTATES: EstateSummary[] = [
   { id: "estate-greenfield", name: "Greenfield Data Centre", total: 156, online: 148, offline: 4, fault: 1, warning: 3 },
 ];
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function isUUID(id: string): boolean {
+  return UUID_RE.test(id);
+}
+
 export function useDashboardData() {
   const devices = useLiveDeviceStore((s) => s.devices);
   const recentEvents = useLiveDeviceStore((s) => s.recentEvents);
   const isSocketConnected = useLiveDeviceStore((s) => s.isSocketConnected);
   const lastUpdatedAt = useLiveDeviceStore((s) => s.lastUpdatedAt);
 
-  const deviceEntries = Object.values(devices);
+  // Only include live entries whose deviceId is a UUID — non-UUID
+  // entries are simulator-only devices that don't exist in the DB and
+  // should not inflate dashboard counts.
+  const deviceEntries = Object.values(devices).filter((d) => isUUID(d.deviceId));
   const hasLiveData = deviceEntries.length > 0;
 
   // ─── Debug: log all tracked devices with classification ─────────
