@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useCallback } from "react";
 import { PageHeader } from "@/components/shared/page-header";
@@ -40,11 +40,13 @@ import {
   Printer,
   X,
   AlertCircle,
+  Cpu,
 } from "lucide-react";
 import { cn, formatRelativeTime, formatBattery, formatSignalStrength, colorClassToHex } from "@sentience/utils";
 import { useReportsData, type ReportFilter } from "./use-reports-data";
+import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 
-// ─── Constants ────────────────────────────────────────────────────
+// â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const DATE_OPTIONS: { key: ReportFilter["dateRange"]; label: string }[] = [
   { key: "today", label: "Today" },
@@ -62,7 +64,7 @@ const CHART_COLORS = {
   fault: "#ef4444",
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function ReportsPage() {
   const [filter, setFilter] = useState<ReportFilter>({
@@ -94,10 +96,11 @@ export default function ReportsPage() {
     error,
     refetch,
   } = useReportsData(filter);
+  const simulatorMode = useSimulatorModeStore((s) => s.enabled);
 
   const hasFilters = filter.estateId || filter.siteId || filter.deviceId;
 
-  // ─── Filter helpers ─────────────────────────────────────────────
+  // â”€â”€â”€ Filter helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const updateFilter = useCallback(<K extends keyof ReportFilter>(
     key: K,
@@ -122,7 +125,7 @@ export default function ReportsPage() {
     setFilter({ dateRange: "30d", estateId: null, siteId: null, deviceId: null });
   }, []);
 
-  // ─── Loading State ──────────────────────────────────────────────────
+  // â”€â”€â”€ Loading State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (isLoading) {
     return (
       <div className="space-y-6 animate-fade-in">
@@ -210,7 +213,7 @@ export default function ReportsPage() {
     );
   }
 
-  // ─── Error State ────────────────────────────────────────────────────
+  // â”€â”€â”€ Error State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (isError) {
     return (
       <div className="space-y-6 animate-fade-in">
@@ -258,7 +261,7 @@ export default function ReportsPage() {
         }
       />
 
-      {/* ─── Connection Banner ─────────────────────────────────────── */}
+      {/* â”€â”€â”€ Connection Banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {!hasLiveData && (
         <Card className="border-dashed border-amber-300 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
           <CardContent className="flex items-center gap-4 py-4">
@@ -276,7 +279,7 @@ export default function ReportsPage() {
         </Card>
       )}
 
-      {/* ─── Filter Bar ────────────────────────────────────────────── */}
+      {/* â”€â”€â”€ Filter Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <Card>
         <CardContent className="py-4">
           <div className="flex flex-wrap items-end gap-3">
@@ -358,7 +361,7 @@ export default function ReportsPage() {
         </CardContent>
       </Card>
 
-      {/* ─── Fleet Summary Cards ───────────────────────────────────── */}
+      {/* â”€â”€â”€ Fleet Summary Cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
@@ -367,7 +370,7 @@ export default function ReportsPage() {
           <CardContent>
             <p className="text-2xl font-bold">{fleetSummary.totalDevices.toLocaleString()}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              {fleetSummary.onlinePct}% online · {fleetSummary.onlineDevices} active
+              {fleetSummary.onlinePct}% online Â· {fleetSummary.onlineDevices} active
             </p>
           </CardContent>
         </Card>
@@ -400,7 +403,7 @@ export default function ReportsPage() {
         </Card>
       </div>
 
-      {/* ─── Fleet Health Gauge Row ────────────────────────────────── */}
+      {/* â”€â”€â”€ Fleet Health Gauge Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Health Score */}
         <Card className="lg:col-span-1">
@@ -451,7 +454,7 @@ export default function ReportsPage() {
         </Card>
       </div>
 
-      {/* ─── Charts Row 1: Alert Trends + Battery ──────────────────── */}
+      {/* â”€â”€â”€ Charts Row 1: Alert Trends + Battery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {/* Alert Trends (Line Chart) */}
         <Card className="xl:col-span-2">
@@ -532,7 +535,7 @@ export default function ReportsPage() {
         </Card>
       </div>
 
-      {/* ─── Charts Row 2: Availability + Signal + Faults ──────────── */}
+      {/* â”€â”€â”€ Charts Row 2: Availability + Signal + Faults â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {/* Device Availability (Bar Chart) */}
         <Card className="xl:col-span-2">
@@ -610,7 +613,7 @@ export default function ReportsPage() {
         </Card>
       </div>
 
-      {/* ─── Charts Row 3: Fault Distribution ──────────────────────── */}
+      {/* â”€â”€â”€ Charts Row 3: Fault Distribution â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Fault Distribution (Pie Chart) */}
         <Card>
@@ -706,7 +709,7 @@ export default function ReportsPage() {
                         <div className="min-w-0">
                           <p className="text-sm font-medium truncate">{exp.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {exp.format} · {exp.dateRange} · {formatRelativeTime(exp.exportedAt)}
+                            {exp.format} Â· {exp.dateRange} Â· {formatRelativeTime(exp.exportedAt)}
                           </p>
                         </div>
                       </div>
@@ -728,3 +731,4 @@ export default function ReportsPage() {
     </div>
   );
 }
+

@@ -55,6 +55,7 @@ export default function DashboardPage() {
     devicesOffline,
     eventsToday,
     hasLiveData,
+    simDeviceCount,
     isSocketConnected,
     lastUpdatedAt,
   } = useDashboardData();
@@ -94,7 +95,7 @@ export default function DashboardPage() {
             <Cpu className="h-6 w-6 shrink-0 text-amber-500" />
             <div>
               <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
-                Simulator Mode Active — {kpis[0].value} simulator devices
+                Simulator Mode Active — {simDeviceCount} simulator device{simDeviceCount !== 1 ? "s" : ""}
               </p>
               <p className="text-xs text-amber-700 dark:text-amber-400">
                 Showing simulator data only. Toggle Sim OFF in the header to
@@ -121,6 +122,16 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* ─── Simulator waiting for data banner ──────────────────────────── */}
+      {simulatorMode && !hasLiveData && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+          <span className="flex items-center gap-2">
+            <Cpu className="h-4 w-4" />
+            Simulator Mode ON — waiting for devices to connect. Start the MQTT simulator to see live data.
+          </span>
+        </div>
       )}
 
       {/* ─── Connection Status Banner ─────────────────────────────────── */}

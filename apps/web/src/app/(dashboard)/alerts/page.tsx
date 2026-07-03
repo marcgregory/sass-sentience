@@ -16,9 +16,11 @@ import {
   AlertCircle,
   Info,
   RefreshCw,
+  Cpu,
 } from "lucide-react";
 import { formatRelativeTime, formatDateTime } from "@sentience/utils";
 import { useLiveAlertStore, type AlertHistoryEntry } from "@/stores/live-alert-store";
+import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 import { useAlerts, useAcknowledgeAlert, useResolveAlert } from "@/hooks/use-alerts";
 import type { AlertDisplayRow } from "@/hooks/use-alerts";
 import { cn } from "@sentience/utils";
@@ -348,6 +350,7 @@ function AlertsPageError({ error, onRetry }: { error: Error; onRetry: () => void
 export default function AlertsPage() {
   const currentUser = useAuthStore((s) => s.user);
   const canManageAlerts = hasPermission(currentUser?.role, "alerts", "update");
+  const simulatorMode = useSimulatorModeStore((s) => s.enabled);
 
   const { alerts, total, isLoading, isError, error, isSocketConnected } = useAlerts();
   const acknowledgeMutation = useAcknowledgeAlert();
@@ -398,6 +401,17 @@ export default function AlertsPage() {
         title="Alerts"
         description="Monitor and manage system alerts"
       />
+
+      {/* Simulator Mode banner */}
+      {simulatorMode && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+          <span className="flex items-center gap-2">
+            <Cpu className="h-4 w-4" />
+            Simulator Mode — showing live alert feed. Toggle Sim OFF in the
+            header to return to database view.
+          </span>
+        </div>
+      )}
 
       {/* Connection indicator */}
       {!isSocketConnected && (

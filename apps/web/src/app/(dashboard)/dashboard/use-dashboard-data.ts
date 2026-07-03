@@ -1,12 +1,12 @@
 /**
  * Dashboard data hook — provides metrics based on current Simulator Mode.
  *
- * Simulator Mode ON  → metrics computed from ALL live store devices (simulator).
- * Simulator Mode OFF → returns mock data only (no live store contamination).
+ * Three states:
+ *   Simulator Mode ON + live store has data → live metrics from store
+ *   Simulator Mode ON + live store empty    → zero state (no simulator running)
+ *   Simulator Mode OFF                      → mock data only
  *
- * These two modes are mutually exclusive — never mix data sources.
- * All derived metrics use the shared selectors so every page displays
- * identical values for identical live data.
+ * These modes are mutually exclusive — never mix data sources.
  */
 
 import { useMemo } from "react";
@@ -63,7 +63,7 @@ export interface OfflineDevice {
   lastSeen: string;
 }
 
-// ─── Mock Fallbacks ───────────────────────────────────────────────────
+// ─── Mock Fallbacks (Sim Mode OFF, no API data) ───────────────────────
 
 const MOCK_KPIS: DashboardKpi[] = [
   {
@@ -146,29 +146,59 @@ const MOCK_ESTATES: EstateSummary[] = [
   { id: "estate-greenfield", name: "Greenfield Data Centre", total: 156, online: 148, offline: 4, fault: 1, warning: 3 },
 ];
 
+// ─── Zero state (Sim Mode ON, no simulator running) ───────────────────
+
+const ZERO_KPIS: DashboardKpi[] = [
+  { label: "Total Devices", value: "0", change: "—", trend: "up", icon: Monitor, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/30" },
+  { label: "Online", value: "0", change: "—", trend: "up", icon: Wifi, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-950/30" },
+  { label: "Offline", value: "0", change: "—", trend: "down", icon: WifiOff, color: "text-slate-600 dark:text-slate-400", bg: "bg-slate-50 dark:bg-slate-900/50" },
+  { label: "Faults", value: "0", change: "—", trend: "down", icon: AlertTriangle, color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-950/30" },
+  { label: "Warnings", value: "0", change: "—", trend: "down", icon: AlertTriangle, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-950/30" },
+];
+
+const ZERO_HEALTH: SystemHealthItem[] = [
+  { label: "Online", value: 0, color: "bg-slate-300" },
+  { label: "Offline", value: 0, color: "bg-slate-300" },
+  { label: "Fault", value: 0, color: "bg-slate-300" },
+  { label: "Warning", value: 0, color: "bg-slate-300" },
+];
+
+const ZERO_DISTRIBUTION: DistributionItem[] = [
+  { label: "None", value: 0, count: 0, color: "bg-slate-300" },
+];
+
+const ZERO_ESTATES: EstateSummary[] = [];
+
+export const SIM_DEVICE_COUNT_ATOM = { count: 0 };
+
 export function useDashboardData() {
   const simulatorMode = useSimulatorModeStore((s) => s.enabled);
 
-  // Simulator Mode ON → use live store data (simulator devices only)
-  // Simulator Mode OFF → mock data only (ignore live store entirely)
+  // Always read the live store so we can react to incoming data
   const devices = useLiveDeviceStore((s) => s.devices);
   const recentEvents = useLiveDeviceStore((s) => s.recentEvents);
   const isSocketConnected = useLiveDeviceStore((s) => s.isSocketConnected);
   const lastUpdatedAt = useLiveDeviceStore((s) => s.lastUpdatedAt);
 
-  const deviceEntries = simulatorMode ? Object.values(devices) : [];
-  const hasLiveData = simulatorMode && deviceEntries.length > 0;
+  const deviceEntries = Object.values(devices);
+  const hasRealSimData = simulatorMode && deviceEntries.length > 0;
 
-  // ─── Debug: log all tracked devices with classification ─────────
-  if (hasLiveData && process.env.NODE_ENV === "development") {
-    const counts = computeStatusCounts(deviceEntries);
-    console.log(`[dashboard] Total=${counts.total} Online=${counts.online} Offline=${counts.offline} Fault=${counts.fault} Warning=${counts.warning}`);
-  }
+  // Expose the live device count for the banner (even when no data yet)
+  const simDeviceCount = deviceEntries.length;
+  SIM_DEVICE_COUNT_ATOM.count = simDeviceCount;
 
-  // ─── KPI Cards ─────────────────────────────────────────────────────
+  // ─── Mode selection ─────────────────────────────────────────────────
+  //   Sim ON + has data → live metrics
+  //   Sim ON + no data  → zero state (sim is ON but nothing connected)
+  //   Sim OFF           → mock data
+
+  const mode: "live" | "zero" | "mock" = simulatorMode
+    ? hasRealSimData ? "live" : "zero"
+    : "mock";
 
   const kpis: DashboardKpi[] = useMemo(() => {
-    if (!hasLiveData) return MOCK_KPIS;
+    if (mode === "mock") return MOCK_KPIS;
+    if (mode === "zero") return ZERO_KPIS;
 
     const counts = computeStatusCounts(deviceEntries);
     const onlinePct = counts.total > 0 ? Math.round((counts.online / counts.total) * 100) : 0;
@@ -220,50 +250,42 @@ export function useDashboardData() {
         bg: "bg-amber-50 dark:bg-amber-950/30",
       },
     ];
-  }, [deviceEntries, hasLiveData]);
-
-  // ─── System Health (status distribution) ──────────────────────────
+  }, [deviceEntries, mode]);
 
   const systemHealth: SystemHealthItem[] = useMemo(() => {
-    if (!hasLiveData) return MOCK_HEALTH;
+    if (mode === "mock") return MOCK_HEALTH;
+    if (mode === "zero") return ZERO_HEALTH;
     return computeSystemHealth(deviceEntries);
-  }, [deviceEntries, hasLiveData]);
-
-  // ─── Fleet Health Score ───────────────────────────────────────────
+  }, [deviceEntries, mode]);
 
   const fleetHealthScore = useMemo((): number => {
-    if (!hasLiveData) return 87.2;
+    if (mode === "mock") return 87.2;
+    if (mode === "zero") return 0;
     return computeFleetHealthScore(deviceEntries);
-  }, [deviceEntries, hasLiveData]);
-
-  // ─── Battery Distribution ─────────────────────────────────────────
+  }, [deviceEntries, mode]);
 
   const batteryDistribution: DistributionItem[] = useMemo(() => {
-    if (!hasLiveData) return MOCK_BATTERY;
+    if (mode !== "live") return mode === "mock" ? MOCK_BATTERY : ZERO_DISTRIBUTION;
     const result = computeBatteryDistribution(deviceEntries);
-    return result.every((d) => d.count === 0) ? MOCK_BATTERY : result;
-  }, [deviceEntries, hasLiveData]);
-
-  // ─── Signal Distribution ──────────────────────────────────────────
+    return result.every((d) => d.count === 0) ? ZERO_DISTRIBUTION : result;
+  }, [deviceEntries, mode]);
 
   const signalDistribution: DistributionItem[] = useMemo(() => {
-    if (!hasLiveData) return MOCK_SIGNAL;
+    if (mode !== "live") return mode === "mock" ? MOCK_SIGNAL : ZERO_DISTRIBUTION;
     const result = computeSignalDistribution(deviceEntries);
-    return result.every((d) => d.count === 0) ? MOCK_SIGNAL : result;
-  }, [deviceEntries, hasLiveData]);
-
-  // ─── Temperature Distribution ─────────────────────────────────────
+    return result.every((d) => d.count === 0) ? ZERO_DISTRIBUTION : result;
+  }, [deviceEntries, mode]);
 
   const temperatureDistribution: DistributionItem[] = useMemo(() => {
-    if (!hasLiveData) return MOCK_TEMPERATURE;
+    if (mode !== "live") return mode === "mock" ? MOCK_TEMPERATURE : ZERO_DISTRIBUTION;
     const result = computeTemperatureDistribution(deviceEntries);
-    return result.every((d) => d.count === 0) ? MOCK_TEMPERATURE : result;
-  }, [deviceEntries, hasLiveData]);
+    return result.every((d) => d.count === 0) ? ZERO_DISTRIBUTION : result;
+  }, [deviceEntries, mode]);
 
   // ─── Live Alerts (severity-filtered events) ───────────────────────
 
   const liveAlerts: LiveAlert[] = useMemo(() => {
-    if (!hasLiveData) return [];
+    if (mode !== "live") return [];
     return recentEvents
       .filter((e) => e.severity === "critical" || e.severity === "warning")
       .slice(0, 4)
@@ -274,26 +296,27 @@ export function useDashboardData() {
         time: e.timestamp,
         site: e.siteName ?? e.siteId ?? "Unknown",
       }));
-  }, [recentEvents, hasLiveData]);
+  }, [recentEvents, mode]);
 
   // ─── Recent Activity (latest 10 events) ───────────────────────────
 
   const recentActivity = useMemo(() => {
-    if (!hasLiveData) return [];
+    if (mode !== "live") return [];
     return recentEvents.slice(0, 10);
-  }, [recentEvents, hasLiveData]);
+  }, [recentEvents, mode]);
 
   // ─── Estate Summary ───────────────────────────────────────────────
 
   const estateSummary: EstateSummary[] = useMemo(() => {
-    if (!hasLiveData) return MOCK_ESTATES;
+    if (mode === "mock") return MOCK_ESTATES;
+    if (mode === "zero") return ZERO_ESTATES;
     return computeEstateSummary(deviceEntries);
-  }, [deviceEntries, hasLiveData]);
+  }, [deviceEntries, mode]);
 
   // ─── Devices Recently Offline ─────────────────────────────────────
 
   const devicesOffline: OfflineDevice[] = useMemo(() => {
-    if (!hasLiveData) return [];
+    if (mode !== "live") return [];
     return deviceEntries
       .filter((d) => d.status === "offline")
       .map((d) => ({
@@ -303,14 +326,15 @@ export function useDashboardData() {
         lastSeen: d.lastSeen,
       }))
       .slice(0, 10);
-  }, [deviceEntries, hasLiveData]);
+  }, [deviceEntries, mode]);
 
   // ─── Events Today (count from recent events) ──────────────────────
 
   const eventsToday = useMemo(() => {
-    if (!hasLiveData) return "1,247";
+    if (mode === "mock") return "1,247";
+    if (mode === "zero") return "0";
     return recentEvents.length.toLocaleString();
-  }, [recentEvents.length, hasLiveData]);
+  }, [recentEvents.length, mode]);
 
   return {
     kpis,
@@ -324,7 +348,9 @@ export function useDashboardData() {
     recentActivity,
     devicesOffline,
     eventsToday,
-    hasLiveData,
+    hasLiveData: mode === "live",
+    simDeviceCount,
+    mode,
     isSocketConnected: simulatorMode ? isSocketConnected : false,
     lastUpdatedAt: simulatorMode ? lastUpdatedAt : null,
   };
