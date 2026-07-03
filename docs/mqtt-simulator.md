@@ -1,31 +1,86 @@
 # MQTT Device Simulator
 
-Simulates a fleet of Sentience IoT devices publishing telemetry, status, and events over MQTT. Uses a local Mosquitto broker (Docker) and fake device data generated with Faker.
+Simulates a fleet of Sentience IoT devices publishing telemetry, status, and events over MQTT. Uses fake device data generated with Faker.
 
 ## Architecture
 
+### Local Development (Docker Mosquitto)
+
 ```
-┌─────────────────────┐       MQTT (1883)       ┌──────────────────┐
-│  device-simulator   │ ──────────────────────▶ │   Mosquitto      │
-│  (packages/mock/)   │ ◀────────────────────── │   (Docker)       │
-│                     │   subscribe/retain      │                  │
-│  Device 1 ─────telemetry, status, events─────▶│  1883 TCP        │
-│  Device 2 ─────telemetry, status, events─────▶│  9001 WebSocket  │
-│  ...        ─────telemetry, status, events─────▶                  │
-└─────────────────────┘                         └──────────────────┘
+                           MQTT (1883)
+┌─────────────────────┐                ┌──────────────────┐
+│  device-simulator   │ ──────────────▶│   Mosquitto      │
+│  (packages/mock/)   │                │   (Docker)       │
+│                     │                │                  │
+│  Device 1 ─────telemetry─────────────▶│  1883 TCP        │
+│  Device 2 ─────telemetry─────────────▶│  9001 WebSocket  │
+│  ...                                  │                  │
+└─────────────────────┘                └────────┬─────────┘
+                                                │
+                                         ┌──────▼───────┐
+                                         │  Realtime    │
+                                         │  Bridge      │
+                                         │  (MQTT sub)  │
+                                         └──────────────┘
+```
+
+### Testing with a deployed realtime bridge
+
+```
+                           MQTT (1883)
+┌─────────────────────┐                ┌──────────────────────┐
+│  device-simulator   │ ──────────────▶│  broker.hivemq.com   │
+│  (local terminal)   │                │  (cloud MQTT)        │
+│                     │                │                      │
+│  Device 1 ─────sentience/devices/────▶│  same broker that    │
+│  Device 2 ─────sentience/devices/────▶│  deployed realtime   │
+│  ...                                  │  bridge subscribes   │
+└─────────────────────┘                └──────────┬───────────┘
+                                                   │
+                                            ┌──────▼────────┐
+                                            │  Realtime     │
+                                            │  Bridge       │
+                                            │  (deployed)   │
+                                            └───────────────┘
 ```
 
 The simulator is completely separate from the web application. It exists only in `@sentience/mock`, which is never imported in production bundles (CLAUDE.md package-boundary rules).
 
 ## Prerequisites
 
-- Docker Desktop (or Docker Compose standalone)
 - Node.js >= 18, pnpm installed
 - All workspace dependencies installed (`pnpm install`)
+- For local development: Docker Desktop (or Docker Compose standalone)
 
 ## Setup
 
-### 1. Start the Mosquitto broker
+### 1. Configure environment
+
+Copy the example env file:
+
+```bash
+cp packages/mock/.env.example packages/mock/.env
+```
+
+For **local development** (Docker Mosquitto), the defaults work:
+
+```
+MQTT_URL=mqtt://localhost:1883
+MQTT_TOPIC_PREFIX=sentience
+```
+
+For **testing with a deployed realtime bridge**, edit `packages/mock/.env` to point at the same cloud broker:
+
+```
+MQTT_URL=mqtt://broker.hivemq.com:1883
+MQTT_TOPIC_PREFIX=sentience
+```
+
+> **Important:** Both the simulator and the realtime bridge must use the **same MQTT broker** and **same topic prefix** for data to flow.
+
+### Option A: Local development (Docker Mosquitto)
+
+#### 2. Start the Mosquitto broker
 
 ```bash
 # From the repo root
@@ -45,19 +100,23 @@ NAME                  IMAGE                 COMMAND                  SERVICE    
 sentience-mosquitto   eclipse-mosquitto:2   "/docker-entrypoint.…"   mosquitto   X seconds ago Up X seconds 0.0.0.0:1883->1883/tcp, 0.0.0.0:9001->9001/tcp
 ```
 
-### 2. Run the device simulator
+### 3. Run the device simulator
 
 ```bash
-# Default: 5 simulated devices, connects to mqtt://localhost:1883
-pnpm --filter @sentience/mock simulate
+# From the repo root — uses MQTT_URL and MQTT_TOPIC_PREFIX from packages/mock/.env
+pnpm simulate
 
-# Customize device count and broker URL
-pnpm --filter @sentience/mock simulate -- --count 20 --broker mqtt://localhost:1883
+# Or with explicit env override for cloud MQTT
+MQTT_URL=mqtt://broker.hivemq.com:1883 pnpm simulate
 
-# With all options
+# Customize device count
+pnpm simulate -- --count 10
+
+# Or use the filter directly with CLI args (overrides .env)
 pnpm --filter @sentience/mock simulate -- \
   --count 10 \
-  --broker mqtt://localhost:1883 \
+  --broker mqtt://broker.hivemq.com:1883 \
+  --topic-prefix sentience \
   --telemetry-interval 15 \
   --status-change-probability 0.05
 ```
@@ -65,14 +124,28 @@ pnpm --filter @sentience/mock simulate -- \
 The simulator outputs:
 
 ```
-[simulator] Connecting to mqtt://localhost:1883 (client: sentience-sim-a1b2c3)...
-[simulator] Spawning 10 simulated devices...
+[simulator] Connecting to mqtt://broker.hivemq.com:1883 (client: sentience-sim-a1b2c3)...
+[simulator] Spawning 5 simulated devices...
 [simulator] Connected. Publishing on sentience/devices/{id}/...
-[simulator] Published initial status for 10 devices.
+[simulator] Published initial status for 5 devices.
 [simulator] Running. Press Ctrl+C to stop.
 ```
 
 Press **Ctrl+C** to stop gracefully — all devices publish an `offline` status before disconnecting.
+
+### Option B: Cloud MQTT (for testing with deployed realtime bridge)
+
+Skip the Docker Mosquitto entirely. The simulator connects directly to a cloud MQTT broker.
+
+```bash
+# Set env to match your deployed realtime bridge's MQTT broker
+MQTT_URL=mqtt://broker.hivemq.com:1883 MQTT_TOPIC_PREFIX=sentience pnpm simulate
+
+# Or with CLI args
+pnpm --filter @sentience/mock simulate -- --broker mqtt://broker.hivemq.com:1883
+```
+
+> **How it works:** The deployed realtime bridge subscribes to `sentience/#` on `broker.hivemq.com:1883`. When the local simulator publishes `sentience/devices/{id}/telemetry` to the same broker, the bridge receives it and forwards it to connected web clients via Socket.IO.
 
 ## MQTT Topics
 

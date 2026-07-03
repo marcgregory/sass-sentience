@@ -7,6 +7,7 @@
     "lint": "turbo lint",
     "clean": "turbo clean",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "simulate": "pnpm --filter @sentience/mock simulate",
     "db:start": "docker compose -f apps/api/docker-compose.yml up -d",
     "db:stop": "docker compose -f apps/api/docker-compose.yml down",
     "db:migrate": "pnpm --filter @sentience/api db:migrate",

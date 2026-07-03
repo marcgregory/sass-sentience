@@ -1,20 +1,26 @@
 /**
  * MQTT device simulator.
  *
- * Connects to a Mosquitto broker and spawns simulated IoT devices that
+ * Connects to an MQTT broker and spawns simulated IoT devices that
  * publish telemetry, status, and events on realistic MQTT topics.
  *
  * Topics:
- *   sentience/devices/{deviceId}/telemetry   — periodic sensor readings
- *   sentience/devices/{deviceId}/status       — online/offline/fault/warning
- *   sentience/devices/{deviceId}/events       — status transitions & alerts
+ *   {prefix}/devices/{deviceId}/telemetry   — periodic sensor readings
+ *   {prefix}/devices/{deviceId}/status       — online/offline/fault/warning
+ *   {prefix}/devices/{deviceId}/events       — status transitions & alerts
+ *
+ * Environment variables:
+ *   MQTT_URL          — MQTT broker URL (default: mqtt://localhost:1883)
+ *   MQTT_TOPIC_PREFIX — Topic prefix       (default: sentience)
  *
  * Usage (CLI):
- *   npx tsx packages/mock/src/device-simulator.ts --count 10 --broker mqtt://localhost:1883
+ *   pnpm --filter @sentience/mock simulate
+ *   MQTT_URL=mqtt://broker.hivemq.com:1883 pnpm --filter @sentience/mock simulate
+ *   pnpm --filter @sentience/mock simulate -- --count 10 --broker mqtt://localhost:1883
  *
  * Usage (programmatic):
  *   import { runSimulator } from "@sentience/mock";
- *   await runSimulator({ deviceCount: 10, brokerUrl: "mqtt://localhost:1883" });
+ *   await runSimulator({ deviceCount: 10, brokerUrl: "mqtt://broker.hivemq.com:1883" });
  *
  * Graceful shutdown via SIGINT/SIGTERM — publishes "offline" for all devices
  * before disconnecting.
@@ -31,8 +37,10 @@ import type { Device, DeviceStatus } from "@sentience/types";
 export interface SimulatorOptions {
   /** Number of fake devices to simulate (default: 5) */
   deviceCount?: number;
-  /** MQTT broker URL (default: mqtt://localhost:1883) */
+  /** MQTT broker URL (default: mqtt://localhost:1883 or $MQTT_URL) */
   brokerUrl?: string;
+  /** MQTT topic prefix (default: sentience or $MQTT_TOPIC_PREFIX) */
+  topicPrefix?: string;
   /** Base interval in seconds between telemetry publishes (default: 10) */
   telemetryInterval?: number;
   /** Probability of a status transition per tick (0-1, default: 0.02) */
@@ -61,8 +69,8 @@ interface SimulatedDevice {
 
 // ─── Helpers ───────────────────────────────────────────────────────
 
-function mqttTopic(deviceId: string, suffix: string): string {
-  return `sentience/devices/${deviceId}/${suffix}`;
+function mqttTopic(deviceId: string, suffix: string, prefix: string): string {
+  return `${prefix}/devices/${deviceId}/${suffix}`;
 }
 
 /**
@@ -78,7 +86,8 @@ function jitterInterval(baseMs: number): number {
 export async function runSimulator(options: SimulatorOptions = {}): Promise<void> {
   const {
     deviceCount = 5,
-    brokerUrl = "mqtt://localhost:1883",
+    brokerUrl = process.env.MQTT_URL ?? "mqtt://localhost:1883",
+    topicPrefix = process.env.MQTT_TOPIC_PREFIX ?? "sentience",
     telemetryInterval = 10,
     statusChangeProbability = 0.02,
     clientId = `sentience-sim-${Math.random().toString(36).slice(2, 8)}`,
@@ -120,7 +129,7 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
 
   // Publish initial status for every device
   for (const sd of devices) {
-    await publishStatus(client, sd);
+    await publishStatus(client, sd, topicPrefix);
     // Brief stagger to avoid thundering herd on connect
     await new Promise((r) => setTimeout(r, 100));
   }
@@ -153,13 +162,13 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
           sd.fault = nextStatus === "fault";
           sd.warning = nextStatus === "warning";
           // Publish status change as an event
-          publishEvent(client, sd, `status: ${sd.status} → ${sd.status}`);
-          publishStatus(client, sd);
+          publishEvent(client, sd, `status: ${sd.status} → ${sd.status}`, topicPrefix);
+          publishStatus(client, sd, topicPrefix);
         }
       }
 
       // Publish telemetry
-      publishTelemetry(client, sd);
+      publishTelemetry(client, sd, topicPrefix);
     };
 
     sd.telemetryTimer = setInterval(tick, jitterInterval(telemetryInterval * 1000));
@@ -171,13 +180,13 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
   for (const sd of devices) {
     const eventTick = () => {
       if (sd.battery < 15 && Math.random() < 0.3) {
-        publishEvent(client, sd, "battery_low", {
+        publishEvent(client, sd, "battery_low", topicPrefix, {
           battery: sd.battery,
           threshold: 15,
         });
       }
       if (sd.signal < -100 && Math.random() < 0.3) {
-        publishEvent(client, sd, "signal_weak", {
+        publishEvent(client, sd, "signal_weak", topicPrefix, {
           signal: sd.signal,
           threshold: -100,
         });
@@ -196,8 +205,8 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
     for (const sd of devices) {
       const prevStatus = sd.status;
       sd.status = "offline";
-      await publishEvent(client, sd, `shutdown: ${prevStatus} → offline`);
-      await publishStatus(client, sd);
+      await publishEvent(client, sd, `shutdown: ${prevStatus} → offline`, topicPrefix);
+      await publishStatus(client, sd, topicPrefix);
     }
 
     // Clear timers
@@ -239,17 +248,17 @@ function basePayload(sd: SimulatedDevice): Record<string, unknown> {
   };
 }
 
-async function publishTelemetry(client: mqtt.MqttClient, sd: SimulatedDevice): Promise<void> {
+async function publishTelemetry(client: mqtt.MqttClient, sd: SimulatedDevice, prefix: string): Promise<void> {
   await client.publishAsync(
-    mqttTopic(sd.device.id, "telemetry"),
+    mqttTopic(sd.device.id, "telemetry", prefix),
     JSON.stringify(basePayload(sd)),
     { qos: 1 },
   );
 }
 
-async function publishStatus(client: mqtt.MqttClient, sd: SimulatedDevice): Promise<void> {
+async function publishStatus(client: mqtt.MqttClient, sd: SimulatedDevice, prefix: string): Promise<void> {
   await client.publishAsync(
-    mqttTopic(sd.device.id, "status"),
+    mqttTopic(sd.device.id, "status", prefix),
     JSON.stringify(basePayload(sd)),
     { qos: 2, retain: true },  // Retain so late subscribers get the last known status
   );
@@ -259,6 +268,7 @@ async function publishEvent(
   client: mqtt.MqttClient,
   sd: SimulatedDevice,
   eventType: string,
+  prefix: string,
   extra?: Record<string, unknown>,
 ): Promise<void> {
   const payload = JSON.stringify({
@@ -268,7 +278,7 @@ async function publishEvent(
   });
 
   await client.publishAsync(
-    mqttTopic(sd.device.id, "events"),
+    mqttTopic(sd.device.id, "events", prefix),
     payload,
     { qos: 1 },
   );
@@ -325,10 +335,12 @@ if (isMainModule) {
 
   const hasCountFlag = args.includes("--count");
   const hasBrokerFlag = args.includes("--broker");
+  const hasTopicPrefixFlag = args.includes("--topic-prefix");
 
   const opts: SimulatorOptions = {};
   if (hasCountFlag) opts.deviceCount = parseInt(getArg("--count", "5"), 10);
   if (hasBrokerFlag) opts.brokerUrl = getArg("--broker", "mqtt://localhost:1883");
+  if (hasTopicPrefixFlag) opts.topicPrefix = getArg("--topic-prefix", "sentience");
 
   runSimulator(opts).catch((err) => {
     console.error("[simulator] Fatal error:", err);
