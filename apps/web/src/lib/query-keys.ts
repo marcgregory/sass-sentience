@@ -45,6 +45,7 @@ export const queryKeys = {
   events: {
     all: ["events"] as const,
     list: (params?: Record<string, unknown>) => ["events", "list", params] as const,
+    detail: (id: string) => ["events", "detail", id] as const,
   },
 
   /** Notifications */

@@ -8,6 +8,7 @@ describe("queryKeys", () => {
     expect(queryKeys.estates.all).toEqual(["estates"]);
     expect(queryKeys.sites.all).toEqual(["sites"]);
     expect(queryKeys.events.all).toEqual(["events"]);
+    expect(queryKeys.events.detail("evt-1")).toEqual(["events", "detail", "evt-1"]);
     expect(queryKeys.notifications.all).toEqual(["notifications"]);
     expect(queryKeys.reports.all).toEqual(["reports"]);
     expect(queryKeys.users.all).toEqual(["users"]);

@@ -11,21 +11,21 @@ import {
   XCircle,
   Eye,
   Download,
-  Filter,
   ChevronLeft,
   ChevronRight,
   Calendar,
-  AlertTriangle,
-  Info,
   X,
-  WifiOff,
   Copy,
   ChevronDown,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { formatRelativeTime, formatDateTime } from "@sentience/utils";
 import { cn } from "@sentience/utils";
-import { useLiveDeviceStore, type LiveEventEntry } from "@/stores/live-device-store";
-import type { EventSeverity, EventCategory } from "@sentience/types";
+import { useEvents } from "@/hooks/use-events";
+import type { EventDisplayRow } from "@/lib/events";
+import { useLiveDeviceStore } from "@/stores/live-device-store";
+import type { EventSeverity } from "@sentience/types";
 import Link from "next/link";
 
 // ─── Constants ────────────────────────────────────────────────────
@@ -80,27 +80,68 @@ const severityBadge: Record<string, "destructive" | "warning" | "default" | "out
 
 const PAGE_SIZE = 20;
 
-// ─── Mock Events ─────────────────────────────────────────────────
-
-const MOCK_EVENTS: (LiveEventEntry & { description?: string; userId?: string })[] = [
-  { eventId: "EVT-001", title: "Device came online", severity: "info", category: "device_online", deviceId: "DEV-A3", siteId: "site-riverside-a", siteName: "Building A - Riverside", estateId: "estate-riverside", estateName: "Riverside Complex", timestamp: new Date(Date.now() - 1 * 60 * 1000).toISOString(), description: "Device Gate Controller A3 reconnected after brief network interruption." },
-  { eventId: "EVT-002", title: "Heartbeat received", severity: "info", category: "heartbeat", deviceId: "DEV-B7", siteId: "site-riverside-b", siteName: "Building B - Riverside", estateId: "estate-riverside", estateName: "Riverside Complex", timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(), description: "Routine heartbeat signal received from Sensor B7." },
-  { eventId: "EVT-003", title: "Battery dropped below 20%", severity: "warning", category: "telemetry", deviceId: "DEV-B7", siteId: "site-riverside-b", siteName: "Building B - Riverside", estateId: "estate-riverside", estateName: "Riverside Complex", timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(), description: "Sensor B7 battery level: 18%. Below 20% threshold. Replacement recommended." },
-  { eventId: "EVT-004", title: "Device went offline", severity: "error", category: "device_offline", deviceId: "DEV-A1", siteId: "site-techvalley-1", siteName: "Warehouse 1 - Tech Valley", estateId: "estate-techvalley", estateName: "Tech Valley Park", timestamp: new Date(Date.now() - 42 * 60 * 1000).toISOString(), description: "Access Controller A1 stopped responding. Last seen 42 minutes ago." },
-  { eventId: "EVT-005", title: "Configuration change applied", severity: "info", category: "config_change", deviceId: "DEV-G4", siteId: "site-techvalley-1", siteName: "Warehouse 1 - Tech Valley", estateId: "estate-techvalley", estateName: "Tech Valley Park", userId: "John Smith (Installer)", timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(), description: "Publish interval changed from 30s to 15s for Gateway 4." },
-  { eventId: "EVT-006", title: "Firmware update initiated", severity: "info", category: "firmware_update", deviceId: "DEV-NW12", siteId: "site-harbour-main", siteName: "Main Terminal - Harbour", estateId: "estate-harbour", estateName: "Harbour Terminal", timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), description: "Firmware v2.4.0 deployment initiated for Camera NW-12." },
-  { eventId: "EVT-007", title: "Temperature critical threshold reached", severity: "critical", category: "telemetry", deviceId: "DEV-T3", siteId: "site-greenfield-a", siteName: "Server Hall A - Greenfield", estateId: "estate-greenfield", estateName: "Greenfield Data Centre", timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(), description: "Server Room A temperature reached 47°C. Exceeds critical threshold of 45°C." },
-  { eventId: "EVT-008", title: "Alert triggered: device offline", severity: "critical", category: "alert_triggered", deviceId: "DEV-A1", siteId: "site-techvalley-1", siteName: "Warehouse 1 - Tech Valley", estateId: "estate-techvalley", estateName: "Tech Valley Park", timestamp: new Date(Date.now() - 42 * 60 * 1000).toISOString(), description: "System alert created for Access Controller A1 offline event." },
-  { eventId: "EVT-009", title: "Diagnostic: ping test passed", severity: "info", category: "diagnostic", deviceId: "DEV-G4", siteId: "site-techvalley-1", siteName: "Warehouse 1 - Tech Valley", estateId: "estate-techvalley", estateName: "Tech Valley Park", timestamp: new Date(Date.now() - 90 * 60 * 1000).toISOString(), description: "Ping test to Gateway 4: latency 12ms, 0% packet loss." },
-  { eventId: "EVT-010", title: "User logged in", severity: "info", category: "user_action", timestamp: new Date(Date.now() - 120 * 60 * 1000).toISOString(), userId: "support@sentience.io", description: "User 'support@sentience.io' logged in from IP 192.168.1.100." },
-  { eventId: "EVT-011", title: "Alert resolved: device offline", severity: "info", category: "alert_resolved", deviceId: "DEV-T3", siteId: "site-greenfield-a", siteName: "Server Hall A - Greenfield", estateId: "estate-greenfield", estateName: "Greenfield Data Centre", timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(), description: "Temperature alert for Server Room A resolved. Temperature returned to 32°C." },
-  { eventId: "EVT-012", title: "Signal quality degraded", severity: "warning", category: "telemetry", deviceId: "DEV-G4", siteId: "site-techvalley-1", siteName: "Warehouse 1 - Tech Valley", estateId: "estate-techvalley", estateName: "Tech Valley Park", timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(), description: "Gateway 4 signal strength: -92 dBm. Below -90 dBm threshold." },
-];
-
 // ─── Severity Icon ───────────────────────────────────────────────
 
 function SeverityDot({ severity, className }: { severity: string; className?: string }) {
   return <span className={cn("inline-block h-2 w-2 rounded-full", severityDot[severity] ?? "bg-slate-400", className)} />;
+}
+
+// ─── Loading Skeleton ────────────────────────────────────────────
+
+function EventsLoadingSkeleton() {
+  return (
+    <div className="space-y-4 animate-fade-in">
+      {/* Filter bar skeleton */}
+      <div className="flex flex-wrap gap-3">
+        <div className="h-10 w-72 rounded-lg bg-muted animate-pulse" />
+        <div className="h-10 w-40 rounded-lg bg-muted animate-pulse" />
+        <div className="h-10 w-44 rounded-lg bg-muted animate-pulse" />
+      </div>
+      <div className="flex gap-2">
+        <div className="h-9 w-96 rounded-lg bg-muted animate-pulse" />
+        <div className="h-9 w-72 rounded-lg bg-muted animate-pulse" />
+      </div>
+      {/* List skeleton */}
+      <div className="rounded-lg border divide-y">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4 p-4">
+            <div className="h-2.5 w-2.5 rounded-full bg-muted animate-pulse shrink-0" />
+            <div className="flex-1 space-y-2">
+              <div className="flex gap-2">
+                <div className="h-4 w-48 rounded bg-muted animate-pulse" />
+                <div className="h-5 w-16 rounded-md bg-muted animate-pulse" />
+                <div className="h-5 w-20 rounded-md bg-muted animate-pulse" />
+              </div>
+              <div className="h-3 w-72 rounded bg-muted animate-pulse" />
+            </div>
+            <div className="h-8 w-8 rounded bg-muted animate-pulse" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Error State ──────────────────────────────────────────────────
+
+function EventsErrorState({ error, onRetry }: { error: Error; onRetry: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50 dark:bg-red-950/30">
+        <AlertCircle className="h-8 w-8 text-red-500" />
+      </div>
+      <h3 className="mb-1 text-lg font-semibold">Failed to load events</h3>
+      <p className="mb-6 max-w-sm text-sm text-muted-foreground">
+        {error.message === "Failed to fetch"
+          ? "The API server is unreachable. Make sure the backend is running."
+          : error.message}
+      </p>
+      <Button onClick={onRetry}>
+        <RefreshCw className="h-4 w-4 mr-1" />
+        Retry
+      </Button>
+    </div>
+  );
 }
 
 // ─── Event Detail Panel ──────────────────────────────────────────
@@ -109,7 +150,7 @@ function EventDetailPanel({
   event,
   onClose,
 }: {
-  event: LiveEventEntry & { description?: string; userId?: string };
+  event: EventDisplayRow;
   onClose: () => void;
 }) {
   return (
@@ -247,8 +288,6 @@ function EventDetailPanel({
 // ─── Main Page ───────────────────────────────────────────────────
 
 export default function EventsPage() {
-  const storeEvents = useLiveDeviceStore((s) => s.recentEvents);
-  const devices = useLiveDeviceStore((s) => s.devices);
   const isSocketConnected = useLiveDeviceStore((s) => s.isSocketConnected);
 
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
@@ -257,24 +296,10 @@ export default function EventsPage() {
   const [dateRange, setDateRange] = useState<DateRange>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(0);
-  const [selectedEvent, setSelectedEvent] = useState<(LiveEventEntry & { description?: string; userId?: string }) | null>(null);
-  const [showMock, setShowMock] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<EventDisplayRow | null>(null);
 
-  // Combine live + mock data
-  const hasLiveEvents = storeEvents.length > 0;
-
-  // All source events
-  const sourceEvents = useMemo(() => {
-    if (hasLiveEvents) {
-      return storeEvents.map((e) => ({
-        ...e,
-        description: undefined,
-        userId: undefined,
-      }));
-    }
-    if (showMock) return MOCK_EVENTS;
-    return [];
-  }, [hasLiveEvents, storeEvents, showMock]);
+  // Fetch events from API + live store
+  const { events: sourceEvents, isLoading, isError, error } = useEvents({ limit: 200 });
 
   // Deduplicate by eventId
   const uniqueEvents = useMemo(() => {
@@ -374,6 +399,38 @@ export default function EventsPage() {
 
   const hasFilters = severityFilter !== "all" || categoryFilter !== "all" || deviceFilter !== "all" || dateRange !== "all" || searchQuery.trim() !== "";
 
+  // ─── Loading state ─────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <PageHeader
+          title="Event History"
+          description="Complete audit trail of all device and system events"
+          actions={
+            <Button variant="outline" size="sm" disabled>
+              <Download className="h-4 w-4 mr-1" />
+              Export CSV
+            </Button>
+          }
+        />
+        <EventsLoadingSkeleton />
+      </div>
+    );
+  }
+
+  // ─── Error state ──────────────────────────────────────────────
+  if (isError) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <PageHeader
+          title="Event History"
+          description="Complete audit trail of all device and system events"
+        />
+        <EventsErrorState error={error as Error} onRetry={() => window.location.reload()} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
@@ -381,10 +438,6 @@ export default function EventsPage() {
         description="Complete audit trail of all device and system events"
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShowMock(!showMock)}>
-              <Filter className="h-4 w-4 mr-1" />
-              {showMock ? "Live Data" : "Demo Data"}
-            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -399,20 +452,7 @@ export default function EventsPage() {
       />
 
       {/* Connection indicator */}
-      {!hasLiveEvents && !showMock && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400 flex items-center gap-2">
-          <WifiOff className="h-4 w-4" />
-          <span>
-            No real-time connection.{" "}
-            <button className="underline font-medium" onClick={() => setShowMock(true)}>
-              Show demo data
-            </button>{" "}
-            to preview the event history experience.
-          </span>
-        </div>
-      )}
-
-      {!isSocketConnected && hasLiveEvents && (
+      {!isSocketConnected && uniqueEvents.length > 0 && (
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/30 dark:text-slate-400">
           Showing cached events — real-time connection is offline.
         </div>

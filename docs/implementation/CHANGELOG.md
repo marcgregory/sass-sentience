@@ -34,10 +34,22 @@ All notable changes to the Sentience IoT Platform.
 ### Known Issues
 
 - Other services (Bridge, MQTT, Simulator, Database) still use mock data on Platform Health.
-- Events, Alerts, Reports, Users, Roles, Audit Log, and Settings pages still use mock data.
+- Alerts, Reports, Users, Roles, Audit Log, and Settings pages still use mock data.
 - Device detail sub-tabs (firmware, config, I/O, diagnostics) still use mock data — only the base device info and live overlay come from API/socket.
 - Search and filter inputs on the devices page are still visual-only (not wired to API query parameters).
 - No device mutation endpoints are connected (add/edit/delete).
+
+### Added
+
+- **Event API functions** — `getEvents()` and `getEvent(id)` in `apps/web/src/lib/events.ts` wrapping `GET /api/events` and `GET /api/events/:id` with typed response interfaces (`EventApiItem`, `EventListResponse`, `EventsParams`). Exported from `lib/index.ts`.
+- **TanStack Query hooks** — `useEvents()` and `useEvent(id)` in `apps/web/src/hooks/use-events.ts`. `useEvents()` fetches the paginated event list and merges live Socket.IO events from the Zustand ring buffer on top. Live events are prepended and deduplicated by eventId for instant appearance without API refetch.
+- **Events page: loading/error/empty states** — Skeleton loading with filter bar and 5-row placeholder, error card with retry button, empty state when no events found.
+- `queryKeys.events.detail` — Added `detail` query key factory for single-event lookups.
+
+### Changed
+
+- **Events page (`/events`)** — Now fetches event history from `GET /api/events` via TanStack Query. Live socket events from `useLiveDeviceStore.recentEvents` are merged on top with deduplication. Removed mock data (`MOCK_EVENTS`) and demo data toggle. Client-side filters (severity/category/device/date/search) and CSV export preserved unchanged. Connection indicator shows when offline.
+- `ROADMAP.md` — Events domain marked complete in RC2 integration table.
 
 ---
 

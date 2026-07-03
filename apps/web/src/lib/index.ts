@@ -6,6 +6,13 @@ export type {
   DeviceDetailResponse,
   DevicesParams,
 } from "./devices";
+export { getEvents, getEvent } from "./events";
+export type {
+  EventApiItem,
+  EventListResponse,
+  EventsParams,
+  EventDisplayRow,
+} from "./events";
 export { queryKeys } from "./query-keys";
 export { paginationParams, cursorParams } from "./pagination";
 export type { PaginationParams, CursorPaginationParams, Page, CursorPage } from "./pagination";
