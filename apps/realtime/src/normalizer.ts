@@ -20,6 +20,7 @@ export interface MqttPayload {
   deviceId: string;
   deviceName?: string;
   name?: string;
+  deviceType?: string;
   status?: string;
   battery?: number;
   signal?: number;
@@ -52,6 +53,7 @@ export interface MqttPayload {
 export interface DeviceTelemetryEvent {
   deviceId: string;
   deviceName?: string;
+  deviceType?: string;
   siteId: string;
   siteName?: string;
   estateId?: string;
@@ -66,6 +68,7 @@ export interface DeviceTelemetryEvent {
 export interface DeviceStatusEvent {
   deviceId: string;
   deviceName?: string;
+  deviceType?: string;
   siteId: string;
   siteName?: string;
   estateId?: string;
@@ -132,6 +135,7 @@ export function toTelemetryEvent(
   return {
     deviceId,
     deviceName: resolveName(payload),
+    deviceType: payload.deviceType,
     siteId: payload.siteId ?? "unknown",
     siteName: payload.siteName ?? undefined,
     estateId: payload.estateId ?? undefined,
@@ -155,6 +159,7 @@ export function toStatusEvent(
   return {
     deviceId,
     deviceName: resolveName(payload),
+    deviceType: payload.deviceType,
     siteId: payload.siteId ?? "unknown",
     siteName: payload.siteName ?? undefined,
     estateId: payload.estateId ?? undefined,

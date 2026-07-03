@@ -15,8 +15,14 @@ import type { DeviceStatus } from "@sentience/types";
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
+/** Device types that are externally powered and may legitimately lack a battery reading. */
+const EXTERNALLY_POWERED_TYPES = new Set(["controller", "gateway", "relay"]);
+
 export interface DeviceEntry {
   deviceId: string;
+  /** Optional device type hint. When provided, externally-powered types
+   *  (controller, gateway, relay) are not penalised for missing battery data. */
+  deviceType?: string;
   status: DeviceStatus;
   telemetry: {
     battery: number;
@@ -76,13 +82,15 @@ export interface EstateSummary {
  * health, not just the raw stored status.
  *
  * Rules (in priority order):
- * 1. Raw status is "offline" → "offline" (connection is truly lost).
- * 2. Battery ≤ 10%       → "fault" (critically low).
- * 3. Battery ≤ 20%       → "warning" (low battery).
- * 4. Battery is null/N/A → "warning" (missing sensor data).
- * 5. Signal ≤ -110 dBm   → "warning" (very weak signal).
- * 6. Temperature ≥ 45°C  → "warning" (overheating risk).
- * 7. Otherwise           → keep the raw status (typically "online").
+ * 1. Raw status is "offline" → "offline" (truly disconnected).
+ * 2. Battery ≤ 10%          → "fault" (critically low — needs immediate attention).
+ * 3. Battery ≤ 20%          → "warning" (low battery).
+ * 4. Battery null/N/A on a battery-powered device → "warning" (sensor data missing).
+ * 5. Battery null/N/A on an externally-powered device → ignored (controller/gateway/relay
+ *    may not have a battery at all).
+ * 6. Signal ≤ -110 dBm      → "warning" (very weak signal).
+ * 7. Temperature ≥ 45°C     → "warning" (overheating risk).
+ * 8. Otherwise              → keep the raw status (typically "online").
  *
  * This is the one shared status selector. Every page (Dashboard, Devices,
  * Device detail, Reports) must use this to keep counts and badges in sync.
@@ -90,7 +98,7 @@ export interface EstateSummary {
  * @see ADR-0002 — Zustand for Client State
  */
 export function deriveDeviceStatus(entry: DeviceEntry): DeviceStatus {
-  const { telemetry, status } = entry;
+  const { telemetry, status, deviceType } = entry;
 
   // If the raw status says offline, honor it — we don't have a way to
   // derive "alive" from telemetry for a truly disconnected device.
@@ -100,9 +108,16 @@ export function deriveDeviceStatus(entry: DeviceEntry): DeviceStatus {
   if (!telemetry) return status;
 
   const battery = telemetry.battery;
+  const isExternallyPowered = deviceType && EXTERNALLY_POWERED_TYPES.has(deviceType);
 
-  // Battery is null/N/A → warning
-  if (battery == null || Number.isNaN(battery)) return "warning";
+  // Battery null/N/A — only a concern for battery-powered devices
+  if (battery == null || Number.isNaN(battery)) {
+    if (isExternallyPowered) {
+      // Externally-powered devices legitimately have no battery — not a warning
+      return status;
+    }
+    return "warning";
+  }
 
   // Battery ≤ 10% → fault
   if (battery <= 10) return "fault";

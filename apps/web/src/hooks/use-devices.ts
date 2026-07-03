@@ -73,6 +73,7 @@ function mapLiveEntryToRow(
   const typeLabels = ["Sensor", "Controller", "Gateway", "Relay", "Camera"];
   const entryForSelector: DeviceEntry = {
     deviceId: entry.deviceId,
+    deviceType: entry.deviceType,
     status: entry.status,
     telemetry: entry.telemetry
       ? {
@@ -199,6 +200,7 @@ export function useDevice(id: string) {
       if (!liveEntry) return null;
       const entryForSelector: DeviceEntry = {
         deviceId: liveEntry.deviceId,
+        deviceType: liveEntry.deviceType,
         status: liveEntry.status,
         telemetry: liveEntry.telemetry
           ? {

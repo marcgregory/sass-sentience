@@ -234,6 +234,7 @@ function basePayload(sd: SimulatedDevice): Record<string, unknown> {
     deviceId: sd.device.id,
     deviceName: sd.device.name,
     name: sd.device.name,
+    deviceType: sd.device.type,
     status: sd.status,
     battery: Math.round(sd.battery),
     signal: sd.signal,

@@ -238,7 +238,7 @@ export default function DevicesPage() {
                       <span
                         className={`text-sm font-medium ${device.battery <= 20 ? "text-red-500" : ""}`}
                       >
-                        {device.battery > 0 ? `${device.battery}%` : "N/A"}
+                        {device.battery > 0 ? `${device.battery}%` : device.battery === 0 ? "0%" : "N/A"}
                       </span>
                     </div>
                   </td>

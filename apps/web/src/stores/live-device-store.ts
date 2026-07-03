@@ -35,6 +35,8 @@ export interface LiveDeviceTelemetry {
 export interface LiveDeviceEntry {
   deviceId: string;
   deviceName?: string;
+  /** Device type hint for status derivation (e.g. "sensor", "controller", "gateway") */
+  deviceType?: string;
   siteId: string;
   siteName?: string;
   estateId?: string;
@@ -102,6 +104,7 @@ export const useLiveDeviceStore = create<LiveDeviceState>()((set) => ({
       const entry: LiveDeviceEntry = {
         deviceId: payload.deviceId,
         deviceName: payload.deviceName ?? existing?.deviceName,
+        deviceType: payload.deviceType ?? existing?.deviceType,
         siteId: payload.siteId,
         siteName: payload.siteName ?? existing?.siteName,
         estateId: payload.estateId ?? existing?.estateId,
@@ -134,6 +137,7 @@ export const useLiveDeviceStore = create<LiveDeviceState>()((set) => ({
       const entry: LiveDeviceEntry = {
         deviceId: payload.deviceId,
         deviceName: payload.deviceName ?? existing?.deviceName,
+        deviceType: payload.deviceType ?? existing?.deviceType,
         siteId: payload.siteId,
         siteName: payload.siteName ?? existing?.siteName,
         estateId: payload.estateId ?? existing?.estateId,

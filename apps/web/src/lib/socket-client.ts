@@ -55,6 +55,7 @@ export type DeviceStatusValue = "online" | "offline" | "fault" | "warning";
 export interface DeviceStatusEvent {
   deviceId: string;
   deviceName?: string;
+  deviceType?: string;
   siteId: string;
   siteName?: string;
   estateId?: string;
@@ -67,6 +68,7 @@ export interface DeviceStatusEvent {
 export interface DeviceTelemetryEvent {
   deviceId: string;
   deviceName?: string;
+  deviceType?: string;
   siteId: string;
   siteName?: string;
   estateId?: string;
