@@ -14,6 +14,7 @@ import {
 import { Eye, EyeOff, Loader2, Shield, Users, Wrench, Eye as EyeIcon } from "lucide-react";
 import type { UserRole } from "@sentience/types";
 import { ROLE_META } from "@/lib/permissions";
+import { SentienceLogo } from "@/components/shared/sentience-logo";
 
 const roleIcons: Record<UserRole, React.ComponentType<{ className?: string }>> = {
   admin: Shield,
@@ -30,6 +31,7 @@ const quickAccounts: { role: UserRole; email: string }[] = [
 ];
 
 const DEMO_LOGIN_ENABLED =
+  process.env.NODE_ENV !== "production" &&
   process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === "true";
 
 export default function LoginPage() {
@@ -55,9 +57,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4 dark:from-slate-950 dark:to-slate-900">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
-            <span className="text-xl font-bold text-primary-foreground">S</span>
-          </div>
+          <SentienceLogo size="lg" className="mx-auto mb-4" />
           <CardTitle className="text-2xl">Welcome back</CardTitle>
           <CardDescription>
             Sign in to your Sentience account

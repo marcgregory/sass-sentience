@@ -34,6 +34,7 @@ const roleIcons: Record<UserRole, React.ComponentType<{ className?: string }>> =
 };
 
 const DEMO_LOGIN_ENABLED =
+  process.env.NODE_ENV !== "production" &&
   process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === "true";
 
 export function Header() {

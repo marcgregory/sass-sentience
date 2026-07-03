@@ -25,6 +25,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SentienceLogo } from "@/components/shared/sentience-logo";
 
 interface NavItem {
   name: string;
@@ -87,17 +88,13 @@ export function Sidebar() {
         >
           {!sidebarCollapsed && (
             <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
-                S
-              </div>
+              <SentienceLogo />
               <span>Sentience</span>
             </Link>
           )}
           {sidebarCollapsed && (
-            <Link href="/dashboard">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
-                S
-              </div>
+            <Link href="/dashboard" aria-label="Sentience dashboard">
+              <SentienceLogo />
             </Link>
           )}
         </div>

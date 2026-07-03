@@ -6,9 +6,8 @@ import { useAuditStore } from "./audit-store";
 import { post } from "@/lib/api-client";
 
 const DEMO_LOGIN_ENABLED =
-  typeof window !== "undefined"
-    ? process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === "true"
-    : false;
+  process.env.NODE_ENV !== "production" &&
+  process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === "true";
 
 interface AuthState {
   user: User | null;
