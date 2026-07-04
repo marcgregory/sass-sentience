@@ -32,7 +32,7 @@ import {
   toDiagnosticEvent,
   toAlertEvent,
 } from "./normalizer";
-import { updateDevice, getDevice, deviceCount } from "./device-registry";
+import { updateDevice, getDevice, deviceCount, pruneStaleDevices } from "./device-registry";
 import type { DeviceStatusValue } from "./socket-server";
 
 // ─── Bootstrap ─────────────────────────────────────────────────────
@@ -193,8 +193,12 @@ async function main(): Promise<void> {
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
 
-  // Periodic status log
+  // Periodic status log & stale-device cleanup
   setInterval(() => {
+    const removed = pruneStaleDevices(env.DEVICE_TTL_MS);
+    if (removed > 0) {
+      console.log(`[cleanup] ${removed} stale device(s) removed`);
+    }
     const clients = io.engine.clientsCount;
     const devices = deviceCount();
     console.log(`[heartbeat] ${clients} client(s), ${devices} device(s) tracked`);

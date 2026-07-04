@@ -65,6 +65,22 @@ export function deviceCount(): number {
 }
 
 /**
+ * Remove devices whose `lastSeen` is older than `ttlMs` from now.
+ * Returns the number of devices removed.
+ */
+export function pruneStaleDevices(ttlMs: number): number {
+  const cutoff = Date.now() - ttlMs;
+  let removed = 0;
+  for (const [id, entry] of registry) {
+    if (entry.lastSeen < cutoff) {
+      registry.delete(id);
+      removed++;
+    }
+  }
+  return removed;
+}
+
+/**
  * Reset the registry. Only used in tests.
  */
 export function resetRegistry(): void {

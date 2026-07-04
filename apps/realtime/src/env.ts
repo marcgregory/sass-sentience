@@ -26,6 +26,8 @@ export interface Env {
   MQTT_TOPIC_PREFIX: string;
   /** Log level: debug, info, warn, error (default: info) */
   LOG_LEVEL: string;
+  /** Stale device TTL in milliseconds (default: 300_000 = 5 min) */
+  DEVICE_TTL_MS: number;
 }
 
 export function loadEnv(): Env {
@@ -43,5 +45,9 @@ export function loadEnv(): Env {
     JWT_SECRET:
       process.env.JWT_SECRET ?? "change-me-to-a-random-secret-in-production",
     ALLOW_UNAUTHENTICATED: process.env.SOCKET_ALLOW_UNAUTHENTICATED === "true",
+    DEVICE_TTL_MS: parseInt(
+      process.env.DEVICE_TTL_MS ?? "300000",
+      10,
+    ),
   };
 }
