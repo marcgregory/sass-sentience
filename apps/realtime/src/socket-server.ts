@@ -46,6 +46,9 @@ export const EVENTS = {
   USER_UPDATED: "user:updated",
   REPORT: "report",
   KPI_UPDATED: "kpi:updated",
+
+  /** Emitted when the simulator fleet is reset/restarted */
+  SIMULATOR_RESET: "simulator:reset",
 } as const;
 
 // ─── Room Subscription (matching socket-client.ts RoomSubscription) ─
@@ -172,6 +175,14 @@ export async function createSocketServer(
       console.log(
         `[socket] ${socket.id} unsubscribed from ${rooms.length} room(s)`,
       );
+    });
+
+    // Handle simulator reset requests from any client — broadcast to all
+    socket.on(EVENTS.SIMULATOR_RESET, (payload: unknown) => {
+      console.log(
+        `[socket] simulator:reset received from ${socket.id}`,
+      );
+      io.to(ROOMS.DASHBOARD).emit(EVENTS.SIMULATOR_RESET, payload);
     });
 
     socket.on("disconnect", (reason) => {

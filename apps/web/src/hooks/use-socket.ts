@@ -58,6 +58,12 @@ const eventToKeys: EventInvalidationMap = {
   "estate:updated": () => queryKeys.estates.all,
   "site:updated": () => queryKeys.sites.all,
   "kpi:updated": (p) => queryKeys.dashboard.kpis(p.estateId as string | undefined),
+  "simulator:reset": () => [
+    queryKeys.devices.all,
+    queryKeys.alerts.all,
+    queryKeys.events.all,
+    queryKeys.dashboard.kpis(undefined),
+  ],
 };
 
 // ─── Hook ──────────────────────────────────────────────────────────
@@ -228,6 +234,35 @@ export function useSocket(options: UseSocketOptions = {}): void {
     socket.on("notification:new" as any, notificationHandler);
     handlers.push(() => {
       socket.off("notification:new" as any, notificationHandler);
+    });
+
+    // ─── Simulator Reset ──────────────────────────────────────────────
+    //
+    // When the simulator restarts, the admin health page emits
+    // simulator:reset via the bridge. We clear all live stores and
+    // invalidate React Query caches so stale data is not shown.
+    // The invalidation is already handled by eventToKeys above.
+
+    const simulatorResetHandler = () => {
+      useLiveDeviceStore.getState().clearLiveState();
+      useLiveAlertStore.getState().clearAlerts();
+      // Show a toast notification so the user knows what happened
+      import("@/stores/notification-store").then(({ useNotificationStore }) => {
+        useNotificationStore.getState().addNotification({
+          id: `sim-reset-${Date.now()}`,
+          userId: "",
+          title: "Simulator restarted",
+          message: "Refreshing live devices and data.",
+          priority: "normal",
+          category: "system",
+          isRead: false,
+          createdAt: new Date().toISOString(),
+        });
+      });
+    };
+    socket.on("simulator:reset", simulatorResetHandler);
+    handlers.push(() => {
+      socket.off("simulator:reset", simulatorResetHandler);
     });
 
     // Set initial connection state if the socket is already connected

@@ -38,6 +38,7 @@ export interface ServerToClientEvents {
   "user:updated": (payload: { userId: string }) => void;
   report: (payload: ReportEvent) => void;
   "kpi:updated": (payload: { estateId?: string }) => void;
+  "simulator:reset": (payload: SimulatorResetEvent) => void;
 }
 
 /**
@@ -46,6 +47,7 @@ export interface ServerToClientEvents {
 export interface ClientToServerEvents {
   subscribe: (rooms: RoomSubscription[]) => void;
   unsubscribe: (rooms: RoomSubscription[]) => void;
+  "simulator:reset": (payload: SimulatorResetEvent) => void;
 }
 
 // ─── Payload Types ─────────────────────────────────────────────────
@@ -144,6 +146,12 @@ export interface ReportEvent {
   timestamp: string;
 }
 
+export interface SimulatorResetEvent {
+  sessionId: string;
+  deviceCount: number;
+  startedAt: string;
+}
+
 // ─── Room Subscriptions ────────────────────────────────────────────
 
 export interface RoomSubscription {
@@ -217,4 +225,14 @@ export function unsubscribeRooms(rooms: RoomSubscription[]): void {
   const s = getSocket();
   if (!s.connected) return;
   s.emit("unsubscribe", rooms);
+}
+
+/**
+ * Emit a simulator:reset event to all connected clients via the bridge.
+ * Used by the admin health page after successfully restarting the simulator.
+ */
+export function simulatorReset(payload: SimulatorResetEvent): void {
+  const s = getSocket();
+  if (!s.connected) return;
+  s.emit("simulator:reset", payload);
 }
