@@ -32,6 +32,10 @@ export const devices = pgTable(
     lastMaintenance: timestamp("last_maintenance", { withTimezone: true }),
     notes: text("notes"),
     tags: jsonb("tags").notNull().default([]),
+    // Device detail data (JSONB for flexibility without separate tables)
+    deviceConfig: jsonb("device_config"),
+    deviceIo: jsonb("device_io"),
+    lastDiagnostics: jsonb("last_diagnostics"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

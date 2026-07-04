@@ -11,6 +11,12 @@ const updateDeviceSchema = z.object({
   notes: z.string().optional(),
   tags: z.array(z.string()).optional(),
   lastMaintenance: z.string().optional(),
+  firmwareVersion: z.string().optional(),
+  firmwareBuild: z.string().optional(),
+  firmwareReleasedAt: z.string().optional(),
+  firmwareInstalledAt: z.string().optional(),
+  deviceConfig: z.any().optional(),
+  deviceIo: z.any().optional(),
 });
 
 export async function deviceRoutes(app: FastifyInstance) {
@@ -124,9 +130,17 @@ export async function deviceRoutes(app: FastifyInstance) {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = updateDeviceSchema.parse(request.body);
 
-    const updateData: Record<string, unknown> = { ...body, updatedAt: new Date() };
-    if (body.lastMaintenance) {
-      updateData.lastMaintenance = new Date(body.lastMaintenance);
+    const { firmwareReleasedAt, firmwareInstalledAt, lastMaintenance, ...rest } = body;
+    const updateData: Record<string, unknown> = { ...rest, updatedAt: new Date() };
+
+    if (lastMaintenance) {
+      updateData.lastMaintenance = new Date(lastMaintenance);
+    }
+    if (firmwareReleasedAt) {
+      updateData.firmwareReleasedAt = new Date(firmwareReleasedAt);
+    }
+    if (firmwareInstalledAt) {
+      updateData.firmwareInstalledAt = new Date(firmwareInstalledAt);
     }
 
     const [updated] = await db

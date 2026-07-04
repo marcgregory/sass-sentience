@@ -12,6 +12,8 @@
  * - Sample audit log entries
  * - Platform settings
  * - 1 pre-seeded API key
+ * - 7 notification rules
+ * - 11 demo notifications
  *
  * Usage: pnpm db:seed
  */
@@ -286,6 +288,40 @@ async function seed() {
       lastMaintenance: Math.random() > 0.3 ? hoursAgo(randomBetween(1, 60 * 24)) : null,
       notes: Math.random() > 0.7 ? "Routine maintenance completed" : null,
       tags: [["critical", "monitored", "indoor", "outdoor", "battery-powered", "hardwired"][i % 6]],
+      deviceConfig: {
+        mqttTopic: `sites/${site.name.toLowerCase().replace(/\s+/g, "-")}/devices/${deviceNames[i].toLowerCase().replace(/\s+/g, "-")}`,
+        publishInterval: randomBetween(10, 60),
+        samplingRate: randomBetween(1, 30),
+        logLevel: ["debug", "info", "warn"][i % 3],
+        thresholds: {
+          temperatureMin: -10,
+          temperatureMax: type === "camera" ? 55 : 45,
+          batteryMin: 15,
+          signalMin: -95,
+        },
+      },
+      deviceIo: {
+        inputs: [
+          { name: "Digital Input 1", type: "digital", value: i % 3 === 0 ? "HIGH" : "LOW", status: "normal" },
+          { name: "Analog Input 1", type: "analog", value: `${randomBetween(0, 10)}V`, status: "normal" },
+          { name: "Temperature Probe", type: "sensor", value: `${temperature}°C`, status: temperature > 40 ? "warning" : "normal" },
+        ],
+        outputs: [
+          { name: "Relay 1", type: "relay", value: i % 2 === 0 ? "OPEN" : "CLOSED", status: "normal" },
+          { name: "Digital Output 1", type: "digital", value: i % 3 === 0 ? "HIGH" : "LOW", status: "normal" },
+        ],
+      },
+      lastDiagnostics: {
+        lastRun: hoursAgo(randomBetween(0, 168)).toISOString(),
+        status: ["pass", "pass", "pass", "warning", "fail"][i % 5],
+        checks: [
+          { name: "Ping Test", status: "pass", latency: `${randomBetween(1, 50)}ms` },
+          { name: "MQTT Connectivity", status: i % 4 === 0 ? "warning" : "pass", message: i % 4 === 0 ? "Intermittent connection" : "Connected" },
+          { name: "Sensor Calibration", status: i % 7 === 0 ? "fail" : "pass", message: i % 7 === 0 ? "Calibration drift detected" : "Within range" },
+          { name: "Memory Check", status: "pass", usage: `${randomBetween(30, 85)}%` },
+          { name: "Signal Test", status: signalStrength < -90 ? "warning" : "pass", message: signalStrength < -90 ? "Weak signal" : "Signal OK" },
+        ],
+      },
     }).onConflictDoNothing();
   }
 
@@ -504,6 +540,143 @@ async function seed() {
   const allKeys = await db.select().from(schema.apiKeys);
   console.log(`    → ${allKeys.length} API keys`);
 
+  // ─── 13. Notification Rules ─────────────────────────────────────────
+
+  console.log("  Creating notification rules...");
+
+  const ruleDefs: (typeof schema.notificationRules.$inferInsert)[] = [
+    {
+      id: uuidFrom("rule-device_offline"),
+      alertType: "device_offline",
+      label: "Device Offline",
+      description: "Alert when a device has been offline for more than 10 minutes.",
+      severityThreshold: "critical",
+      channels: ["email", "web", "push"],
+      enabled: true,
+      cooldownMinutes: 15,
+      rolePreferences: { admin: true, support: true, installer: true, customer: true },
+    },
+    {
+      id: uuidFrom("rule-device_fault"),
+      alertType: "device_fault",
+      label: "Device Fault",
+      description: "Alert when a device reports a hardware or software fault.",
+      severityThreshold: "critical",
+      channels: ["email", "web", "push"],
+      enabled: true,
+      cooldownMinutes: 10,
+      rolePreferences: { admin: true, support: true, installer: true, customer: false },
+    },
+    {
+      id: uuidFrom("rule-battery_low"),
+      alertType: "battery_low",
+      label: "Low Battery",
+      description: "Alert when a device battery level drops below 20%.",
+      severityThreshold: "warning",
+      channels: ["web", "email"],
+      enabled: true,
+      cooldownMinutes: 60,
+      rolePreferences: { admin: true, support: true, installer: true, customer: true },
+    },
+    {
+      id: uuidFrom("rule-signal_weak"),
+      alertType: "signal_weak",
+      label: "Weak Signal",
+      description: "Alert when a device signal strength drops below -90 dBm.",
+      severityThreshold: "warning",
+      channels: ["web"],
+      enabled: true,
+      cooldownMinutes: 120,
+      rolePreferences: { admin: true, support: true, installer: false, customer: false },
+    },
+    {
+      id: uuidFrom("rule-temperature_high"),
+      alertType: "temperature_high",
+      label: "High Temperature",
+      description: "Alert when a device temperature exceeds safe operating range.",
+      severityThreshold: "warning",
+      channels: ["web", "email"],
+      enabled: true,
+      cooldownMinutes: 30,
+      rolePreferences: { admin: true, support: true, installer: false, customer: false },
+    },
+    {
+      id: uuidFrom("rule-firmware_update"),
+      alertType: "firmware_update",
+      label: "Firmware Update Available",
+      description: "Notify when a firmware update is available for a device.",
+      severityThreshold: "info",
+      channels: ["web"],
+      enabled: true,
+      cooldownMinutes: 1440,
+      rolePreferences: { admin: true, support: true, installer: true, customer: false },
+    },
+    {
+      id: uuidFrom("rule-diagnostic_failure"),
+      alertType: "diagnostic_failure",
+      label: "Diagnostic Failure",
+      description: "Alert when a device diagnostic test fails.",
+      severityThreshold: "warning" as const,
+      channels: ["web", "email"] as any,
+      enabled: true,
+      cooldownMinutes: 30,
+      rolePreferences: { admin: true, support: true, installer: true, customer: false },
+    },
+  ];
+
+  for (const rule of ruleDefs) {
+    await db.insert(schema.notificationRules).values(rule).onConflictDoNothing({ target: schema.notificationRules.alertType });
+  }
+
+  const allRules = await db.select().from(schema.notificationRules);
+  console.log(`    → ${allRules.length} notification rules`);
+
+  // ─── 14. Notifications ──────────────────────────────────────────────
+
+  console.log("  Creating notifications...");
+
+  const customerUser = allUsers.find((u) => u.email.startsWith("customer"))!;
+
+  const notificationDefs: {
+    userId: string;
+    title: string;
+    message: string;
+    priority: "low" | "normal" | "high" | "critical";
+    category: "alert" | "device" | "system" | "report" | "user" | "maintenance";
+    link?: string;
+  }[] = [
+    { userId: adminUser.id, title: "Welcome to Sentience IoT", message: "Your platform is ready. Start by adding devices to your first site.", priority: "normal", category: "system" },
+    { userId: adminUser.id, title: "Maintenance Reminder", message: "3 devices are due for scheduled maintenance this week.", priority: "normal", category: "maintenance", link: "/devices" },
+    { userId: adminUser.id, title: "Firmware Update Available", message: "A new firmware version (4.2.0) is available for 5 devices.", priority: "high", category: "device", link: "/devices" },
+    { userId: adminUser.id, title: "Report Ready", message: "Your weekly fleet health report has been generated.", priority: "low", category: "report", link: "/reports" },
+    { userId: adminUser.id, title: "Alert: Device Offline", message: "Zone Sensor A at Riverside Complex has been offline for 15 minutes.", priority: "critical", category: "alert", link: "/alerts" },
+    { userId: supportUser.id, title: "Welcome to Sentience IoT", message: "Your support account is ready. You can view and manage devices.", priority: "normal", category: "system" },
+    { userId: supportUser.id, title: "Alert: Device Offline", message: "Zone Sensor A at Riverside Complex has been offline for 15 minutes.", priority: "critical", category: "alert", link: "/alerts" },
+    { userId: supportUser.id, title: "Maintenance Reminder", message: "2 devices at Tech Valley Park are due for maintenance.", priority: "normal", category: "maintenance", link: "/devices" },
+    { userId: supportUser.id, title: "Report Ready", message: "Your weekly fleet health report has been generated.", priority: "low", category: "report", link: "/reports" },
+    { userId: customerUser.id, title: "Welcome to Sentience IoT", message: "Your account is ready. View your estate dashboard to monitor devices.", priority: "normal", category: "system" },
+    { userId: customerUser.id, title: "Alert: Battery Low", message: "A device at Riverside Complex has critically low battery.", priority: "high", category: "alert", link: "/alerts" },
+  ];
+
+  for (let i = 0; i < notificationDefs.length; i++) {
+    const n = notificationDefs[i];
+
+    await db.insert(schema.notifications).values({
+      id: uuidFrom(`notification-${i}`),
+      userId: n.userId,
+      title: n.title,
+      message: n.message,
+      priority: n.priority,
+      category: n.category,
+      isRead: i < 3, // First 3 are read
+      link: n.link ?? null,
+      createdAt: hoursAgo(i * 12 + 1),
+    }).onConflictDoNothing();
+  }
+
+  const allNotifications = await db.select().from(schema.notifications);
+  console.log(`    → ${allNotifications.length} notifications`);
+
   // ─── Summary ───────────────────────────────────────────────────────
 
   console.log("\n✅ Seed complete!");
@@ -516,7 +689,9 @@ async function seed() {
   console.log(`    Alerts:     ${allAlerts.length}`);
   console.log(`    Audit logs: ${allLogs.length}`);
   console.log(`    Settings:   ${allSettings.length}`);
-  console.log(`    API keys:   ${allKeys.length}`);
+  console.log(`    API keys:           ${allKeys.length}`);
+  console.log(`    Notification rules: ${allRules.length}`);
+  console.log(`    Notifications:      ${allNotifications.length}`);
   console.log(`\n  Demo accounts:`);
   console.log(`    admin@sentience.io / admin123`);
   console.log(`    support@sentience.io / support123`);

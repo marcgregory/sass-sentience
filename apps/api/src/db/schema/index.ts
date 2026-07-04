@@ -11,3 +11,5 @@ export * from "./audit-logs";
 export * from "./reports";
 export * from "./api-keys";
 export * from "./settings";
+export * from "./notifications";
+export * from "./notification-rules";
