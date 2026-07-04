@@ -12,11 +12,13 @@
  * Environment variables:
  *   MQTT_URL          — MQTT broker URL (default: mqtt://localhost:1883)
  *   MQTT_TOPIC_PREFIX — Topic prefix       (default: sentience)
+ *   SIMULATOR_SEED    — Deterministic seed  (default: random)
  *
  * Usage (CLI):
  *   pnpm --filter @sentience/mock simulate
  *   MQTT_URL=mqtt://broker.hivemq.com:1883 pnpm --filter @sentience/mock simulate
  *   pnpm --filter @sentience/mock simulate -- --count 10 --broker mqtt://localhost:1883
+ *   pnpm --filter @sentience/mock simulate -- --seed demo-2026
  *
  * Usage (programmatic):
  *   import { runSimulator } from "@sentience/mock";
@@ -29,7 +31,7 @@
  */
 
 import mqtt from "mqtt";
-import { generateDevice } from "./device-generator";
+import { generateDevice, seed as createSeed } from "./device-generator";
 import type { Device, DeviceStatus } from "@sentience/types";
 
 // ─── Configuration ─────────────────────────────────────────────────
@@ -43,6 +45,8 @@ export interface SimulatorOptions {
   topicPrefix?: string;
   /** Base interval in seconds between telemetry publishes (default: 10) */
   telemetryInterval?: number;
+  /** Deterministic seed for generated devices (default: random) */
+  seed?: string | number;
   /** Probability of a status transition per tick (0-1, default: 0.02) */
   statusChangeProbability?: number;
   /** Client ID prefix for the MQTT connection */
@@ -95,6 +99,41 @@ function formatUptime(seconds: number): string {
   return `${s}s`;
 }
 
+function hashSeed(seed: string | number): number {
+  if (typeof seed === "number") return seed;
+
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+  }
+
+  return Math.abs(hash);
+}
+
+function logStartupBanner(config: {
+  brokerUrl: string;
+  topicPrefix: string;
+  deviceCount: number;
+  seed: string | number | undefined;
+  telemetryInterval: number;
+  healthIntervalMs: number;
+  startedAt: Date;
+}): void {
+  const border = "=".repeat(57);
+  const seedLabel = config.seed === undefined ? "random" : String(config.seed);
+
+  console.log(border);
+  console.log("Sentience IoT Simulator");
+  console.log(`Broker: ${config.brokerUrl}`);
+  console.log(`Topic: ${config.topicPrefix}`);
+  console.log(`Devices: ${config.deviceCount}`);
+  console.log(`Seed: ${seedLabel}`);
+  console.log(`Publish Interval: ${config.telemetryInterval * 1000}ms`);
+  console.log(`Health Interval: ${config.healthIntervalMs / 1000}s`);
+  console.log(`Started: ${config.startedAt.toISOString()}`);
+  console.log(border);
+}
+
 // ─── Simulator Engine ──────────────────────────────────────────────
 
 export async function runSimulator(
@@ -105,9 +144,23 @@ export async function runSimulator(
     brokerUrl = process.env.MQTT_URL ?? "mqtt://localhost:1883",
     topicPrefix = process.env.MQTT_TOPIC_PREFIX ?? "sentience",
     telemetryInterval = 10,
+    seed = process.env.SIMULATOR_SEED,
     statusChangeProbability = 0.015,
     clientId = `sentience-sim-${Math.random().toString(36).slice(2, 8)}`,
   } = options;
+  const startedAt = new Date();
+  const healthIntervalMs = 60_000;
+  const seedFn = seed === undefined ? undefined : createSeed(hashSeed(seed));
+
+  logStartupBanner({
+    brokerUrl,
+    topicPrefix,
+    deviceCount,
+    seed,
+    telemetryInterval,
+    healthIntervalMs,
+    startedAt,
+  });
 
   console.log(
     `[simulator] Connecting to ${brokerUrl} (client: ${clientId})...`,
@@ -197,7 +250,7 @@ export async function runSimulator(
   const devices: SimulatedDevice[] = Array.from(
     { length: deviceCount },
     (_, i) => {
-      const device = generateDevice();
+      const device = generateDevice(seedFn);
       const ext = device as unknown as Record<string, unknown>;
       return {
         device,
@@ -396,7 +449,7 @@ export async function runSimulator(
           ` — MQTT ${mqttConnected ? "connected" : "disconnected"}, ${reconnectAttempts} reconnects`,
       );
     }
-  }, 60_000);
+  }, healthIntervalMs);
 
   // Keep the process alive
   console.log(`[simulator] Running. Press Ctrl+C to stop.`);
@@ -534,6 +587,7 @@ if (isMainModule) {
   const hasCountFlag = args.includes("--count");
   const hasBrokerFlag = args.includes("--broker");
   const hasTopicPrefixFlag = args.includes("--topic-prefix");
+  const hasSeedFlag = args.includes("--seed");
 
   const opts: SimulatorOptions = {};
   if (hasCountFlag) opts.deviceCount = parseInt(getArg("--count", "5"), 10);
@@ -541,6 +595,7 @@ if (isMainModule) {
     opts.brokerUrl = getArg("--broker", "mqtt://localhost:1883");
   if (hasTopicPrefixFlag)
     opts.topicPrefix = getArg("--topic-prefix", "sentience");
+  if (hasSeedFlag) opts.seed = getArg("--seed", "demo");
 
   runSimulator(opts).catch((err) => {
     console.error("[simulator] Fatal error:", err);

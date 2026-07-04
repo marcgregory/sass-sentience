@@ -78,7 +78,7 @@ export function seed(n: number): () => number {
 
 function pickStatus(): DeviceStatus {
   // Bias toward "online" (70%) to simulate a healthy fleet
-  const r = Math.random();
+  const r = faker.number.float({ min: 0, max: 1 });
   if (r < 0.70) return "online";
   if (r < 0.85) return "online";  // 85% online total
   if (r < 0.93) return "warning";
