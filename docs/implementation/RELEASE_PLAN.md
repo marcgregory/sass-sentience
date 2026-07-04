@@ -66,7 +66,7 @@
 
 ## Release Decision
 
-**Status:** ⏳ Ready for v1.0.0-rc.3
+**Status:** ✅ Released as v1.0.0-rc.3 — 2026-07-04
 
 | Check | Status |
 |-------|--------|
@@ -80,7 +80,7 @@
 | Demo works end-to-end | ✅ |
 | pnpm lint passes | ✅ Zero errors |
 | pnpm build passes | ✅ 26/26 pages |
-| Release reviewed | ⏳ Pending stakeholder review |
+| Release reviewed | ✅ Released |
 
 ---
 

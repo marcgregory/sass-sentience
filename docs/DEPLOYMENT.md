@@ -385,7 +385,7 @@ JWT_SECRET=<shared-with-api>
 | Feature | Current state | Path to real |
 |---------|---------------|--------------|
 | **Field device hardware** | `@sentience/mock` generator | Replace with real MQTT clients on physical controllers/cameras |
-| **MQTT → Socket.IO bridge** | Bridge not yet implemented | Build a service that subscribes to `sentience/#` and emits Socket.IO events |
+| **MQTT → Socket.IO bridge** | Implemented in `apps/realtime` — MQTT client + normalizer + Socket.IO server | Event logging, alert rule engine, device shadow |
 | **Alert rule engine** | Types exist, no evaluator | Implement rule evaluation service |
 | **REST API endpoints** | Not built — TanStack Query hooks ready for them | Build Express/Fastify API with CRUD routes |
 | **CSV/PDF exports** | UI buttons present, no backend | Add server-side report generation (Puppeteer, PDFKit) |
