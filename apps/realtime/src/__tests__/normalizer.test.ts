@@ -29,6 +29,7 @@ describe("normalizer", () => {
         deviceId,
         siteId: "unknown",
         battery: 78,
+        uptime: null,
         voltage: 3.3,
         temperature: 24.5,
         signalStrength: -65,
@@ -62,9 +63,15 @@ describe("normalizer", () => {
       expect(result.signalStrength).toBe(-65);
     });
 
+    it("preserves explicit null battery for mains-powered devices", () => {
+      const result = toTelemetryEvent(deviceId, { ...basePayload, battery: null });
+      expect(result.battery).toBeNull();
+    });
+
     it("provides defaults for missing fields", () => {
       const result = toTelemetryEvent(deviceId, { deviceId });
       expect(result.battery).toBe(100);
+      expect(result.uptime).toBeNull();
       expect(result.voltage).toBe(3.3);
       expect(result.temperature).toBe(25);
       expect(result.signalStrength).toBe(-70);

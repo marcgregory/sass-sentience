@@ -91,13 +91,17 @@ function pickType(): DeviceType {
   return faker.helpers.arrayElement(types);
 }
 
+function isExternallyPowered(deviceType: DeviceType): boolean {
+  return deviceType === "controller" || deviceType === "gateway" || deviceType === "relay";
+}
+
 function generateTelemetry(deviceType: DeviceType): DeviceTelemetry {
   // Different device types have slightly different battery drain profiles
   const isSensor = deviceType === "sensor";
   const isCamera = deviceType === "camera";
 
   return {
-    battery: faker.number.int({ min: isSensor ? 10 : 20, max: 100 }),
+    battery: isExternallyPowered(deviceType) ? 0 : faker.number.int({ min: isSensor ? 10 : 20, max: 100 }),
     voltage: faker.number.float({ min: 3.0, max: 3.7, fractionDigits: 2 }),
     temperature: faker.number.float({ min: isCamera ? 30 : 15, max: isCamera ? 55 : 40, fractionDigits: 1 }),
     signalStrength: faker.number.int({ min: -120, max: -40 }),
@@ -156,6 +160,49 @@ function generateConfig(deviceId: string): DeviceConfig {
   };
 }
 
+function generateDeviceName(type: DeviceType, siteName: string, indexHint: string): string {
+  const area = faker.helpers.arrayElement([
+    siteName,
+    `${siteName} North`,
+    `${siteName} South`,
+    `${siteName} East`,
+    `${siteName} West`,
+    `${siteName} Service`,
+    `${siteName} Perimeter`,
+  ]);
+  const suffix = indexHint.slice(0, 4).toUpperCase();
+
+  const names: Record<DeviceType, string[]> = {
+    sensor: [
+      `${area} Entry Sensor`,
+      `${area} Door Sensor`,
+      `${area} Motion Sensor`,
+      `${area} Environmental Sensor`,
+    ],
+    camera: [
+      `${area} Thermal Camera`,
+      `${area} Security Camera`,
+      `${area} Loading Bay Camera`,
+    ],
+    controller: [
+      `${area} Access Controller ${suffix}`,
+      `${area} Alarm Controller ${suffix}`,
+      `${area} Main Controller ${suffix}`,
+    ],
+    gateway: [
+      `${area} Gateway ${suffix}`,
+      `${area} Backup Gateway ${suffix}`,
+      `${area} MQTT Gateway ${suffix}`,
+    ],
+    relay: [
+      `${area} Relay Panel ${suffix}`,
+      `${area} Lighting Relay ${suffix}`,
+      `${area} Door Relay ${suffix}`,
+    ],
+  };
+
+  return faker.helpers.arrayElement(names[type]);
+}
 // ─── Public API ────────────────────────────────────────────────────
 
 /**
@@ -179,11 +226,7 @@ export function generateDevice(seedFn?: () => number): Device {
     id,
     serialNumber: `SN-${faker.string.alphanumeric(10).toUpperCase()}`,
     macAddress: faker.internet.mac(),
-    name: faker.helpers.arrayElement([
-      "Main Controller", "Zone Sensor A", "Perimeter Gateway", "Relay Panel",
-      "Thermal Camera", "Entry Sensor", "Environmental Monitor",
-      "Auxiliary Controller", "Backup Gateway", "Alarm Panel",
-    ]),
+    name: generateDeviceName(type, site.name, id),
     type,
     status: pickStatus(),
     firmware: generateFirmware(),

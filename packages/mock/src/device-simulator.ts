@@ -52,7 +52,8 @@ export interface SimulatorOptions {
 interface SimulatedDevice {
   device: Device;
   status: DeviceStatus;
-  battery: number;
+  battery: number | null;
+  uptime: number;
   signal: number;
   temperature: number;
   inputState: boolean;
@@ -76,6 +77,10 @@ function mqttTopic(deviceId: string, suffix: string, prefix: string): string {
 /**
  * Jitter a base interval by ±50% so devices don't all publish at once.
  */
+function isExternallyPowered(type: string): boolean {
+  return type === "controller" || type === "gateway" || type === "relay";
+}
+
 function jitterInterval(baseMs: number): number {
   const half = baseMs / 2;
   return baseMs - half + Math.random() * baseMs;
@@ -111,7 +116,8 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
     return {
       device,
       status: device.status,
-      battery: device.telemetry.battery,
+      battery: isExternallyPowered(device.type) ? null : device.telemetry.battery,
+      uptime: device.telemetry.uptime,
       signal: device.telemetry.signalStrength,
       temperature: device.telemetry.temperature,
       inputState: device.io.inputs.some((inp) => inp.state),
@@ -140,22 +146,18 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
   for (const sd of devices) {
     const tick = () => {
       // Battery drain — skip for externally-powered devices
-      const isExternallyPowered = (
-        sd.device.type === "controller" ||
-        sd.device.type === "gateway" ||
-        sd.device.type === "relay"
-      );
-      if (!isExternallyPowered) {
-        // Simulate battery drain (faster for fault/warning devices)
-        const drain = sd.status === "fault" ? 2 : sd.status === "warning" ? 1 : 0.2;
+      if (sd.battery !== null) {
+        const drain = sd.status === "fault" ? 0.5 : sd.status === "warning" ? 0.2 : 0.05;
         sd.battery = Math.max(0, sd.battery - drain * (0.5 + Math.random()));
       }
 
+      sd.uptime += Math.round(telemetryInterval * (0.8 + Math.random() * 0.4));
+
       // Simulate signal fluctuation
-      sd.signal = Math.min(-40, Math.max(-120, sd.signal + (Math.random() - 0.5) * 10));
+      sd.signal = Math.round(Math.min(-40, Math.max(-120, sd.signal + (Math.random() - 0.5) * 3)));
 
       // Simulate temperature drift
-      sd.temperature += (Math.random() - 0.5) * 2;
+      sd.temperature += (Math.random() - 0.5) * 0.8;
       sd.temperature = Math.round(sd.temperature * 10) / 10;
 
       // Random input/output state changes
@@ -188,7 +190,7 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
   // Some devices emit spontaneous events (battery low, signal weak, temp high)
   for (const sd of devices) {
     const eventTick = () => {
-      if (sd.battery < 15 && Math.random() < 0.3) {
+      if (sd.battery !== null && sd.battery < 15 && Math.random() < 0.3) {
         publishEvent(client, sd, "battery_low", topicPrefix, {
           battery: sd.battery,
           threshold: 15,
@@ -246,7 +248,8 @@ function basePayload(sd: SimulatedDevice): Record<string, unknown> {
     deviceType: sd.device.type,
     serial: sd.device.serialNumber,
     status: sd.status,
-    battery: Math.round(sd.battery),
+    battery: sd.battery === null ? null : Math.round(sd.battery),
+    uptime: sd.uptime,
     signal: sd.signal,
     temperature: sd.temperature,
     fault: sd.fault,

@@ -25,7 +25,8 @@ const EVENT_DEDUP_MS = 60_000; // 60-second cooldown per deviceId+category
 // ─── Types ──────────────────────────────────────────────────────────
 
 export interface LiveDeviceTelemetry {
-  battery: number;
+  battery: number | null;
+  uptime: number | null;
   voltage: number;
   temperature: number;
   signalStrength: number;
@@ -115,6 +116,7 @@ export const useLiveDeviceStore = create<LiveDeviceState>()((set) => ({
         previousStatus: existing?.previousStatus ?? "online",
         telemetry: {
           battery: payload.battery,
+          uptime: payload.uptime,
           voltage: payload.voltage,
           temperature: payload.temperature,
           signalStrength: payload.signalStrength,

@@ -29,10 +29,12 @@ export interface DeviceListRow {
   type: string;
   status: DeviceStatus;
   reasons: StatusReason[];
-  battery: number;
+  battery: number | null;
   signal: number;
   temp: number;
   site: string;
+  lastSeen: string;
+  uptime: number | null;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -65,10 +67,12 @@ function mapDeviceToRow(
     type: d.type.charAt(0).toUpperCase() + d.type.slice(1),
     status: health.status,
     reasons: health.reasons,
-    battery: d.battery ?? 0,
+    battery: d.battery,
     signal: d.signalStrength ?? 0,
     temp: d.temperature ?? 0,
     site: d.siteName ?? `Site ${d.siteId.slice(0, 8)}`,
+    lastSeen: d.lastHeartbeat ?? d.updatedAt ?? new Date().toISOString(),
+    uptime: d.uptime,
   };
 }
 
@@ -90,7 +94,7 @@ function mapLiveEntryToRow(
   entry: import("@/stores/live-device-store").LiveDeviceEntry,
   index: number,
 ): DeviceListRow {
-  const typeLabels = ["Sensor", "Controller", "Gateway", "Relay", "Camera"];
+
   const entryForSelector: DeviceEntry = {
     deviceId: entry.deviceId,
     deviceType: entry.deviceType,
@@ -115,13 +119,17 @@ function mapLiveEntryToRow(
     id: entry.deviceId,
     name: entry.deviceName ?? `Device ${entry.deviceId.slice(0, 8)}`,
     serial: `SIM-${entry.deviceId.slice(0, 8).toUpperCase()}`,
-    type: typeLabels[index % typeLabels.length],
+    type: entry.deviceType
+      ? entry.deviceType.charAt(0).toUpperCase() + entry.deviceType.slice(1)
+      : `Device ${index + 1}`,
     status: health.status,
     reasons: health.reasons,
-    battery: entry.telemetry?.battery ?? 0,
+    battery: entry.telemetry?.battery ?? null,
     signal: entry.telemetry?.signalStrength ?? 0,
     temp: entry.telemetry?.temperature ?? 0,
     site: entry.siteName ?? entry.siteId ?? "Unassigned",
+    lastSeen: entry.lastSeen,
+    uptime: entry.telemetry?.uptime ?? null,
   };
 }
 
@@ -188,9 +196,11 @@ export function useDevices() {
         type: api.type.charAt(0).toUpperCase() + api.type.slice(1),
         status: health.status,
         reasons: health.reasons,
-        battery: live.telemetry?.battery ?? api.battery ?? 0,
+        battery: live.telemetry?.battery ?? api.battery,
         signal: live.telemetry?.signalStrength ?? api.signalStrength ?? 0,
         temp: live.telemetry?.temperature ?? api.temperature ?? 0,
+        lastSeen: live.lastSeen,
+        uptime: live.telemetry?.uptime ?? api.uptime,
         site: buildSiteLabel(
           live.siteName ?? api.siteName,
           live.estateName ?? api.estateName,
@@ -263,13 +273,17 @@ export function useDevice(id: string) {
         id: liveEntry.deviceId,
         name: liveEntry.deviceName ?? `Device ${liveEntry.deviceId.slice(0, 8)}`,
         serial: `SIM-${liveEntry.deviceId.slice(0, 8).toUpperCase()}`,
-        type: "Sensor",
+        type: liveEntry.deviceType
+          ? liveEntry.deviceType.charAt(0).toUpperCase() + liveEntry.deviceType.slice(1)
+          : "Device",
         status: health.status,
         reasons: health.reasons,
-        battery: liveEntry.telemetry?.battery ?? 0,
+        battery: liveEntry.telemetry?.battery ?? null,
         signal: liveEntry.telemetry?.signalStrength ?? 0,
         temp: liveEntry.telemetry?.temperature ?? 0,
         site: liveEntry.siteName ?? liveEntry.siteId ?? "Unassigned",
+        lastSeen: liveEntry.lastSeen,
+        uptime: liveEntry.telemetry?.uptime ?? null,
       };
     }
 
@@ -323,9 +337,11 @@ export function useDevice(id: string) {
         type: api.type.charAt(0).toUpperCase() + api.type.slice(1),
         status: liveHealth.status,
         reasons: liveHealth.reasons,
-        battery: liveEntry.telemetry?.battery ?? api.battery ?? 0,
+        battery: liveEntry.telemetry?.battery ?? api.battery,
         signal: liveEntry.telemetry?.signalStrength ?? api.signalStrength ?? 0,
         temp: liveEntry.telemetry?.temperature ?? api.temperature ?? 0,
+        lastSeen: liveEntry.lastSeen,
+        uptime: liveEntry.telemetry?.uptime ?? api.uptime,
         site: buildSiteLabel(
           liveEntry?.siteName ?? api.siteName,
           liveEntry?.estateName ?? api.estateName,
@@ -341,9 +357,11 @@ export function useDevice(id: string) {
       type: api.type.charAt(0).toUpperCase() + api.type.slice(1),
       status: apiHealth.status,
       reasons: apiHealth.reasons,
-      battery: api.battery ?? 0,
+      battery: api.battery,
       signal: api.signalStrength ?? 0,
       temp: api.temperature ?? 0,
+      lastSeen: api.lastHeartbeat ?? api.updatedAt ?? new Date().toISOString(),
+      uptime: api.uptime,
       site: buildSiteLabel(
         api.siteName,
         api.estateName,

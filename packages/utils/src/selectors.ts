@@ -36,7 +36,7 @@ export interface DeviceEntry {
   deviceType?: string;
   status: DeviceStatus;
   telemetry: {
-    battery: number;
+    battery: number | null;
     voltage: number;
     temperature: number;
     signalStrength: number;
@@ -224,7 +224,7 @@ export function computeStatusCounts(entries: DeviceEntry[]): StatusCounts {
 export function computeBatteryDistribution(
   entries: DeviceEntry[],
 ): DistributionItem[] {
-  const withTelemetry = entries.filter((d) => d.telemetry);
+  const withTelemetry = entries.filter((d) => d.telemetry && d.telemetry.battery != null);
   if (withTelemetry.length === 0) {
     return [
       { label: "Good (>60%)", value: 0, count: 0, color: "bg-emerald-500" },
@@ -233,11 +233,11 @@ export function computeBatteryDistribution(
     ];
   }
 
-  const good = withTelemetry.filter((d) => d.telemetry!.battery > 60).length;
+  const good = withTelemetry.filter((d) => d.telemetry!.battery! > 60).length;
   const fair = withTelemetry.filter(
-    (d) => d.telemetry!.battery >= 20 && d.telemetry!.battery <= 60,
+    (d) => d.telemetry!.battery! >= 20 && d.telemetry!.battery! <= 60,
   ).length;
-  const low = withTelemetry.filter((d) => d.telemetry!.battery < 20).length;
+  const low = withTelemetry.filter((d) => d.telemetry!.battery! < 20).length;
   const total = withTelemetry.length;
   const pct = (n: number) => Math.round((n / total) * 100);
 
@@ -341,10 +341,11 @@ export function computeFleetHealthScore(entries: DeviceEntry[]): number {
   const onlineRatio = counts.online / counts.total;
 
   const withTelemetry = entries.filter((d) => d.telemetry);
+  const withBattery = entries.filter((d) => d.telemetry && d.telemetry.battery != null);
   const withGoodBattery =
-    withTelemetry.length > 0
-      ? withTelemetry.filter((d) => d.telemetry!.battery > 60).length /
-        withTelemetry.length
+    withBattery.length > 0
+      ? withBattery.filter((d) => d.telemetry!.battery! > 60).length /
+        withBattery.length
       : 0;
   const withGoodSignal =
     withTelemetry.length > 0
@@ -400,11 +401,12 @@ export function computeFleetSummary(entries: DeviceEntry[]): FleetSummary {
   const counts = computeStatusCounts(entries);
 
   const withTelemetry = entries.filter((d) => d.telemetry);
+  const withBattery = entries.filter((d) => d.telemetry && d.telemetry.battery != null);
   const avgBattery =
-    withTelemetry.length > 0
+    withBattery.length > 0
       ? Math.round(
-          withTelemetry.reduce((s, d) => s + d.telemetry!.battery, 0) /
-            withTelemetry.length *
+          withBattery.reduce((s, d) => s + d.telemetry!.battery!, 0) /
+            withBattery.length *
             10,
         ) / 10
       : 0;

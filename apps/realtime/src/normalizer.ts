@@ -22,7 +22,8 @@ export interface MqttPayload {
   name?: string;
   deviceType?: string;
   status?: string;
-  battery?: number;
+  battery?: number | null;
+  uptime?: number;
   signal?: number;
   temperature?: number;
   fault?: boolean;
@@ -61,7 +62,8 @@ export interface DeviceTelemetryEvent {
   siteName?: string;
   estateId?: string;
   estateName?: string;
-  battery: number;
+  battery: number | null;
+  uptime: number | null;
   voltage: number;
   temperature: number;
   signalStrength: number;
@@ -128,8 +130,8 @@ function resolveName(payload: MqttPayload): string | undefined {
   return payload.deviceName ?? payload.name ?? undefined;
 }
 
-function safeNumber(v: number | undefined, fallback: number): number {
-  return v !== undefined && !Number.isNaN(v) ? v : fallback;
+function safeNumber(v: number | null | undefined, fallback: number): number {
+  return v !== undefined && v !== null && !Number.isNaN(v) ? v : fallback;
 }
 
 /**
@@ -139,20 +141,25 @@ export function toTelemetryEvent(
   deviceId: string,
   payload: MqttPayload,
 ): DeviceTelemetryEvent {
-  return {
+  const event: DeviceTelemetryEvent = {
     deviceId,
-    deviceName: resolveName(payload),
-    deviceType: payload.deviceType,
     siteId: payload.siteId ?? "unknown",
-    siteName: payload.siteName ?? undefined,
-    estateId: payload.estateId ?? undefined,
-    estateName: payload.estateName ?? undefined,
-    battery: Math.round(safeNumber(payload.battery, 100)),
+    battery: payload.battery === null ? null : Math.round(safeNumber(payload.battery, 100)),
+    uptime: payload.uptime == null ? null : Math.round(safeNumber(payload.uptime, 0)),
     voltage: safeNumber(payload.voltage, 3.3),
     temperature: safeNumber(payload.temperature, 25),
     signalStrength: Math.round(safeNumber(payload.signal, -70)),
     timestamp: payload.timestamp ?? new Date().toISOString(),
   };
+
+  const deviceName = resolveName(payload);
+  if (deviceName) event.deviceName = deviceName;
+  if (payload.deviceType) event.deviceType = payload.deviceType;
+  if (payload.siteName) event.siteName = payload.siteName;
+  if (payload.estateId) event.estateId = payload.estateId;
+  if (payload.estateName) event.estateName = payload.estateName;
+
+  return event;
 }
 
 /**

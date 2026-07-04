@@ -34,6 +34,7 @@ import {
   HeartOff,
   ClipboardX,
 } from "lucide-react";
+import { formatRelativeTime } from "@sentience/utils";
 import { useState, useMemo } from "react";
 
 // ─── Status Reason Filter Configuration ──────────────────────────────
@@ -53,6 +54,16 @@ const REASON_FILTERS: {
   { reason: "HARDWARE_DIAGNOSTIC_FAILED", label: "Hardware Fault", icon: ClipboardX, color: "text-red-500" },
 ];
 
+function formatUptime(seconds: number | null): string {
+  if (seconds == null || seconds <= 0) return "N/A";
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${Math.max(1, minutes)}m`;
+}
 export default function DevicesPage() {
   const router = useRouter();
   const { devices, total, isLoading, isError, error } = useDevices();
@@ -249,6 +260,12 @@ export default function DevicesPage() {
                   Temp
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Last Seen
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Uptime
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
                   Site
                 </th>
               </tr>
@@ -256,7 +273,7 @@ export default function DevicesPage() {
             <tbody>
               {Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="border-b">
-                  {Array.from({ length: 8 }).map((_, j) => (
+                  {Array.from({ length: 10 }).map((_, j) => (
                     <td key={j} className="px-4 py-3">
                       <div className="h-4 w-full max-w-[100px] animate-pulse rounded bg-muted" />
                     </td>
@@ -314,6 +331,12 @@ export default function DevicesPage() {
                   Temp
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Last Seen
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Uptime
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
                   Site
                 </th>
               </tr>
@@ -343,12 +366,12 @@ export default function DevicesPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Battery
-                        className={`h-3.5 w-3.5 ${device.battery > 40 ? "text-emerald-500" : "text-red-500"}`}
+                        className={`h-3.5 w-3.5 ${device.battery == null ? "text-slate-400" : device.battery > 40 ? "text-emerald-500" : "text-red-500"}`}
                       />
                       <span
-                        className={`text-sm font-medium ${device.battery <= 20 ? "text-red-500" : ""}`}
+                        className={`text-sm font-medium ${device.battery != null && device.battery <= 20 ? "text-red-500" : ""}`}
                       >
-                        {device.battery > 0 ? `${device.battery}%` : device.battery === 0 ? "0%" : "N/A"}
+                        {device.battery == null ? "N/A" : `${device.battery}%`}
                       </span>
                     </div>
                   </td>
@@ -369,6 +392,12 @@ export default function DevicesPage() {
                         {device.temp !== 0 ? `${device.temp}°C` : "N/A"}
                       </span>
                     </div>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
+                    {formatRelativeTime(device.lastSeen)}
+                  </td>
+                  <td className="px-4 py-3 text-sm font-medium whitespace-nowrap">
+                    {formatUptime(device.uptime)}
                   </td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">
                     {device.site}

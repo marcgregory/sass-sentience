@@ -73,7 +73,8 @@ export interface DeviceTelemetryEvent {
   siteName?: string;
   estateId?: string;
   estateName?: string;
-  battery: number;
+  battery: number | null;
+  uptime: number | null;
   voltage: number;
   temperature: number;
   signalStrength: number;

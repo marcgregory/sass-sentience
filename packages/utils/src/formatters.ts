@@ -55,7 +55,8 @@ export function formatDuration(seconds: number): string {
  * Format battery percentage: integer (or 1dp for values < 10 to show precision).
  * Never show more than 1 decimal place.
  */
-export function formatBattery(pct: number): string {
+export function formatBattery(pct: number | null | undefined): string {
+  if (pct == null) return "N/A";
   if (Number.isInteger(pct)) return `${pct}%`;
   return `${pct.toFixed(1)}%`;
 }

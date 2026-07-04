@@ -314,13 +314,15 @@ function getMockEvents(deviceId: string, count: number = 10) {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
-function batteryColor(value: number): string {
+function batteryColor(value: number | null): string {
+  if (value == null) return "text-slate-400";
   if (value <= 20) return "text-red-500";
   if (value <= 50) return "text-amber-500";
   return "text-emerald-500";
 }
 
-function batteryBg(value: number): string {
+function batteryBg(value: number | null): string {
+  if (value == null) return "bg-slate-400";
   if (value <= 20) return "bg-red-500";
   if (value <= 50) return "bg-amber-500";
   return "bg-emerald-500";
@@ -585,7 +587,7 @@ export default function DeviceDetailPage() {
       }
     : {
         battery: device.battery,
-        voltage: device.battery > 0 ? 3.3 + (device.battery / 100) * 0.7 : 0,
+        voltage: device.battery != null && device.battery > 0 ? 3.3 + (device.battery / 100) * 0.7 : 0,
         temperature: device.temp,
         signalStrength: device.signal,
         timestamp: new Date().toISOString(),
@@ -784,7 +786,7 @@ export default function DeviceDetailPage() {
         <div className="space-y-6">
           <MetricBar
             label="Battery"
-            value={telemetry.battery}
+            value={telemetry.battery ?? 0}
             min={0}
             max={100}
             unit="%"
