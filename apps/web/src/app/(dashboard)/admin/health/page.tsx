@@ -31,7 +31,6 @@ import { useSimulatorRestart } from "@/hooks/use-simulator-restart";
 import { ApiError } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth-store";
 import { useNotificationStore } from "@/stores/notification-store";
-import { getSocket } from "@/lib/socket-client";
 
 const statusConfig: Record<ServiceStatus, { label: string; color: string; bgColor: string; icon: React.ComponentType<{ className?: string }> }> = {
   healthy: { label: "Healthy", color: "text-emerald-600 dark:text-emerald-400", bgColor: "bg-emerald-100 dark:bg-emerald-900/50", icon: CheckCircle2 },
@@ -194,16 +193,9 @@ export default function PlatformHealthPage() {
           "normal",
         );
 
-        // Emit simulator:reset via the realtime bridge so all connected
-        // clients clear their live stores and invalidate caches immediately.
-        const socket = getSocket();
-        if (socket.connected) {
-          socket.emit("simulator:reset", {
-            sessionId: `sim-reset-${Date.now()}`,
-            deviceCount: 0,
-            startedAt: new Date().toISOString(),
-          });
-        }
+        // The realtime bridge listens for the simulator's MQTT system message
+        // sentience/system/simulator/started and handles the registry reset
+        // and simulator:reset broadcast automatically. No need to emit it here.
       },
       onError: (error) => {
         const message = error instanceof ApiError

@@ -30,6 +30,7 @@
  * @see docs/mqtt-simulator.md
  */
 
+import crypto from "crypto";
 import mqtt from "mqtt";
 import { generateDevice, seed as createSeed } from "./device-generator";
 import type { Device, DeviceStatus } from "@sentience/types";
@@ -151,6 +152,7 @@ export async function runSimulator(
   const startedAt = new Date();
   const healthIntervalMs = 60_000;
   const seedFn = seed === undefined ? undefined : createSeed(hashSeed(seed));
+  const sessionId = crypto.randomUUID();
 
   logStartupBanner({
     brokerUrl,
@@ -276,7 +278,6 @@ export async function runSimulator(
   );
 
   // ─── Publish simulator:started system message ─────────────────────
-  const sessionId = clientId;
   const startedMessage = JSON.stringify({
     event: "simulator:started",
     sessionId,

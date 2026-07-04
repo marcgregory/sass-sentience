@@ -97,7 +97,10 @@ async function main(): Promise<void> {
         const deviceCount = (payload.deviceCount ?? "?") as number | string;
         const prevCount = resetSimulatorDevices();
         console.log(
-          `[simulator] reset session=${sessionId} previous=${prevCount} new=${deviceCount}`,
+          `[simulator] new session=${sessionId}`,
+        );
+        console.log(
+          `[registry] cleared previous simulator fleet (${prevCount} devices)`,
         );
         // Notify all connected clients that the simulator fleet was reset
         io.to(ROOMS.DASHBOARD).emit(EVENTS.SIMULATOR_RESET, {
