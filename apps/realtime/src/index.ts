@@ -32,11 +32,24 @@ import {
   toDiagnosticEvent,
   toAlertEvent,
 } from "./normalizer";
-import { updateDevice, getDevice, deviceCount, pruneStaleDevices } from "./device-registry";
+import {
+  updateDevice,
+  getDevice,
+  pruneStaleDevicesDetailed,
+} from "./device-registry";
 import type { DeviceStatusValue } from "./socket-server";
 
 // ─── Bootstrap ─────────────────────────────────────────────────────
 
+function formatDurationMs(ms: number): string {
+  const seconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+
+  if (minutes === 0) return `${remainingSeconds}s`;
+  if (remainingSeconds === 0) return `${minutes}m`;
+  return `${minutes}m${remainingSeconds}s`;
+}
 async function main(): Promise<void> {
   const env = loadEnv();
 
@@ -106,7 +119,9 @@ async function main(): Promise<void> {
         case "telemetry": {
           const telemetryEvent = toTelemetryEvent(deviceId, payload);
           if (env.LOG_LEVEL === "debug") {
-            console.log(`[telemetry] ${deviceId} → battery=${telemetryEvent.battery}%`);
+            console.log(
+              `[telemetry] ${deviceId} → battery=${telemetryEvent.battery}%`,
+            );
           }
           emitToDevice(EVENTS.DEVICE_TELEMETRY, telemetryEvent);
           break;
@@ -122,7 +137,9 @@ async function main(): Promise<void> {
           // Never emit status events when status hasn't actually changed
           if (statusEvent.status === statusEvent.previousStatus) {
             if (env.LOG_LEVEL === "debug") {
-              console.log(`[status] ${deviceId}: ${statusEvent.status} → ${statusEvent.status} (skipped — no change)`);
+              console.log(
+                `[status] ${deviceId}: ${statusEvent.status} → ${statusEvent.status} (skipped — no change)`,
+              );
             }
             break;
           }
@@ -148,7 +165,9 @@ async function main(): Promise<void> {
         case "events": {
           // Emit as event stream
           const eventStreamEvent = toEventStreamEvent(deviceId, payload);
-          console.log(`[event]   ${deviceId}: ${payload.eventType ?? "unknown"}`);
+          console.log(
+            `[event]   ${deviceId}: ${payload.eventType ?? "unknown"}`,
+          );
           emitToDevice(EVENTS.EVENT_NEW, eventStreamEvent);
 
           // If it's an alert-worthy condition, also emit alert:created
@@ -195,13 +214,23 @@ async function main(): Promise<void> {
 
   // Periodic status log & stale-device cleanup
   setInterval(() => {
-    const removed = pruneStaleDevices(env.DEVICE_TTL_MS);
-    if (removed > 0) {
-      console.log(`[cleanup] ${removed} stale device(s) removed`);
+    const cleanup = pruneStaleDevicesDetailed(env.DEVICE_TTL_MS);
+    if (cleanup.removed > 0) {
+      const oldest =
+        cleanup.oldestRemovedAgeMs === null
+          ? "n/a"
+          : formatDurationMs(cleanup.oldestRemovedAgeMs);
+      console.log(
+        `[cleanup] removed=${cleanup.removed}` +
+          ` remaining=${cleanup.remaining}` +
+          ` ttl=${formatDurationMs(cleanup.ttlMs)}` +
+          ` oldest=${oldest}`,
+      );
     }
     const clients = io.engine.clientsCount;
-    const devices = deviceCount();
-    console.log(`[heartbeat] ${clients} client(s), ${devices} device(s) tracked`);
+    console.log(
+      `[heartbeat] ${clients} client(s), ${cleanup.remaining} device(s) tracked`,
+    );
   }, 60_000);
 }
 

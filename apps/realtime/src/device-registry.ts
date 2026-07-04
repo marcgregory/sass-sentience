@@ -21,11 +21,24 @@ export interface DeviceRegistration {
   lastSeen: number;
 }
 
+export interface PruneStaleDevicesResult {
+  removed: number;
+  remaining: number;
+  ttlMs: number;
+  oldestRemovedAgeMs: number | null;
+}
+
 const registry = new Map<string, DeviceRegistration>();
 
 export function updateDevice(
   deviceId: string,
-  data: { siteId?: string; siteName?: string; estateId?: string; estateName?: string; status?: string },
+  data: {
+    siteId?: string;
+    siteName?: string;
+    estateId?: string;
+    estateName?: string;
+    status?: string;
+  },
 ): DeviceRegistration {
   const existing = registry.get(deviceId);
 
@@ -66,18 +79,41 @@ export function deviceCount(): number {
 
 /**
  * Remove devices whose `lastSeen` is older than `ttlMs` from now.
- * Returns the number of devices removed.
  */
-export function pruneStaleDevices(ttlMs: number): number {
-  const cutoff = Date.now() - ttlMs;
+export function pruneStaleDevicesDetailed(
+  ttlMs: number,
+): PruneStaleDevicesResult {
+  const now = Date.now();
+  const cutoff = now - ttlMs;
   let removed = 0;
+  let oldestRemovedAgeMs: number | null = null;
+
   for (const [id, entry] of registry) {
     if (entry.lastSeen < cutoff) {
       registry.delete(id);
       removed++;
+
+      const ageMs = now - entry.lastSeen;
+      oldestRemovedAgeMs =
+        oldestRemovedAgeMs === null
+          ? ageMs
+          : Math.max(oldestRemovedAgeMs, ageMs);
     }
   }
-  return removed;
+
+  return {
+    removed,
+    remaining: registry.size,
+    ttlMs,
+    oldestRemovedAgeMs,
+  };
+}
+
+/**
+ * Remove stale devices and return only the count.
+ */
+export function pruneStaleDevices(ttlMs: number): number {
+  return pruneStaleDevicesDetailed(ttlMs).removed;
 }
 
 /**

@@ -7,6 +7,7 @@ import {
   getDevicesByEstate,
   deviceCount,
   pruneStaleDevices,
+  pruneStaleDevicesDetailed,
   resetRegistry,
 } from "../device-registry";
 
@@ -94,6 +95,18 @@ describe("device-registry", () => {
       // TTL of 60s — entry was just created, should survive
       expect(pruneStaleDevices(60_000)).toBe(0);
       expect(deviceCount()).toBe(1);
+    });
+
+    it("returns cleanup details for logging", () => {
+      updateDevice("dev-1", {});
+      updateDevice("dev-2", {});
+
+      const result = pruneStaleDevicesDetailed(-1);
+
+      expect(result.removed).toBe(2);
+      expect(result.remaining).toBe(0);
+      expect(result.ttlMs).toBe(-1);
+      expect(result.oldestRemovedAgeMs).toBeGreaterThanOrEqual(0);
     });
 
     it("returns 0 when registry is empty", () => {

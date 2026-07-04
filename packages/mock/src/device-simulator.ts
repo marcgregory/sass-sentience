@@ -97,7 +97,9 @@ function formatUptime(seconds: number): string {
 
 // ─── Simulator Engine ──────────────────────────────────────────────
 
-export async function runSimulator(options: SimulatorOptions = {}): Promise<void> {
+export async function runSimulator(
+  options: SimulatorOptions = {},
+): Promise<void> {
   const {
     deviceCount = 5,
     brokerUrl = process.env.MQTT_URL ?? "mqtt://localhost:1883",
@@ -107,7 +109,9 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
     clientId = `sentience-sim-${Math.random().toString(36).slice(2, 8)}`,
   } = options;
 
-  console.log(`[simulator] Connecting to ${brokerUrl} (client: ${clientId})...`);
+  console.log(
+    `[simulator] Connecting to ${brokerUrl} (client: ${clientId})...`,
+  );
   console.log(`[simulator] Spawning ${deviceCount} simulated devices...`);
 
   const client = await mqtt.connectAsync(brokerUrl, {
@@ -116,25 +120,54 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
     reconnectPeriod: 5_000,
   });
 
-  console.log(`[simulator] Connected. Publishing on sentience/devices/{id}/...`);
+  console.log(
+    `[simulator] Connected. Publishing on ${topicPrefix}/devices/{id}/...`,
+  );
 
   // ─── Publish Tracking & Health Logging ─────────────────────────────
   let publishCount = 0;
   let lastPublishTime = Date.now();
   let reconnectAttempts = 0;
+  let publishFailureCount = 0;
+  let lastPublishFailureTime: number | null = null;
   let lastHealthCount = 0;
   let mqttConnected = true;
   const startTime = Date.now();
 
-  // Wrap client.publishAsync so every publish is tracked automatically
-  const originalPublish: typeof client.publishAsync = client.publishAsync.bind(client);
-  client.publishAsync = (topic: string, payload: string | Buffer, opts?: mqtt.IClientPublishOptions) => {
-    return originalPublish(topic, payload, opts).then((result) => {
-      publishCount++;
-      lastPublishTime = Date.now();
-      mqttConnected = true;
-      return result;
-    });
+  const formatPublishError = (error: unknown): string =>
+    error instanceof Error ? error.message : String(error);
+
+  const logAsyncPublishFailure = (label: string, error: unknown) => {
+    console.error(
+      `[simulator] publish failed (${label}): ${formatPublishError(error)}`,
+    );
+  };
+
+  const trackPublish = <T>(label: string, promise: Promise<T>): void => {
+    void promise.catch((error) => logAsyncPublishFailure(label, error));
+  };
+
+  // Wrap client.publishAsync so every publish is tracked automatically.
+  const originalPublish: typeof client.publishAsync =
+    client.publishAsync.bind(client);
+  client.publishAsync = (
+    topic: string,
+    payload: string | Buffer,
+    opts?: mqtt.IClientPublishOptions,
+  ) => {
+    return originalPublish(topic, payload, opts)
+      .then((result) => {
+        publishCount++;
+        lastPublishTime = Date.now();
+        mqttConnected = true;
+        return result;
+      })
+      .catch((error) => {
+        publishFailureCount++;
+        lastPublishFailureTime = Date.now();
+        mqttConnected = client.connected;
+        throw error;
+      });
   };
 
   // MQTT connection event listeners for visibility
@@ -144,7 +177,9 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
   });
   client.on("reconnect", () => {
     reconnectAttempts++;
-    console.log(`[simulator] MQTT reconnecting (attempt ${reconnectAttempts})...`);
+    console.log(
+      `[simulator] MQTT reconnecting (attempt ${reconnectAttempts})...`,
+    );
   });
   client.on("close", () => {
     mqttConnected = false;
@@ -159,28 +194,33 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
   });
 
   // Create simulated devices
-  const devices: SimulatedDevice[] = Array.from({ length: deviceCount }, (_, i) => {
-    const device = generateDevice();
-    const ext = device as unknown as Record<string, unknown>;
-    return {
-      device,
-      status: device.status,
-      battery: isExternallyPowered(device.type) ? null : device.telemetry.battery,
-      uptime: device.telemetry.uptime,
-      signal: device.telemetry.signalStrength,
-      temperature: device.telemetry.temperature,
-      inputState: device.io.inputs.some((inp) => inp.state),
-      outputState: device.io.outputs.some((out) => out.state),
-      fault: device.status === "fault",
-      warning: device.status === "warning",
-      siteId: (ext.siteId as string) ?? device.siteId,
-      siteName: (ext.siteName as string) ?? "Unknown Site",
-      estateId: (ext.estateId as string) ?? "unknown",
-      estateName: (ext.estateName as string) ?? "Unknown Estate",
-      telemetryTimer: null,
-      eventTimer: null,
-    };
-  });
+  const devices: SimulatedDevice[] = Array.from(
+    { length: deviceCount },
+    (_, i) => {
+      const device = generateDevice();
+      const ext = device as unknown as Record<string, unknown>;
+      return {
+        device,
+        status: device.status,
+        battery: isExternallyPowered(device.type)
+          ? null
+          : device.telemetry.battery,
+        uptime: device.telemetry.uptime,
+        signal: device.telemetry.signalStrength,
+        temperature: device.telemetry.temperature,
+        inputState: device.io.inputs.some((inp) => inp.state),
+        outputState: device.io.outputs.some((out) => out.state),
+        fault: device.status === "fault",
+        warning: device.status === "warning",
+        siteId: (ext.siteId as string) ?? device.siteId,
+        siteName: (ext.siteName as string) ?? "Unknown Site",
+        estateId: (ext.estateId as string) ?? "unknown",
+        estateName: (ext.estateName as string) ?? "Unknown Estate",
+        telemetryTimer: null,
+        eventTimer: null,
+      };
+    },
+  );
 
   // Publish initial status for every device
   for (const sd of devices) {
@@ -188,7 +228,9 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
     // Brief stagger to avoid thundering herd on connect
     await new Promise((r) => setTimeout(r, 100));
   }
-  console.log(`[simulator] Published initial status for ${deviceCount} devices.`);
+  console.log(
+    `[simulator] Published initial status for ${deviceCount} devices.`,
+  );
 
   // ─── Telemetry Loop ──────────────────────────────────────────────
 
@@ -196,14 +238,17 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
     const tick = () => {
       // Battery drain — skip for externally-powered devices
       if (sd.battery !== null) {
-        const drain = sd.status === "fault" ? 0.5 : sd.status === "warning" ? 0.2 : 0.05;
+        const drain =
+          sd.status === "fault" ? 0.5 : sd.status === "warning" ? 0.2 : 0.05;
         sd.battery = Math.max(0, sd.battery - drain * (0.5 + Math.random()));
       }
 
       sd.uptime += Math.round(telemetryInterval * (0.8 + Math.random() * 0.4));
 
       // Simulate signal fluctuation
-      sd.signal = Math.round(Math.min(-40, Math.max(-120, sd.signal + (Math.random() - 0.5) * 3)));
+      sd.signal = Math.round(
+        Math.min(-40, Math.max(-120, sd.signal + (Math.random() - 0.5) * 3)),
+      );
 
       // Simulate temperature drift
       sd.temperature += (Math.random() - 0.5) * 0.8;
@@ -222,16 +267,33 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
           sd.fault = nextStatus === "fault";
           sd.warning = nextStatus === "warning";
           // Publish status change as an event
-          publishEvent(client, sd, `status: ${prevStatus} → ${nextStatus}`, topicPrefix);
-          publishStatus(client, sd, topicPrefix);
+          trackPublish(
+            `event status-change ${sd.device.id}`,
+            publishEvent(
+              client,
+              sd,
+              `status: ${prevStatus} → ${nextStatus}`,
+              topicPrefix,
+            ),
+          );
+          trackPublish(
+            `status ${sd.device.id}`,
+            publishStatus(client, sd, topicPrefix),
+          );
         }
       }
 
       // Publish telemetry
-      publishTelemetry(client, sd, topicPrefix);
+      trackPublish(
+        `telemetry ${sd.device.id}`,
+        publishTelemetry(client, sd, topicPrefix),
+      );
     };
 
-    sd.telemetryTimer = setInterval(tick, jitterInterval(telemetryInterval * 1000));
+    sd.telemetryTimer = setInterval(
+      tick,
+      jitterInterval(telemetryInterval * 1000),
+    );
   }
 
   // ─── Periodic Event Publishing ──────────────────────────────────
@@ -240,20 +302,29 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
   for (const sd of devices) {
     const eventTick = () => {
       if (sd.battery !== null && sd.battery < 15 && Math.random() < 0.3) {
-        publishEvent(client, sd, "battery_low", topicPrefix, {
-          battery: sd.battery,
-          threshold: 15,
-        });
+        trackPublish(
+          `event battery_low ${sd.device.id}`,
+          publishEvent(client, sd, "battery_low", topicPrefix, {
+            battery: sd.battery,
+            threshold: 15,
+          }),
+        );
       }
       if (sd.signal < -100 && Math.random() < 0.3) {
-        publishEvent(client, sd, "signal_weak", topicPrefix, {
-          signal: sd.signal,
-          threshold: -100,
-        });
+        trackPublish(
+          `event signal_weak ${sd.device.id}`,
+          publishEvent(client, sd, "signal_weak", topicPrefix, {
+            signal: sd.signal,
+            threshold: -100,
+          }),
+        );
       }
     };
 
-    sd.eventTimer = setInterval(eventTick, jitterInterval(telemetryInterval * 2000));
+    sd.eventTimer = setInterval(
+      eventTick,
+      jitterInterval(telemetryInterval * 2000),
+    );
   }
 
   // ─── Graceful Shutdown ──────────────────────────────────────────
@@ -265,7 +336,12 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
     for (const sd of devices) {
       const prevStatus = sd.status;
       sd.status = "offline";
-      await publishEvent(client, sd, `shutdown: ${prevStatus} → offline`, topicPrefix);
+      await publishEvent(
+        client,
+        sd,
+        `shutdown: ${prevStatus} → offline`,
+        topicPrefix,
+      );
       await publishStatus(client, sd, topicPrefix);
     }
 
@@ -290,26 +366,34 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
     const sinceLastPublish = (now - lastPublishTime) / 1000;
     const uptimeSeconds = (now - startTime) / 1000;
     const activeDevices = devices.filter((d) => d.status !== "offline").length;
-    const pausedDevices = devices.filter((d) => d.status === "offline" || d.status === "fault").length;
+    const pausedDevices = devices.filter(
+      (d) => d.status === "offline" || d.status === "fault",
+    ).length;
     const uptimeStr = formatUptime(uptimeSeconds);
-    const rate = Math.round((publishCount - lastHealthCount) / 60);
+    const publishesSinceLastHealth = publishCount - lastHealthCount;
+    const lastFailureAgo =
+      lastPublishFailureTime === null
+        ? "never"
+        : `${Math.round((now - lastPublishFailureTime) / 1000)}s ago`;
     lastHealthCount = publishCount;
 
     console.log(
       `[simulator] health:` +
-      ` ${activeDevices}/${deviceCount} active` +
-      ` | ${pausedDevices} paused` +
-      ` | ${rate} msg/s` +
-      ` | ${publishCount} total` +
-      ` | last ${sinceLastPublish.toFixed(0)}s ago` +
-      ` | MQTT ${mqttConnected ? "connected" : "disconnected"}` +
-      ` | reconnects: ${reconnectAttempts}` +
-      ` | uptime=${uptimeStr}`,
+        ` ${activeDevices}/${deviceCount} active` +
+        ` | ${pausedDevices} paused` +
+        ` | rate=${publishesSinceLastHealth}/min` +
+        ` | ${publishCount} total` +
+        ` | failures=${publishFailureCount}` +
+        ` | last ${sinceLastPublish.toFixed(0)}s ago` +
+        ` | MQTT ${mqttConnected ? "connected" : "disconnected"}` +
+        ` | reconnects: ${reconnectAttempts}` +
+        ` | last failure=${lastFailureAgo}` +
+        ` | uptime=${uptimeStr}`,
     );
-    if (sinceLastPublish > 60) {
+    if (sinceLastPublish > 120) {
       console.warn(
         `[simulator] WARNING: No publish succeeded for ${sinceLastPublish.toFixed(0)}s` +
-        ` — MQTT ${mqttConnected ? "connected" : "disconnected"}, ${reconnectAttempts} reconnects`,
+          ` — MQTT ${mqttConnected ? "connected" : "disconnected"}, ${reconnectAttempts} reconnects`,
       );
     }
   }, 60_000);
@@ -344,7 +428,11 @@ function basePayload(sd: SimulatedDevice): Record<string, unknown> {
   };
 }
 
-async function publishTelemetry(client: mqtt.MqttClient, sd: SimulatedDevice, prefix: string): Promise<void> {
+async function publishTelemetry(
+  client: mqtt.MqttClient,
+  sd: SimulatedDevice,
+  prefix: string,
+): Promise<void> {
   await client.publishAsync(
     mqttTopic(sd.device.id, "telemetry", prefix),
     JSON.stringify(basePayload(sd)),
@@ -352,11 +440,15 @@ async function publishTelemetry(client: mqtt.MqttClient, sd: SimulatedDevice, pr
   );
 }
 
-async function publishStatus(client: mqtt.MqttClient, sd: SimulatedDevice, prefix: string): Promise<void> {
+async function publishStatus(
+  client: mqtt.MqttClient,
+  sd: SimulatedDevice,
+  prefix: string,
+): Promise<void> {
   await client.publishAsync(
     mqttTopic(sd.device.id, "status", prefix),
     JSON.stringify(basePayload(sd)),
-    { qos: 2, retain: true },  // Retain so late subscribers get the last known status
+    { qos: 2, retain: true }, // Retain so late subscribers get the last known status
   );
 }
 
@@ -395,7 +487,7 @@ function computeNextStatus(current: DeviceStatus): DeviceStatus {
       // Warning tends to self-clear (~25%), escalate (~10%), or stay (~65%)
       if (r < 0.25) return "online";
       if (r < 0.35) return "fault";
-      if (r < 0.40) return "offline";
+      if (r < 0.4) return "offline";
       return "warning";
     case "fault":
       // Fault autocorrects (~15%), degrades to offline (~10%), or stays (~75%)
@@ -406,7 +498,7 @@ function computeNextStatus(current: DeviceStatus): DeviceStatus {
     case "offline":
       // Offline comes back eventually (~35%), or stays (~65%)
       if (r < 0.35) return "online";
-      if (r < 0.40) return "warning";
+      if (r < 0.4) return "warning";
       if (r < 0.45) return "fault";
       return "offline";
   }
@@ -424,6 +516,15 @@ const isMainModule =
     process.argv[1].endsWith("device-simulator.js"));
 
 if (isMainModule) {
+  process.on("unhandledRejection", (reason) => {
+    console.error("[simulator] Unhandled promise rejection:", reason);
+  });
+
+  process.on("uncaughtException", (err) => {
+    console.error("[simulator] Uncaught exception:", err);
+    process.exit(1);
+  });
+
   const args = process.argv.slice(2);
   const getArg = (name: string, fallback: string): string => {
     const idx = args.indexOf(name);
@@ -436,8 +537,10 @@ if (isMainModule) {
 
   const opts: SimulatorOptions = {};
   if (hasCountFlag) opts.deviceCount = parseInt(getArg("--count", "5"), 10);
-  if (hasBrokerFlag) opts.brokerUrl = getArg("--broker", "mqtt://localhost:1883");
-  if (hasTopicPrefixFlag) opts.topicPrefix = getArg("--topic-prefix", "sentience");
+  if (hasBrokerFlag)
+    opts.brokerUrl = getArg("--broker", "mqtt://localhost:1883");
+  if (hasTopicPrefixFlag)
+    opts.topicPrefix = getArg("--topic-prefix", "sentience");
 
   runSimulator(opts).catch((err) => {
     console.error("[simulator] Fatal error:", err);
