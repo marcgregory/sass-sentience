@@ -122,6 +122,7 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
   let publishCount = 0;
   let lastPublishTime = Date.now();
   let reconnectAttempts = 0;
+  let lastHealthCount = 0;
   let mqttConnected = true;
   const startTime = Date.now();
 
@@ -291,12 +292,15 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
     const activeDevices = devices.filter((d) => d.status !== "offline").length;
     const pausedDevices = devices.filter((d) => d.status === "offline" || d.status === "fault").length;
     const uptimeStr = formatUptime(uptimeSeconds);
+    const rate = Math.round((publishCount - lastHealthCount) / 60);
+    lastHealthCount = publishCount;
 
     console.log(
       `[simulator] health:` +
       ` ${activeDevices}/${deviceCount} active` +
       ` | ${pausedDevices} paused` +
-      ` | ${publishCount} publishes` +
+      ` | ${rate} msg/s` +
+      ` | ${publishCount} total` +
       ` | last ${sinceLastPublish.toFixed(0)}s ago` +
       ` | MQTT ${mqttConnected ? "connected" : "disconnected"}` +
       ` | reconnects: ${reconnectAttempts}` +
