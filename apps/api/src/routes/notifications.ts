@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db } from "../db";
 import { notifications } from "../db/schema";
-import { eq, and, count, desc, SQL } from "drizzle-orm";
+import { eq, and, count, desc, sql, SQL } from "drizzle-orm";
 import { requireAuth, type JwtPayload } from "../middleware/auth";
 import { emitNotification } from "../socket/notifications-emitter";
 
@@ -77,6 +77,19 @@ export async function notificationRoutes(app: FastifyInstance) {
     }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // DEBUG: check what the API actually sees
+    const debugTotal = await db
+      .select({ total: sql<number>`count(*)` })
+      .from(notifications);
+    console.log("[DEBUG] TOTAL notifications:", JSON.stringify(debugTotal));
+
+    const debugMine = await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, user.sub));
+    console.log("[DEBUG] user.sub:", user.sub);
+    console.log("[DEBUG] MINE count:", debugMine.length);
 
     const [{ total }] = await db
       .select({ total: count() })
