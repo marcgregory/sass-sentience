@@ -109,6 +109,44 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
 
   console.log(`[simulator] Connected. Publishing on sentience/devices/{id}/...`);
 
+  // ─── Publish Tracking & Health Logging ─────────────────────────────
+  let publishCount = 0;
+  let lastPublishTime = Date.now();
+  let reconnectAttempts = 0;
+  let mqttConnected = true;
+
+  // Wrap client.publishAsync so every publish is tracked automatically
+  const originalPublish: typeof client.publishAsync = client.publishAsync.bind(client);
+  client.publishAsync = (topic: string, payload: string | Buffer, opts?: mqtt.IClientPublishOptions) => {
+    return originalPublish(topic, payload, opts).then((result) => {
+      publishCount++;
+      lastPublishTime = Date.now();
+      mqttConnected = true;
+      return result;
+    });
+  };
+
+  // MQTT connection event listeners for visibility
+  client.on("connect", () => {
+    mqttConnected = true;
+    console.log(`[simulator] MQTT connected`);
+  });
+  client.on("reconnect", () => {
+    reconnectAttempts++;
+    console.log(`[simulator] MQTT reconnecting (attempt ${reconnectAttempts})...`);
+  });
+  client.on("close", () => {
+    mqttConnected = false;
+    console.log(`[simulator] MQTT connection closed`);
+  });
+  client.on("offline", () => {
+    mqttConnected = false;
+    console.log(`[simulator] MQTT offline`);
+  });
+  client.on("error", (err) => {
+    console.error(`[simulator] MQTT error: ${err.message}`);
+  });
+
   // Create simulated devices
   const devices: SimulatedDevice[] = Array.from({ length: deviceCount }, (_, i) => {
     const device = generateDevice();
@@ -225,6 +263,7 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
       if (sd.telemetryTimer) clearInterval(sd.telemetryTimer);
       if (sd.eventTimer) clearInterval(sd.eventTimer);
     }
+    clearInterval(healthInterval);
 
     await client.endAsync(true);
     console.log("[simulator] Disconnected. Goodbye.");
@@ -233,6 +272,24 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
 
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
+
+  // ─── Health Log Interval (every 60s) ──────────────────────────────
+  const healthInterval = setInterval(() => {
+    const now = Date.now();
+    const sinceLastPublish = (now - lastPublishTime) / 1000;
+    console.log(
+      `[simulator] health: ${publishCount} publishes, last ${sinceLastPublish.toFixed(0)}s ago` +
+      ` | MQTT ${mqttConnected ? "connected" : "disconnected"}` +
+      ` | reconnects: ${reconnectAttempts}` +
+      ` | devices: ${deviceCount}`,
+    );
+    if (sinceLastPublish > 60) {
+      console.warn(
+        `[simulator] WARNING: No publish succeeded for ${sinceLastPublish.toFixed(0)}s` +
+        ` — MQTT ${mqttConnected ? "connected" : "disconnected"}, ${reconnectAttempts} reconnects`,
+      );
+    }
+  }, 60_000);
 
   // Keep the process alive
   console.log(`[simulator] Running. Press Ctrl+C to stop.`);
