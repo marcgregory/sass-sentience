@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import {
   Card,
@@ -9,11 +9,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RequirePermission } from "@/components/shared/require-permission";
 import {
-  Activity,
   Wifi,
   Server,
   Cpu,
@@ -29,6 +27,10 @@ import {
 } from "lucide-react";
 import type { PlatformService, ServiceStatus } from "@sentience/types";
 import { useApiHealth } from "@/hooks/use-api-health";
+import { useSimulatorRestart } from "@/hooks/use-simulator-restart";
+import { ApiError } from "@/lib/api-client";
+import { useAuthStore } from "@/stores/auth-store";
+import { useNotificationStore } from "@/stores/notification-store";
 
 const statusConfig: Record<ServiceStatus, { label: string; color: string; bgColor: string; icon: React.ComponentType<{ className?: string }> }> = {
   healthy: { label: "Healthy", color: "text-emerald-600 dark:text-emerald-400", bgColor: "bg-emerald-100 dark:bg-emerald-900/50", icon: CheckCircle2 },
@@ -122,9 +124,14 @@ export default function PlatformHealthPage() {
   const [services, setServices] = useState<PlatformService[]>(initialServices);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [restartToast, setRestartToast] = useState<{ title: string; message: string; priority: "normal" | "high" } | null>(null);
+  const currentUser = useAuthStore((state) => state.user);
+  const addNotification = useNotificationStore((state) => state.addNotification);
+  const simulatorRestart = useSimulatorRestart();
+  const canRestartSimulator = currentUser?.role === "admin";
 
   // Poll the real API health endpoint
-  const { data: apiHealth, isFetching: apiHealthFetching, refetch: refetchApiHealth } = useApiHealth();
+  const { data: apiHealth, refetch: refetchApiHealth } = useApiHealth();
 
   // Derive the API service status from real health data
   const apiServiceStatus: ServiceStatus = !apiHealth
@@ -185,6 +192,45 @@ export default function PlatformHealthPage() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (!restartToast) return;
+    const timeout = window.setTimeout(() => setRestartToast(null), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [restartToast]);
+
+  const notifyRestart = (title: string, message: string, priority: "normal" | "high") => {
+    setRestartToast({ title, message, priority });
+    addNotification({
+      id: `sim-restart-${Date.now()}`,
+      userId: currentUser?.id ?? "system",
+      title,
+      message,
+      priority,
+      category: "system",
+      isRead: false,
+      createdAt: new Date().toISOString(),
+    });
+  };
+
+  const handleRestartSimulator = () => {
+    simulatorRestart.mutate(undefined, {
+      onSuccess: (data) => {
+        notifyRestart(
+          "Simulator restart requested",
+          data.deployId
+            ? `Render accepted the simulator restart request (${data.deployId}).`
+            : "Render accepted the simulator restart request.",
+          "normal",
+        );
+      },
+      onError: (error) => {
+        const message = error instanceof ApiError
+          ? error.message
+          : "Unable to restart the simulator service.";
+        notifyRestart("Simulator restart failed", message, "high");
+      },
+    });
+  };
   const handleRefresh = () => {
     setRefreshing(true);
     refetchApiHealth().finally(() => {
@@ -307,14 +353,54 @@ export default function PlatformHealthPage() {
                       </div>
                     ))}
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-3">
-                    Last checked: {new Date(service.lastCheck).toLocaleTimeString()}
-                  </p>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[10px] text-muted-foreground">
+                      Last checked: {new Date(service.lastCheck).toLocaleTimeString()}
+                    </p>
+                    {service.id === "simulator" && canRestartSimulator && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRestartSimulator}
+                        disabled={simulatorRestart.isPending}
+                        aria-label="Restart simulator service"
+                      >
+                        {simulatorRestart.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4" />
+                        )}
+                        Restart Simulator
+                      </Button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             );
           })}
         </div>
+
+        {restartToast && (
+          <div
+            role={restartToast.priority === "high" ? "alert" : "status"}
+            className={`fixed bottom-4 right-4 z-50 w-[min(22rem,calc(100vw-2rem))] rounded-md border bg-background p-3 shadow-lg ${
+              restartToast.priority === "high" ? "border-red-200 dark:border-red-900" : "border-emerald-200 dark:border-emerald-900"
+            }`}
+          >
+            <div className="flex items-start gap-2">
+              {restartToast.priority === "high" ? (
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+              ) : (
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+              )}
+              <div>
+                <p className="text-sm font-medium">{restartToast.title}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{restartToast.message}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* System metrics */}
         <Card>

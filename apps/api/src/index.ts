@@ -33,6 +33,7 @@ import { alertRoutes } from "./routes/alerts";
 import { reportRoutes } from "./routes/reports";
 import { settingRoutes } from "./routes/settings";
 import { auditLogRoutes } from "./routes/audit-logs";
+import { adminRoutes } from "./routes/admin";
 
 let app: FastifyInstance | undefined;
 
@@ -104,6 +105,7 @@ async function main() {
   await app.register(reportRoutes, { prefix: "/api/reports" });
   await app.register(settingRoutes, { prefix: "/api/settings" });
   await app.register(auditLogRoutes, { prefix: "/api/audit-logs" });
+  await app.register(adminRoutes, { prefix: "/api/admin" });
 
   // ─── Socket.IO (shares the same HTTP server) ────────────────────
 

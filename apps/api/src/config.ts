@@ -8,6 +8,8 @@ const envSchema = z.object({
   HOST: z.string().default("0.0.0.0"),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
   RATE_LIMIT_MAX: z.coerce.number().default(100),
+  RENDER_API_KEY: z.string().optional(),
+  RENDER_SIMULATOR_SERVICE_ID: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);
