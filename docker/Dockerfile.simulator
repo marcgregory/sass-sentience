@@ -1,0 +1,36 @@
+# Dockerfile.simulator
+#
+# MQTT Device Simulator — standalone service for Render/Railway/Fly.io
+#
+# Publishes simulated IoT device telemetry, status, and events to a
+# shared MQTT broker so the realtime bridge can consume them.
+#
+# Usage:
+#   docker build -f docker/Dockerfile.simulator -t sentience-simulator .
+#   docker run -e MQTT_URL=mqtt://broker.hivemq.com:1883 sentience-simulator
+#
+# Environment variables:
+#   MQTT_URL              — MQTT broker URL (default: mqtt://broker.hivemq.com:1883)
+#   MQTT_TOPIC_PREFIX     — Topic prefix  (default: sentience)
+#   SIMULATOR_DEVICE_COUNT— Number of simulated devices (default: 55)
+
+FROM node:20-alpine AS base
+RUN npm install -g pnpm@10.14.0
+WORKDIR /app
+
+# ─── Install dependencies ──────────────────────────────────────────
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY packages/types/package.json packages/types/
+COPY packages/mock/package.json packages/mock/
+RUN pnpm install --frozen-lockfile
+
+# ─── Copy source code ──────────────────────────────────────────────
+COPY packages/types/src  packages/types/src
+COPY packages/mock/src   packages/mock/src
+
+# ─── Runtime ────────────────────────────────────────────────────────
+ENV MQTT_URL=mqtt://broker.hivemq.com:1883
+ENV MQTT_TOPIC_PREFIX=sentience
+ENV SIMULATOR_DEVICE_COUNT=55
+
+CMD pnpm --filter @sentience/mock simulate -- --count $SIMULATOR_DEVICE_COUNT
