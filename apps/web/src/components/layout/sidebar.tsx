@@ -100,7 +100,7 @@ export function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-2 space-y-1">
+        <nav aria-label="Main navigation" className="flex-1 overflow-y-auto p-2 space-y-1">
           {navigation.length === 0 && (
             <p className="px-3 text-xs text-muted-foreground">No modules available</p>
           )}
@@ -134,6 +134,7 @@ export function Sidebar() {
             size="sm"
             className="w-full justify-center"
             onClick={toggleSidebarCollapsed}
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {sidebarCollapsed ? (
               <ChevronRight className="h-4 w-4" />

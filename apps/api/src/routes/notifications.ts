@@ -4,8 +4,46 @@ import { db } from "../db";
 import { notifications } from "../db/schema";
 import { eq, and, count, desc, SQL } from "drizzle-orm";
 import { requireAuth, type JwtPayload } from "../middleware/auth";
+import { emitNotification } from "../socket/notifications-emitter";
+
+const createNotificationSchema = z.object({
+  userId: z.string().uuid(),
+  title: z.string().min(1).max(255),
+  message: z.string().min(1),
+  priority: z.enum(["low", "normal", "high", "critical"]).default("normal"),
+  category: z.enum(["alert", "device", "system", "report", "user", "maintenance"]).default("system"),
+  link: z.string().url().optional(),
+});
 
 export async function notificationRoutes(app: FastifyInstance) {
+  // Create a new notification (admin or system internal)
+  app.post("/", { preHandler: [requireAuth] }, async (request, reply) => {
+    const body = createNotificationSchema.parse(request.body);
+
+    const [notification] = await db
+      .insert(notifications)
+      .values({
+        userId: body.userId,
+        title: body.title,
+        message: body.message,
+        priority: body.priority,
+        category: body.category,
+        link: body.link ?? null,
+      })
+      .returning();
+
+    // Emit live event through the bridge
+    emitNotification({
+      notificationId: notification.id,
+      userId: notification.userId,
+      title: notification.title,
+      message: notification.message,
+      priority: notification.priority as "low" | "normal" | "high" | "critical",
+      timestamp: notification.createdAt.toISOString(),
+    });
+
+    return reply.status(201).send(notification);
+  });
   // List notifications for the current user
   app.get("/", { preHandler: [requireAuth] }, async (request, reply) => {
     const user = request.user as JwtPayload;

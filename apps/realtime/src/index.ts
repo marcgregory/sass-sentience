@@ -37,6 +37,9 @@ import {
   getDevice,
   pruneStaleDevicesDetailed,
   resetSimulatorDevices,
+  setSimulatorSession,
+  getSimulatorSession,
+  shouldDropStaleMessage,
 } from "./device-registry";
 import type { DeviceStatusValue } from "./socket-server";
 
@@ -96,6 +99,7 @@ async function main(): Promise<void> {
         const sessionId = (payload.sessionId ?? "?") as string;
         const deviceCount = (payload.deviceCount ?? "?") as number | string;
         const prevCount = resetSimulatorDevices();
+        setSimulatorSession(sessionId);
         console.log(
           `[simulator] new session=${sessionId}`,
         );
@@ -114,6 +118,18 @@ async function main(): Promise<void> {
     },
 
     onMessage: ({ deviceId, topicType, payload }) => {
+      // Drop stale messages from a previous simulator session
+      // (happens during rolling restarts when the old process is still publishing)
+      if (shouldDropStaleMessage(payload.sessionId)) {
+        if (env.LOG_LEVEL === "debug") {
+          console.log(
+            `[mqtt] dropped stale message ${topicType} from ${deviceId}` +
+            ` (session: ${payload.sessionId}, current: ${getSimulatorSession()})`,
+          );
+        }
+        return;
+      }
+
       // Track previous status for transition detection
       const prevReg = getDevice(deviceId);
       const prevStatus = prevReg?.status as DeviceStatusValue | undefined;

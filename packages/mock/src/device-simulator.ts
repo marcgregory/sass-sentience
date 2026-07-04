@@ -297,7 +297,7 @@ export async function runSimulator(
 
   // Publish initial status for every device
   for (const sd of devices) {
-    await publishStatus(client, sd, topicPrefix);
+    await publishStatus(client, sd, topicPrefix, sessionId);
     // Brief stagger to avoid thundering herd on connect
     await new Promise((r) => setTimeout(r, 100));
   }
@@ -347,11 +347,12 @@ export async function runSimulator(
               sd,
               `status: ${prevStatus} → ${nextStatus}`,
               topicPrefix,
+              sessionId,
             ),
           );
           trackPublish(
             `status ${sd.device.id}`,
-            publishStatus(client, sd, topicPrefix),
+            publishStatus(client, sd, topicPrefix, sessionId),
           );
         }
       }
@@ -359,7 +360,7 @@ export async function runSimulator(
       // Publish telemetry
       trackPublish(
         `telemetry ${sd.device.id}`,
-        publishTelemetry(client, sd, topicPrefix),
+        publishTelemetry(client, sd, topicPrefix, sessionId),
       );
     };
 
@@ -377,7 +378,7 @@ export async function runSimulator(
       if (sd.battery !== null && sd.battery < 15 && Math.random() < 0.3) {
         trackPublish(
           `event battery_low ${sd.device.id}`,
-          publishEvent(client, sd, "battery_low", topicPrefix, {
+          publishEvent(client, sd, "battery_low", topicPrefix, sessionId, {
             battery: sd.battery,
             threshold: 15,
           }),
@@ -386,7 +387,7 @@ export async function runSimulator(
       if (sd.signal < -100 && Math.random() < 0.3) {
         trackPublish(
           `event signal_weak ${sd.device.id}`,
-          publishEvent(client, sd, "signal_weak", topicPrefix, {
+          publishEvent(client, sd, "signal_weak", topicPrefix, sessionId, {
             signal: sd.signal,
             threshold: -100,
           }),
@@ -414,8 +415,9 @@ export async function runSimulator(
         sd,
         `shutdown: ${prevStatus} → offline`,
         topicPrefix,
+        sessionId,
       );
-      await publishStatus(client, sd, topicPrefix);
+      await publishStatus(client, sd, topicPrefix, sessionId);
     }
 
     // Clear timers
@@ -477,7 +479,7 @@ export async function runSimulator(
 
 // ─── Publish Functions ─────────────────────────────────────────────
 
-function basePayload(sd: SimulatedDevice): Record<string, unknown> {
+function basePayload(sd: SimulatedDevice, sessionId: string): Record<string, unknown> {
   return {
     deviceId: sd.device.id,
     deviceName: sd.device.name,
@@ -497,6 +499,7 @@ function basePayload(sd: SimulatedDevice): Record<string, unknown> {
     siteName: sd.siteName,
     estateId: sd.estateId,
     estateName: sd.estateName,
+    sessionId,
     timestamp: new Date().toISOString(),
   };
 }
@@ -505,10 +508,11 @@ async function publishTelemetry(
   client: mqtt.MqttClient,
   sd: SimulatedDevice,
   prefix: string,
+  sessionId: string,
 ): Promise<void> {
   await client.publishAsync(
     mqttTopic(sd.device.id, "telemetry", prefix),
-    JSON.stringify(basePayload(sd)),
+    JSON.stringify(basePayload(sd, sessionId)),
     { qos: 1 },
   );
 }
@@ -517,10 +521,11 @@ async function publishStatus(
   client: mqtt.MqttClient,
   sd: SimulatedDevice,
   prefix: string,
+  sessionId: string,
 ): Promise<void> {
   await client.publishAsync(
     mqttTopic(sd.device.id, "status", prefix),
-    JSON.stringify(basePayload(sd)),
+    JSON.stringify(basePayload(sd, sessionId)),
     { qos: 2, retain: true }, // Retain so late subscribers get the last known status
   );
 }
@@ -530,10 +535,11 @@ async function publishEvent(
   sd: SimulatedDevice,
   eventType: string,
   prefix: string,
+  sessionId: string,
   extra?: Record<string, unknown>,
 ): Promise<void> {
   const payload = JSON.stringify({
-    ...basePayload(sd),
+    ...basePayload(sd, sessionId),
     eventType,
     ...extra,
   });

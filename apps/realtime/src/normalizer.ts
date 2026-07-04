@@ -45,6 +45,9 @@ export interface MqttPayload {
   estateId?: string;
   estateName?: string;
 
+  // Simulator session tracking — used to discard stale messages during restarts
+  sessionId?: string;
+
   // Real-device fields (optional — older simulators don't set these)
   voltage?: number;
 

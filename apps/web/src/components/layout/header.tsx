@@ -78,6 +78,7 @@ export function Header() {
         size="icon"
         className="lg:hidden"
         onClick={() => setMobileMenuOpen(true)}
+        aria-label="Open navigation menu"
       >
         <Menu className="h-5 w-5" />
       </Button>
@@ -88,6 +89,7 @@ export function Header() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="search"
+            aria-label="Search across devices, sites, and alerts"
             placeholder="Search devices, sites, alerts..."
             className="w-full rounded-md border bg-background py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
@@ -125,6 +127,8 @@ export function Header() {
               : "text-muted-foreground"
           }`}
           onClick={toggleSimulatorMode}
+          aria-label={`${simulatorMode ? "Disable" : "Enable"} simulator mode`}
+          aria-pressed={simulatorMode}
         >
           <Cpu
             className={`h-3.5 w-3.5 ${simulatorMode ? "text-amber-500" : ""}`}
@@ -137,6 +141,7 @@ export function Header() {
           variant="ghost"
           size="icon"
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
         >
           {theme === "dark" ? (
             <Sun className="h-4 w-4" />
@@ -182,6 +187,9 @@ export function Header() {
               size="icon"
               className="rounded-full"
               onClick={() => setShowUserMenu(!showUserMenu)}
+              aria-label="Open user menu"
+              aria-expanded={showUserMenu}
+              aria-haspopup="true"
             >
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
                 {user?.name?.charAt(0).toUpperCase() ?? "U"}

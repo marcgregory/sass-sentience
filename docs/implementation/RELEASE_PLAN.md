@@ -31,11 +31,13 @@
 
 ### Blockers
 
+- [x] **Simulator session lifecycle** — stale-simulator devices no longer linger in the bridge registry during rolling restarts (sessionId tracking + stale-message drop)
+- [x] **Live Socket.IO notifications** — API emits `notification:new` events through the bridge for instant UI delivery
+- [x] **Security hardened** — JWT_SECRET has no default fallback; services refuse to start if missing
+- [x] **Accessibility baseline** — `aria-label` added to all icon-only buttons, sidebar `<nav>`, search inputs, user menu, and theme toggle
 - [ ] No High or Critical priority technical debt (see `TECHNICAL_DEBT.md`)
   - Remaining security debt rated Medium or Low
   - 6 pages still using partial mock data (API Keys, Notification Rules, Notifications, device detail tabs)
-- [ ] Accessibility baseline passes (keyboard navigation, focus management, ARIA labels on interactive elements)
-  - ~20 icon-only buttons still missing `aria-label`
 - [ ] Unit tests pass for all test suites
   - No E2E test infrastructure exists
   - Device detail page has no unit tests
@@ -68,12 +70,18 @@
 
 **Status:** ✅ Released as v1.0.0-rc.3 — 2026-07-04
 
+**Status:** ✅ Released as v1.0.0-rc.4 — 2026-07-05
+
 | Check | Status |
 |-------|--------|
 | All must-haves complete | ✅ 7/7 sprints |
 | Backend API (real) | ✅ PostgreSQL, Fastify, JWT |
 | Authentication (real) | ✅ bcrypt, JWT, Socket.IO auth |
 | RBAC enforced | ✅ Route guards, nav filtering, permission matrix |
+| Simulator session lifecycle | ✅ sessionId tracking + stale-message drop |
+| Live Socket.IO notifications | ✅ API bridge emitter + new POST endpoint |
+| Security hardened | ✅ JWT defaults removed (required at startup) |
+| Accessibility baseline | ✅ All interactive elements have `aria-label` |
 | Performance audits | ✅ Bundle, DB, API, realtime — all clean |
 | Security audits | ✅ 18 issues triaged, 8 fixed, 10 documented |
 | Documentation aligned | ✅ All docs verified against code |
@@ -86,18 +94,17 @@
 
 ## Decision Options
 
-### Option A: v1.0.0-rc.3 (Recommended)
+### Option A: v1.0.0-rc.4 (Recommended)
 
-Tag the current state as a **Release Candidate 3**. This is a production-quality build with real authentication, real API, real RBAC, hardened security, and comprehensive documentation. The "rc" label acknowledges that remaining debt (mock pages, accessibility labels, no E2E tests) is understood and tracked.
+Tag the current state as **Release Candidate 4**. This is the stabilization sprint that resolves the simulator correctness bug, adds live Socket.IO notifications, hardens security defaults, and polishes accessibility.
 
 **Why choose this:**
-- All 7 product sprints are complete
-- Real backend with PostgreSQL, JWT auth, bcrypt passwords
-- Socket.IO authenticated with JWT
-- All 9 frontend domains integrated with real API
-- Performance within targets (shared JS 102 kB, dashboard 123 kB)
-- Security hardened (18 issues triaged, critical/high fixed)
-- Documentation fully aligned
+- All RC4 items delivered (simulator lifecycle, live notifications, security, a11y)
+- Stale-simulator devices no longer linger in the bridge registry during rolling restarts
+- Notifications deliver instantly via Socket.IO instead of waiting for a poll cycle
+- JWT_SECRET is required at startup — no default fallback to catch in production
+- All icon-only buttons, navigation landmarks, and search inputs have proper ARIA labels
+- Remaining blockers are documented and understood (mock pages, no E2E tests)
 
 ### Option B: v1.0.0 (Full Release)
 

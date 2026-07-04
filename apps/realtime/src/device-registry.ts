@@ -8,6 +8,13 @@
  * Real-device payloads are expected to include siteId and estateId.
  * The simulator does not set these, so they default to "unknown"
  * and all events go to the global dashboard room only.
+ *
+ * Session tracking:
+ * When the simulator restarts, it publishes a system message with a new
+ * sessionId. The bridge calls setSimulatorSession(sessionId) to record it.
+ * Subsequent MQTT messages that contain a different (stale) sessionId
+ * are silently dropped to prevent old-simulator in-flight messages from
+ * re-registering devices during a rolling restart.
  */
 
 export interface DeviceRegistration {
@@ -29,6 +36,35 @@ export interface PruneStaleDevicesResult {
 }
 
 const registry = new Map<string, DeviceRegistration>();
+
+/** Tracks the current simulator session — stale-session messages are dropped */
+let currentSimulatorSessionId: string | null = null;
+
+/**
+ * Set the active simulator session. Messages from any other sessionId
+ * are considered stale and will be dropped by shouldDropStaleMessage().
+ */
+export function setSimulatorSession(sessionId: string | null): void {
+  currentSimulatorSessionId = sessionId;
+}
+
+/**
+ * Get the current simulator session ID (for logging/debugging).
+ */
+export function getSimulatorSession(): string | null {
+  return currentSimulatorSessionId;
+}
+
+/**
+ * Returns true if the given sessionId is stale (old-simulator message
+ * arriving after a restart). When no session is active, all messages
+ * are accepted (real devices don't carry sessionId).
+ */
+export function shouldDropStaleMessage(sessionId: string | undefined | null): boolean {
+  if (!sessionId) return false; // real devices have no sessionId
+  if (!currentSimulatorSessionId) return false; // no session active yet
+  return sessionId !== currentSimulatorSessionId;
+}
 
 export function updateDevice(
   deviceId: string,

@@ -185,6 +185,12 @@ export async function createSocketServer(
       io.to(ROOMS.DASHBOARD).emit(EVENTS.SIMULATOR_RESET, payload);
     });
 
+    // Handle notification events from server-side clients (API server)
+    // and rebroadcast to all dashboard clients in real time.
+    socket.on(EVENTS.NOTIFICATION_NEW, (payload: unknown) => {
+      io.to(ROOMS.DASHBOARD).emit(EVENTS.NOTIFICATION_NEW, payload);
+    });
+
     socket.on("disconnect", (reason) => {
       console.log(
         `[socket] Client disconnected: ${socket.id} (reason: ${reason})`,

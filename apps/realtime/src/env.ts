@@ -42,8 +42,17 @@ export function loadEnv(): Env {
     ),
     MQTT_TOPIC_PREFIX: process.env.MQTT_TOPIC_PREFIX ?? "sentience",
     LOG_LEVEL: process.env.LOG_LEVEL ?? "info",
-    JWT_SECRET:
-      process.env.JWT_SECRET ?? "change-me-to-a-random-secret-in-production",
+    JWT_SECRET: (() => {
+      const secret = process.env.JWT_SECRET;
+      if (!secret || secret.length < 8) {
+        console.error(
+          "\n⚠️  JWT_SECRET is not set or is too short (< 8 chars).",
+          "\n   Set JWT_SECRET in your .env file for the realtime bridge.\n",
+        );
+        process.exit(1);
+      }
+      return secret;
+    })(),
     ALLOW_UNAUTHENTICATED: process.env.SOCKET_ALLOW_UNAUTHENTICATED === "true",
     DEVICE_TTL_MS: parseInt(
       process.env.DEVICE_TTL_MS ?? "300000",
