@@ -492,22 +492,22 @@ export function colorClassToHex(tailwindClass: string): string {
 
 /** Human-readable labels for each StatusReason. */
 const STATUS_REASON_LABELS: Record<StatusReason, string> = {
-  HEARTBEAT_TIMEOUT: "Heartbeat timeout",
-  BATTERY_CRITICAL: "Battery critical",
-  LOW_BATTERY: "Low battery",
-  BATTERY_MISSING: "Battery data missing",
-  WEAK_SIGNAL: "Weak signal",
+  HEARTBEAT_TIMEOUT: "Heartbeat Timeout",
+  BATTERY_CRITICAL: "Battery Critical",
+  LOW_BATTERY: "Low Battery",
+  BATTERY_MISSING: "Battery Data Missing",
+  WEAK_SIGNAL: "Weak Signal",
   OVERHEAT: "Overheating",
-  HARDWARE_DIAGNOSTIC_FAILED: "Hardware diagnostic failed",
+  HARDWARE_DIAGNOSTIC_FAILED: "Hardware Diagnostic Failed",
 };
 
 /**
  * Format a list of StatusReason values into a human-readable string, e.g.
  * "Low battery, Weak signal" — suitable for a tooltip or aria-label.
  */
-export function formatStatusReasons(reasons: StatusReason[]): string {
+export function formatStatusReasons(reasons: StatusReason[], separator = ", "): string {
   if (reasons.length === 0) return "";
-  return reasons.map((r) => STATUS_REASON_LABELS[r] ?? r).join(", ");
+  return reasons.map((r) => STATUS_REASON_LABELS[r] ?? r).join(separator);
 }
 
 /**

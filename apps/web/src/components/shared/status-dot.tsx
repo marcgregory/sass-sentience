@@ -1,4 +1,4 @@
-import { cn, formatStatusLabel } from "@sentience/utils";
+import { cn, formatStatusLabel, formatStatusReasons } from "@sentience/utils";
 import type { DeviceStatus, StatusReason } from "@sentience/types";
 
 interface StatusDotProps {
@@ -31,9 +31,16 @@ interface StatusBadgeProps {
   showDot?: boolean;
   className?: string;
   reasons?: StatusReason[];
+  showReasons?: boolean;
 }
 
-export function StatusBadge({ status, showDot = true, className, reasons }: StatusBadgeProps) {
+export function StatusBadge({
+  status,
+  showDot = true,
+  className,
+  reasons,
+  showReasons = true,
+}: StatusBadgeProps) {
   const labels: Record<DeviceStatus, string> = {
     online: "Online",
     offline: "Offline",
@@ -42,6 +49,7 @@ export function StatusBadge({ status, showDot = true, className, reasons }: Stat
   };
 
   const title = reasons?.length ? formatStatusLabel(status, reasons) : undefined;
+  const reasonLabel = reasons?.length ? formatStatusReasons(reasons, " • ") : "";
 
   return (
     <span
@@ -57,6 +65,11 @@ export function StatusBadge({ status, showDot = true, className, reasons }: Stat
     >
       {showDot && <StatusDot status={status} reasons={reasons} />}
       {labels[status]}
+      {showReasons && reasonLabel && (
+        <span className="ml-1 border-l border-current/20 pl-1.5 font-normal opacity-90">
+          {reasonLabel}
+        </span>
+      )}
     </span>
   );
 }
