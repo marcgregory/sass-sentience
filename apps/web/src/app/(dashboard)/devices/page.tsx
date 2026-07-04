@@ -349,9 +349,9 @@ export default function DevicesPage() {
                   onClick={() => router.push(`/devices/${device.id}`)}
                 >
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <Monitor className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Monitor className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="max-w-[18rem] truncate text-sm font-medium" title={device.name}>
                         {device.name}
                       </span>
                     </div>
