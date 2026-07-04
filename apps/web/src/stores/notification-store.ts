@@ -10,6 +10,7 @@ interface NotificationState {
   markAllAsRead: () => void;
   setIsOpen: (open: boolean) => void;
   setNotifications: (notifications: Notification[]) => void;
+  setUnreadCount: (count: number) => void;
 }
 
 export const useNotificationStore = create<NotificationState>()((set, get) => ({
@@ -49,4 +50,6 @@ export const useNotificationStore = create<NotificationState>()((set, get) => ({
       notifications,
       unreadCount: notifications.filter((n) => !n.isRead).length,
     }),
+
+  setUnreadCount: (count) => set({ unreadCount: count }),
 }));

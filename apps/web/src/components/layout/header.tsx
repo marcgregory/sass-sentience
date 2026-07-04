@@ -7,6 +7,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
 import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 import { useTheme } from "@/providers/theme-provider";
+import { useNotificationUnreadCount, useNotificationUnread } from "@/hooks/use-notifications";
 import { Button } from "@/components/ui/button";
 import {
   Menu,
@@ -49,6 +50,10 @@ export function Header() {
   const toggleSimulatorMode = useSimulatorModeStore((s) => s.toggle);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showRoleMenu, setShowRoleMenu] = useState(false);
+
+  // Real unread notification count
+  useNotificationUnreadCount(); // Keeps the store in sync
+  const unreadCount = useNotificationUnread();
 
   const handleLogout = () => {
     logout();
@@ -141,11 +146,19 @@ export function Header() {
         </Button>
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative"
+          onClick={() => router.push("/notifications")}
+          aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
+        >
           <Bell className="h-4 w-4" />
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
-            3
-          </span>
+          {unreadCount > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
         </Button>
 
         {/* User with role badge and switch */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import {
   Card,
@@ -9,7 +9,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { RequirePermission } from "@/components/shared/require-permission";
 import { formatRelativeTime } from "@sentience/utils";
 import {
@@ -17,8 +16,6 @@ import {
   Plus,
   Copy,
   Check,
-  Eye,
-  EyeOff,
   XCircle,
   Search,
   X,
@@ -26,60 +23,12 @@ import {
   AlertTriangle,
   KeyRound,
   Clock,
+  Trash2,
 } from "lucide-react";
-import type { ApiKey, ApiKeyStatus } from "@sentience/types";
-
-// ---- Mock API keys ----
-const initialKeys: ApiKey[] = [
-  {
-    id: "KEY-001",
-    name: "Production Integration",
-    maskedKey: "sk-prod•a3f8••••••••9b2c",
-    fullKey: "sk-prod-a3f8k2m9x7q4w1e5r6t8y0u3i7o2p9l2b4c",
-    status: "active",
-    createdAt: "2026-03-15T10:00:00Z",
-    expiresAt: "2027-03-15T10:00:00Z",
-    lastUsedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-    createdBy: "Alice Johnson",
-    requestCount: 15482,
-  },
-  {
-    id: "KEY-002",
-    name: "Staging Environment",
-    maskedKey: "sk-stag•b7e2••••••••3f1a",
-    fullKey: "sk-stag-b7e2n5m8x1q4w9e6r3t7y0u2i5o8p1l4k9c",
-    status: "active",
-    createdAt: "2026-04-01T14:00:00Z",
-    expiresAt: "2027-04-01T14:00:00Z",
-    lastUsedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    createdBy: "Alice Johnson",
-    requestCount: 3891,
-  },
-  {
-    id: "KEY-003",
-    name: "Dev Test Key",
-    maskedKey: "sk-dev••c4d1••••••••8e7f",
-    fullKey: "sk-dev-c4d1k9m2x7q3w8e5r1t6y0u4i9o2p7l3b8c",
-    status: "revoked",
-    createdAt: "2026-02-10T09:00:00Z",
-    expiresAt: "2027-02-10T09:00:00Z",
-    lastUsedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
-    createdBy: "Bob Smith",
-    requestCount: 12450,
-  },
-  {
-    id: "KEY-004",
-    name: "Partner API Access",
-    maskedKey: "sk-part•f5g6••••••••2h3i",
-    fullKey: "sk-part-f5g6h7j8k9l0q1w2e3r4t5y6u7i8o9p0a1s2",
-    status: "expired",
-    createdAt: "2025-01-01T00:00:00Z",
-    expiresAt: "2026-01-01T00:00:00Z",
-    lastUsedAt: "2025-12-15T08:30:00Z",
-    createdBy: "Alice Johnson",
-    requestCount: 8923,
-  },
-];
+import type { ApiKeyStatus } from "@sentience/types";
+import { useApiKeys, useCreateApiKey, useRevokeApiKey, useDeleteApiKey } from "@/hooks/use-api-keys";
+import type { ApiKeyListItem } from "@/lib/api-keys";
+import { EmptyState } from "@/components/shared/empty-state";
 
 const statusColors: Record<ApiKeyStatus, string> = {
   active: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-400",
@@ -87,86 +36,24 @@ const statusColors: Record<ApiKeyStatus, string> = {
   revoked: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-400",
 };
 
-function generateKey(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "sk-";
-  for (let i = 0; i < 40; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
-
-function maskKey(key: string): string {
-  const prefix = key.slice(0, 7);
-  const suffix = key.slice(-4);
-  return `${prefix}••••••••${suffix}`;
-}
-
 export default function ApiKeysPage() {
-  const [keys, setKeys] = useState<ApiKey[]>(initialKeys);
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newExpiration, setNewExpiration] = useState("1y");
-  const [saving, setSaving] = useState(false);
   const [createdKey, setCreatedKey] = useState<string | null>(null);
-  const [revealedKeys, setRevealedKeys] = useState<Set<string>>(new Set());
+  const [createdKeyId, setCreatedKeyId] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  const filteredKeys = useMemo(() => {
-    return keys.filter((k) => {
-      if (!search) return true;
-      const q = search.toLowerCase();
-      return (
-        k.name.toLowerCase().includes(q) ||
-        k.id.toLowerCase().includes(q) ||
-        k.maskedKey.toLowerCase().includes(q)
-      );
-    });
-  }, [keys, search]);
+  const { data, isLoading, isError, error } = useApiKeys({ search: search || undefined, limit: 100 });
+  const createMutation = useCreateApiKey();
+  const revokeMutation = useRevokeApiKey();
+  const deleteMutation = useDeleteApiKey();
 
-  const activeKeys = useMemo(() => keys.filter((k) => k.status === "active").length, [keys]);
-
-  const handleCreate = () => {
-    if (!newName.trim()) return;
-    setSaving(true);
-    const fullKey = generateKey();
-    const expirationMap: Record<string, string | null> = {
-      "1m": new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      "3m": new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
-      "1y": new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-      never: null,
-    };
-
-    setTimeout(() => {
-      const newKey: ApiKey = {
-        id: `KEY-${String(keys.length + 1).padStart(3, "0")}`,
-        name: newName.trim(),
-        maskedKey: maskKey(fullKey),
-        fullKey,
-        status: "active",
-        createdAt: new Date().toISOString(),
-        expiresAt: expirationMap[newExpiration] ?? null,
-        lastUsedAt: null,
-        createdBy: "Alice Johnson",
-        requestCount: 0,
-      };
-      setKeys((prev) => [newKey, ...prev]);
-      setCreatedKey(fullKey);
-      setNewName("");
-      setSaving(false);
-    }, 400);
-  };
-
-  const handleRevoke = (keyId: string) => {
-    setKeys((prev) =>
-      prev.map((k) =>
-        k.id === keyId ? { ...k, status: "revoked" as const } : k,
-      ),
-    );
-    setConfirmRevoke(null);
-  };
+  const keys = data?.data ?? [];
+  const activeKeys = keys.filter((k) => k.status === "active").length;
 
   const handleCopy = (key: string) => {
     navigator.clipboard.writeText(key);
@@ -174,14 +61,62 @@ export default function ApiKeysPage() {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const toggleReveal = (keyId: string) => {
-    setRevealedKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(keyId)) next.delete(keyId);
-      else next.add(keyId);
-      return next;
-    });
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
+
+    try {
+      // Parse expiration to ISO date
+      let expiresAt: string | undefined;
+      const expirationMap: Record<string, number> = {
+        "1m": 30,
+        "3m": 90,
+        "1y": 365,
+      };
+      if (newExpiration !== "never") {
+        const days = expirationMap[newExpiration];
+        if (days) {
+          expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+        }
+      }
+
+      const result = await createMutation.mutateAsync({
+        name: newName.trim(),
+        expiresAt,
+      });
+
+      setCreatedKey(result.fullKey);
+      setCreatedKeyId(result.id);
+      setNewName("");
+      setShowCreate(false);
+    } catch {
+      // Error handled by mutation
+    }
   };
+
+  const handleRevoke = async (keyId: string) => {
+    try {
+      await revokeMutation.mutateAsync(keyId);
+    } catch {
+      // Error handled by mutation
+    }
+    setConfirmRevoke(null);
+  };
+
+  const handleDelete = async (keyId: string) => {
+    try {
+      await deleteMutation.mutateAsync(keyId);
+    } catch {
+      // Error handled by mutation
+    }
+    setConfirmDelete(null);
+  };
+
+  // Dismiss created-key banner
+  useEffect(() => {
+    if (!createdKey) return;
+    const timer = setTimeout(() => setCreatedKey(null), 120_000);
+    return () => clearTimeout(timer);
+  }, [createdKey]);
 
   return (
     <RequirePermission resource="admin" action="read">
@@ -190,7 +125,7 @@ export default function ApiKeysPage() {
           title="API Keys"
           description="Create and manage API keys for integrations"
           actions={
-            <Button onClick={() => setShowCreate(true)}>
+            <Button onClick={() => setShowCreate(true)} disabled={createMutation.isPending}>
               <Plus className="h-4 w-4" />
               Create API Key
             </Button>
@@ -285,104 +220,117 @@ export default function ApiKeysPage() {
           )}
         </div>
 
-        {/* Keys list */}
-        <div className="rounded-lg border">
-          {filteredKeys.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <Key className="h-12 w-12 text-muted-foreground/40 mb-4" />
-              <p className="text-sm font-medium text-muted-foreground mb-1">No API keys found</p>
-              <p className="text-xs text-muted-foreground">
-                {search ? "Try adjusting your search" : "Create your first API key to get started"}
-              </p>
-            </div>
-          ) : (
+        {/* Loading State */}
+        {isLoading && (
+          <div className="rounded-lg border">
             <div className="divide-y">
-              {filteredKeys.map((key) => (
-                <div
-                  key={key.id}
-                  className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors"
-                >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                      key.status === "active"
-                        ? "bg-primary/10 text-primary"
-                        : "bg-muted text-muted-foreground"
-                    }`}>
-                      <Key className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium">{key.name}</p>
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[key.status]}`}>
-                          {key.status.charAt(0).toUpperCase() + key.status.slice(1)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <code className="text-xs font-mono text-muted-foreground">
-                          {revealedKeys.has(key.id) && key.fullKey ? key.fullKey : key.maskedKey}
-                        </code>
-                        {key.fullKey && (
-                          <button
-                            onClick={() => toggleReveal(key.id)}
-                            className="text-muted-foreground hover:text-foreground"
-                            title={revealedKeys.has(key.id) ? "Hide key" : "Show key"}
-                          >
-                            {revealedKeys.has(key.id) ? (
-                              <EyeOff className="h-3.5 w-3.5" />
-                            ) : (
-                              <Eye className="h-3.5 w-3.5" />
-                            )}
-                          </button>
-                        )}
-                        {key.fullKey && key.status === "active" && (
-                          <button
-                            onClick={() => handleCopy(key.fullKey!)}
-                            className="text-muted-foreground hover:text-foreground"
-                            title="Copy key"
-                          >
-                            {copiedKey === key.fullKey ? (
-                              <Check className="h-3.5 w-3.5 text-emerald-500" />
-                            ) : (
-                              <Copy className="h-3.5 w-3.5" />
-                            )}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="hidden md:flex items-center gap-4 text-xs text-muted-foreground shrink-0 ml-4">
-                    {key.lastUsedAt && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {formatRelativeTime(key.lastUsedAt)}
-                      </span>
-                    )}
-                    <span>{key.requestCount.toLocaleString()} req</span>
-                  </div>
-
-                  {/* Revoke action */}
-                  {key.status === "active" && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setConfirmRevoke(key.id)}
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-2 shrink-0"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      <span className="hidden sm:inline ml-1">Revoke</span>
-                    </Button>
-                  )}
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="p-4">
+                  <div className="h-12 animate-pulse rounded bg-muted" />
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Error State */}
+        {isError && !isLoading && (
+          <EmptyState
+            icon={Key}
+            title="Failed to load API keys"
+            description={error instanceof Error ? error.message : "Could not reach the server."}
+          />
+        )}
+
+        {/* Keys list */}
+        {!isLoading && !isError && (
+          <div className="rounded-lg border">
+            {keys.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <Key className="h-12 w-12 text-muted-foreground/40 mb-4" />
+                <p className="text-sm font-medium text-muted-foreground mb-1">No API keys found</p>
+                <p className="text-xs text-muted-foreground">
+                  {search ? "Try adjusting your search" : "Create your first API key to get started"}
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y">
+                {keys.map((key) => (
+                  <div
+                    key={key.id}
+                    className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                        key.status === "active"
+                          ? "bg-primary/10 text-primary"
+                          : "bg-muted text-muted-foreground"
+                      }`}>
+                        <Key className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium">{key.name}</p>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[key.status]}`}>
+                            {key.status.charAt(0).toUpperCase() + key.status.slice(1)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <code className="text-xs font-mono text-muted-foreground">{key.maskedKey}</code>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="hidden md:flex items-center gap-4 text-xs text-muted-foreground shrink-0 ml-4">
+                      {key.lastUsedAt && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {formatRelativeTime(key.lastUsedAt)}
+                        </span>
+                      )}
+                      <span>{key.requestCount.toLocaleString()} req</span>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 ml-2 shrink-0">
+                      {key.status === "active" && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setConfirmRevoke(key.id)}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            disabled={revokeMutation.isPending}
+                            title="Revoke key"
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                      {key.status === "revoked" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setConfirmDelete(key.id)}
+                          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          disabled={deleteMutation.isPending}
+                          title="Delete key permanently"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Create Dialog */}
-        {showCreate && !createdKey && (
+        {showCreate && (
           <>
-            <div className="fixed inset-0 z-40 bg-black/50" onClick={() => { setShowCreate(false); setSaving(false); }} />
+            <div className="fixed inset-0 z-40 bg-black/50" onClick={() => { setShowCreate(false); }} />
             <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-md rounded-lg border bg-background p-6 shadow-lg">
               <h3 className="text-lg font-semibold mb-4">Create API Key</h3>
               <div className="space-y-4">
@@ -393,6 +341,7 @@ export default function ApiKeysPage() {
                     onChange={(e) => setNewName(e.target.value)}
                     className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
                     placeholder="e.g. Production Integration"
+                    autoFocus
                   />
                 </div>
                 <div className="space-y-2">
@@ -411,8 +360,8 @@ export default function ApiKeysPage() {
               </div>
               <div className="flex justify-end gap-2 mt-6">
                 <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
-                <Button onClick={handleCreate} disabled={!newName.trim() || saving}>
-                  {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                <Button onClick={handleCreate} disabled={!newName.trim() || createMutation.isPending}>
+                  {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                   Create Key
                 </Button>
               </div>
@@ -441,8 +390,41 @@ export default function ApiKeysPage() {
                 <Button
                   variant="destructive"
                   onClick={() => handleRevoke(confirmRevoke)}
+                  disabled={revokeMutation.isPending}
                 >
+                  {revokeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   Revoke Key
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Delete confirmation */}
+        {confirmDelete && (
+          <>
+            <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setConfirmDelete(null)} />
+            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-sm rounded-lg border bg-background p-6 shadow-lg">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+                  <AlertTriangle className="h-5 w-5 text-red-500" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Delete API Key</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Permanently delete this revoked key. This cannot be undone.
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setConfirmDelete(null)}>Cancel</Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => handleDelete(confirmDelete)}
+                  disabled={deleteMutation.isPending}
+                >
+                  {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Delete
                 </Button>
               </div>
             </div>

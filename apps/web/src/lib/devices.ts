@@ -35,6 +35,9 @@ export interface DeviceApiItem {
   lastMaintenance: string | null;
   notes: string | null;
   tags: string[];
+  deviceConfig: Record<string, unknown> | null;
+  deviceIo: Record<string, unknown> | null;
+  lastDiagnostics: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
 }

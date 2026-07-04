@@ -40,18 +40,23 @@ const statusConfig: Record<ServiceStatus, { label: string; color: string; bgColo
   disconnected: { label: "Disconnected", color: "text-slate-500 dark:text-slate-400", bgColor: "bg-slate-100 dark:bg-slate-800", icon: XCircle },
 };
 
-const initialServices: PlatformService[] = [
+/**
+ * Initial static service definitions for services that don't have
+ * real backend health endpoints yet. As each service gets a health
+ * endpoint, its data here should be replaced with a real API query.
+ */
+const staticServices: PlatformService[] = [
   {
     id: "bridge",
     name: "Realtime Bridge",
     status: "healthy",
     description: "Socket.IO gateway connecting MQTT events to the web application",
-    uptime: 345600, // 4 days
+    uptime: 345600,
     lastCheck: new Date().toISOString(),
     metrics: [
-      { label: "Events/sec", value: "24" },
-      { label: "Connected Clients", value: "3" },
-      { label: "Queue Depth", value: "0" },
+      { label: "Events/sec", value: "—" },
+      { label: "Connected Clients", value: "—" },
+      { label: "Queue Depth", value: "—" },
     ],
   },
   {
@@ -59,25 +64,25 @@ const initialServices: PlatformService[] = [
     name: "MQTT Broker",
     status: "healthy",
     description: "Mosquitto message broker for device telemetry",
-    uptime: 518400, // 6 days
+    uptime: 518400,
     lastCheck: new Date().toISOString(),
     metrics: [
-      { label: "Connected Devices", value: "47" },
-      { label: "Messages/sec", value: "156" },
-      { label: "Subscriptions", value: "12" },
+      { label: "Connected Devices", value: "—" },
+      { label: "Messages/sec", value: "—" },
+      { label: "Subscriptions", value: "—" },
     ],
   },
   {
     id: "simulator",
     name: "Device Simulator",
-    status: "degraded",
+    status: "healthy",
     description: "Faker-based device telemetry simulator for development and testing",
-    uptime: 86400, // 1 day
+    uptime: 86400,
     lastCheck: new Date().toISOString(),
     metrics: [
-      { label: "Simulated Devices", value: "50" },
-      { label: "Publish Rate", value: "1/s" },
-      { label: "Last Published", value: "2s ago" },
+      { label: "Simulated Devices", value: "—" },
+      { label: "Publish Rate", value: "—" },
+      { label: "Last Published", value: "—" },
     ],
   },
   {
@@ -85,25 +90,12 @@ const initialServices: PlatformService[] = [
     name: "Database",
     status: "healthy",
     description: "PostgreSQL 16 — primary data store",
-    uptime: 604800, // 7 days
+    uptime: 604800,
     lastCheck: new Date().toISOString(),
     metrics: [
-      { label: "Connection Pool", value: "12/25" },
-      { label: "Storage Used", value: "2.3 GB" },
-      { label: "Query Latency", value: "4ms" },
-    ],
-  },
-  {
-    id: "api",
-    name: "API Service",
-    status: "healthy" as ServiceStatus,
-    description: "REST API — Fastify 5 + Drizzle ORM + PostgreSQL",
-    uptime: 0,
-    lastCheck: new Date().toISOString(),
-    metrics: [
-      { label: "Uptime", value: "N/A" },
-      { label: "Requests", value: "0" },
-      { label: "Status", value: "Online" },
+      { label: "Connection Pool", value: "—" },
+      { label: "Storage Used", value: "—" },
+      { label: "Query Latency", value: "—" },
     ],
   },
 ];
@@ -121,8 +113,6 @@ function formatUptime(seconds: number): string {
 }
 
 export default function PlatformHealthPage() {
-  const [services, setServices] = useState<PlatformService[]>(initialServices);
-  const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [restartToast, setRestartToast] = useState<{ title: string; message: string; priority: "normal" | "high" } | null>(null);
   const currentUser = useAuthStore((state) => state.user);
@@ -131,7 +121,7 @@ export default function PlatformHealthPage() {
   const canRestartSimulator = currentUser?.role === "admin";
 
   // Poll the real API health endpoint
-  const { data: apiHealth, refetch: refetchApiHealth } = useApiHealth();
+  const { data: apiHealth, isLoading: healthLoading, refetch: refetchApiHealth } = useApiHealth();
 
   // Derive the API service status from real health data
   const apiServiceStatus: ServiceStatus = !apiHealth
@@ -140,57 +130,37 @@ export default function PlatformHealthPage() {
       ? "degraded"
       : "healthy";
 
-  // Merge real API health data into the services list
-  useEffect(() => {
-    if (!apiHealth) return;
-    setServices((prev) =>
-      prev.map((s) => {
-        if (s.id !== "api") return s;
-        const uptimeSeconds = Math.max(0, Math.floor(apiHealth.uptime));
-        return {
-          ...s,
-          status: apiServiceStatus,
-          uptime: uptimeSeconds,
-          lastCheck: apiHealth.timestamp,
-          metrics: [
-            { label: "Uptime", value: uptimeSeconds > 0 ? `${uptimeSeconds}s` : "N/A" },
-            { label: "DB Latency", value: apiHealth.db.latency ?? "N/A" },
+  // Build the services list: static services + real API health
+  const services: PlatformService[] = [
+    ...staticServices.map((s) => s.id === "api" ? s : s),
+    // API service — derived from real health endpoint
+    {
+      id: "api",
+      name: "API Service",
+      status: apiServiceStatus,
+      description: "REST API — Fastify 5 + Drizzle ORM + PostgreSQL",
+      uptime: apiHealth ? Math.max(0, Math.floor(apiHealth.uptime)) : 0,
+      lastCheck: apiHealth?.timestamp ?? new Date().toISOString(),
+      metrics: apiHealth
+        ? [
+            { label: "Uptime", value: formatUptime(Math.max(0, Math.floor(apiHealth.uptime))) },
+            { label: "DB Latency", value: apiHealth.db.latency ?? "—" },
             { label: "Status", value: apiHealth.status === "ok" ? "Online" : "Error" },
+          ]
+        : [
+            { label: "Uptime", value: "N/A" },
+            { label: "DB Latency", value: "—" },
+            { label: "Status", value: healthLoading ? "Checking..." : "Offline" },
           ],
-        };
-      }),
-    );
-    setLastUpdated(new Date());
-  }, [apiHealth, apiServiceStatus]);
+    },
+  ];
 
-  // Simulate periodic updates for non-API services
+  // Update last-checked timestamp when API health refreshes
   useEffect(() => {
-    const interval = setInterval(() => {
-      setServices((prev) =>
-        prev.map((s) => {
-          if (s.id === "api") return s; // API is driven by real health data
-          // Simulate slight status changes for realism
-          if (s.id === "simulator") {
-            const statuses: ServiceStatus[] = ["healthy", "degraded", "healthy"];
-            return {
-              ...s,
-              status: statuses[Math.floor(Math.random() * statuses.length)],
-              lastCheck: new Date().toISOString(),
-              uptime: s.uptime + 10,
-            };
-          }
-          return {
-            ...s,
-            lastCheck: new Date().toISOString(),
-            uptime: s.uptime + 10,
-          };
-        }),
-      );
+    if (apiHealth) {
       setLastUpdated(new Date());
-    }, 10000);
-
-    return () => clearInterval(interval);
-  }, []);
+    }
+  }, [apiHealth]);
 
   useEffect(() => {
     if (!restartToast) return;
@@ -231,18 +201,10 @@ export default function PlatformHealthPage() {
       },
     });
   };
+
   const handleRefresh = () => {
-    setRefreshing(true);
     refetchApiHealth().finally(() => {
-      setServices((prev) =>
-        prev.map((s) => ({
-          ...s,
-          lastCheck: new Date().toISOString(),
-          uptime: s.id === "api" ? (apiHealth?.uptime ? Math.floor(apiHealth.uptime) : 0) : s.uptime,
-        })),
-      );
       setLastUpdated(new Date());
-      setRefreshing(false);
     });
   };
 
@@ -257,8 +219,8 @@ export default function PlatformHealthPage() {
           title="Platform Health"
           description="Monitor system services and infrastructure status"
           actions={
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
-              {refreshing ? (
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={healthLoading}>
+              {healthLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <RefreshCw className="h-4 w-4" />
@@ -427,14 +389,17 @@ export default function PlatformHealthPage() {
                 </div>
               </div>
               <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground mb-0.5">Total Uptime</p>
+                <p className="text-xs text-muted-foreground mb-0.5">API Uptime</p>
                 <p className="text-sm font-semibold">
-                  {formatUptime(Math.min(...services.filter(s => s.uptime > 0).map(s => s.uptime)))}
+                  {apiHealth ? formatUptime(Math.max(0, Math.floor(apiHealth.uptime))) : "N/A"}
                 </p>
               </div>
               <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground mb-0.5">Total Devices</p>
-                <p className="text-sm font-semibold">47</p>
+                <p className="text-xs text-muted-foreground mb-0.5">DB Status</p>
+                <p className="text-sm font-semibold flex items-center gap-1.5">
+                  <span className={`h-2 w-2 rounded-full ${apiHealth?.db.status === "healthy" ? "bg-emerald-500" : "bg-red-500"}`} />
+                  {apiHealth?.db.status === "healthy" ? "Connected" : "Unhealthy"}
+                </p>
               </div>
               <div className="rounded-lg border p-3">
                 <p className="text-xs text-muted-foreground mb-0.5">Last Updated</p>

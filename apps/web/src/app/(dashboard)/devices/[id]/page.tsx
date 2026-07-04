@@ -51,6 +51,9 @@ import {
   formatTemperature,
 } from "@sentience/utils";
 import type { DeviceStatus } from "@sentience/types";
+import { getEvents } from "@/lib/events";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -76,241 +79,6 @@ const TABS: Tab[] = [
   { id: "events", label: "Events", icon: List },
   { id: "config", label: "Config", icon: Settings },
 ];
-
-// ─── Mock Data (used when live data is unavailable) ──────────────────────
-
-interface MockFirmware {
-  version: string;
-  build: string;
-  releasedAt: string;
-  installedAt?: string;
-}
-
-interface MockConfig {
-  mqttTopic: string;
-  publishInterval: number;
-  thresholds: {
-    batteryMin: number;
-    voltageMin: number;
-    temperatureMin: number;
-    temperatureMax: number;
-    signalMin: number;
-  };
-}
-
-interface MockIOPoint {
-  id: string;
-  label: string;
-  type: "digital" | "analog";
-  state: boolean;
-  value?: number;
-}
-
-interface MockDiagnostic {
-  id: string;
-  type: string;
-  status: "passed" | "failed" | "warning";
-  message: string;
-  ranAt: string;
-}
-
-const MOCK_FIRMWARE: Record<string, MockFirmware> = {
-  "DEV-001": {
-    version: "v2.4.1",
-    build: "b20240315",
-    releasedAt: "2026-03-15T10:00:00Z",
-    installedAt: "2026-04-01T08:30:00Z",
-  },
-  "DEV-002": {
-    version: "v1.8.0",
-    build: "b20240120",
-    releasedAt: "2026-01-20T10:00:00Z",
-    installedAt: "2026-02-10T09:00:00Z",
-  },
-  "DEV-003": {
-    version: "v3.0.2",
-    build: "b20240601",
-    releasedAt: "2026-06-01T10:00:00Z",
-    installedAt: "2026-06-15T11:00:00Z",
-  },
-  "DEV-004": {
-    version: "v2.1.0",
-    build: "b20240228",
-    releasedAt: "2026-02-28T10:00:00Z",
-    installedAt: "2026-03-10T07:45:00Z",
-  },
-};
-
-const DEFAULT_FIRMWARE: MockFirmware = {
-  version: "v1.0.0",
-  build: "b20240101",
-  releasedAt: "2026-01-01T00:00:00Z",
-  installedAt: undefined,
-};
-
-const MOCK_CONFIG: Record<string, MockConfig> = {
-  "DEV-001": {
-    mqttTopic: "sentience/devices/DEV-001",
-    publishInterval: 30,
-    thresholds: {
-      batteryMin: 20,
-      voltageMin: 3.3,
-      temperatureMin: -10,
-      temperatureMax: 60,
-      signalMin: -90,
-    },
-  },
-  "DEV-002": {
-    mqttTopic: "sentience/devices/DEV-002",
-    publishInterval: 15,
-    thresholds: {
-      batteryMin: 15,
-      voltageMin: 3.0,
-      temperatureMin: 0,
-      temperatureMax: 50,
-      signalMin: -85,
-    },
-  },
-  "DEV-003": {
-    mqttTopic: "sentience/devices/DEV-003",
-    publishInterval: 60,
-    thresholds: {
-      batteryMin: 25,
-      voltageMin: 3.5,
-      temperatureMin: -5,
-      temperatureMax: 55,
-      signalMin: -80,
-    },
-  },
-  "DEV-004": {
-    mqttTopic: "sentience/devices/DEV-004",
-    publishInterval: 10,
-    thresholds: {
-      batteryMin: 10,
-      voltageMin: 2.8,
-      temperatureMin: -15,
-      temperatureMax: 65,
-      signalMin: -95,
-    },
-  },
-};
-
-const DEFAULT_CONFIG: MockConfig = {
-  mqttTopic: "sentience/devices/unknown",
-  publishInterval: 30,
-  thresholds: {
-    batteryMin: 20,
-    voltageMin: 3.3,
-    temperatureMin: -10,
-    temperatureMax: 60,
-    signalMin: -90,
-  },
-};
-
-const MOCK_IO: Record<
-  string,
-  { inputs: MockIOPoint[]; outputs: MockIOPoint[] }
-> = {
-  "DEV-001": {
-    inputs: [
-      { id: "IN-1", label: "Door Contact", type: "digital", state: true },
-      { id: "IN-2", label: "Motion Sensor", type: "digital", state: false },
-      {
-        id: "IN-3",
-        label: "Temperature Probe",
-        type: "analog",
-        state: true,
-        value: 24.5,
-      },
-    ],
-    outputs: [
-      { id: "OUT-1", label: "Gate Relay", type: "digital", state: false },
-      { id: "OUT-2", label: "Buzzer", type: "digital", state: false },
-      { id: "OUT-3", label: "Status LED", type: "digital", state: true },
-    ],
-  },
-};
-
-const DEFAULT_IO = {
-  inputs: [] as MockIOPoint[],
-  outputs: [] as MockIOPoint[],
-};
-
-function getMockDiagnostics(deviceId: string): MockDiagnostic[] {
-  const now = new Date().toISOString();
-  const hour = new Date().getHours();
-  // Make diagnostics look slightly different per device and time
-  const seed = deviceId.charCodeAt(deviceId.length - 1) + hour;
-  const pingOk = seed % 3 !== 0;
-  const mqttOk = (seed + 1) % 5 !== 0;
-  const signalOk = (seed + 2) % 4 !== 0;
-  return [
-    {
-      id: `diag-${deviceId}-1`,
-      type: "Network Ping",
-      status: pingOk ? "passed" : "failed",
-      message: pingOk
-        ? "Responded in 12ms"
-        : "Request timed out after 5s",
-      ranAt: now,
-    },
-    {
-      id: `diag-${deviceId}-2`,
-      type: "MQTT Connectivity",
-      status: mqttOk ? "passed" : "warning",
-      message: mqttOk
-        ? "Connected to broker"
-        : "Intermittent connection — 3 reconnects in 24h",
-      ranAt: now,
-    },
-    {
-      id: `diag-${deviceId}-3`,
-      type: "Signal Strength",
-      status: signalOk ? "passed" : "warning",
-      message: signalOk
-        ? "Signal within acceptable range"
-        : "Signal below threshold (-92 dBm)",
-      ranAt: now,
-    },
-    {
-      id: `diag-${deviceId}-4`,
-      type: "Battery Health",
-      status: "passed",
-      message: "Battery voltage stable at 3.7V",
-      ranAt: now,
-    },
-  ];
-}
-
-function getMockEvents(deviceId: string, count: number = 10) {
-  const events = [];
-  const now = Date.now();
-  for (let i = 0; i < count; i++) {
-    const t = new Date(now - i * 3600000).toISOString();
-    const sev = i === 0 ? "critical" : i < 3 ? "warning" : "info";
-    const titles = [
-      "Battery dropped below threshold",
-      "Device reported unusual temperature",
-      "Signal strength degraded",
-      "Status changed to online",
-      "Configuration updated",
-      "Firmware update available",
-      "Heartbeat received",
-      "MQTT reconnected",
-      "Diagnostic run completed",
-      "Device boot sequence completed",
-    ];
-    events.push({
-      eventId: `evt-${deviceId}-${i}`,
-      deviceId,
-      severity: sev,
-      title: titles[i % titles.length],
-      timestamp: t,
-      category: i === 0 ? "battery_low" : i < 3 ? "threshold_breach" : "system",
-    });
-  }
-  return events;
-}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -358,8 +126,10 @@ function severityColor(severity: string): string {
 
 function diagnosticStatusIcon(status: string): LucideIcon {
   switch (status) {
+    case "pass":
     case "passed":
       return CheckCircle2;
+    case "fail":
     case "failed":
       return XCircle;
     default:
@@ -369,13 +139,20 @@ function diagnosticStatusIcon(status: string): LucideIcon {
 
 function diagnosticStatusColor(status: string): string {
   switch (status) {
+    case "pass":
     case "passed":
       return "text-emerald-500";
+    case "fail":
     case "failed":
       return "text-red-500";
     default:
       return "text-amber-500";
   }
+}
+
+function formatIoValue(v: unknown): string {
+  if (v === null || v === undefined) return "—";
+  return String(v);
 }
 
 // ─── Section Components ───────────────────────────────────────────────────
@@ -480,13 +257,28 @@ export default function DeviceDetailPage() {
   const liveDeviceEntry = useLiveDeviceStore((s) => s.devices[deviceId]);
   const recentEvents = useLiveDeviceStore((s) => s.recentEvents);
 
-  // Device-specific events (use live only in simulator mode)
+  // Events from API
+  const { data: eventsData } = useQuery({
+    queryKey: queryKeys.events.list({ device_id: deviceId, limit: 20 }),
+    queryFn: () => getEvents({ device_id: deviceId, limit: 20 }),
+    enabled: !!deviceId && !simulatorMode,
+  });
+
+  // Device-specific events (live in simulator mode, API otherwise)
   const deviceEvents = useMemo(() => {
-    if (!simulatorMode) return getMockEvents(deviceId);
-    const live = recentEvents.filter((e) => e.deviceId === deviceId);
-    if (live.length > 0) return live;
-    return getMockEvents(deviceId);
-  }, [recentEvents, deviceId, simulatorMode]);
+    if (simulatorMode) {
+      const live = recentEvents.filter((e) => e.deviceId === deviceId);
+      return live.length > 0 ? live : [];
+    }
+    return (eventsData?.data ?? []).map((e) => ({
+      eventId: e.id,
+      deviceId: e.deviceId ?? deviceId,
+      severity: e.severity,
+      title: e.title,
+      timestamp: e.occurredAt,
+      category: e.category,
+    }));
+  }, [eventsData, recentEvents, deviceId, simulatorMode]);
 
   // ═══ Loading State ══════════════════════════════════════════════════════
 
@@ -596,17 +388,39 @@ export default function DeviceDetailPage() {
   const siteName =
     live?.siteName ?? apiDevice?.siteName ?? device.site;
   const estateName = live?.estateName ?? apiDevice?.estateName;
-  // Use device.status and device.reasons (already derived by useDevice hook) — do NOT
-  // override with raw live store status which skips battery/heartbeat rules.
   const status: DeviceStatus = device.status;
   const reasons = device.reasons;
   const lastSeen = live?.lastSeen ?? new Date().toISOString();
   const isLive = simulatorMode && !!live;
 
-  const firmware = MOCK_FIRMWARE[deviceId] ?? DEFAULT_FIRMWARE;
-  const config = MOCK_CONFIG[deviceId] ?? DEFAULT_CONFIG;
-  const io = MOCK_IO[deviceId] ?? DEFAULT_IO;
-  const diagnostics = getMockDiagnostics(deviceId);
+  // ─── Real data from API ─────────────────────────────────────────────────
+
+  // Firmware from API
+  const firmware = {
+    version: apiDevice?.firmwareVersion ?? "—",
+    build: apiDevice?.firmwareBuild ?? "—",
+    releasedAt: apiDevice?.firmwareReleasedAt,
+    installedAt: apiDevice?.firmwareInstalledAt,
+  };
+
+  // Config from API
+  const config = apiDevice?.deviceConfig as Record<string, unknown> | null;
+  const mqttTopic = (config?.mqttTopic as string) ?? "—";
+  const publishInterval = (config?.publishInterval as number) ?? null;
+  const samplingRate = (config?.samplingRate as number) ?? null;
+  const logLevel = (config?.logLevel as string) ?? null;
+  const thresholds = config?.thresholds as Record<string, number> | null;
+
+  // I/O from API
+  const ioData = apiDevice?.deviceIo as Record<string, unknown> | null;
+  const ioInputs = (ioData?.inputs as Array<Record<string, unknown>>) ?? [];
+  const ioOutputs = (ioData?.outputs as Array<Record<string, unknown>>) ?? [];
+
+  // Diagnostics from API
+  const diagnosticData = apiDevice?.lastDiagnostics as Record<string, unknown> | null;
+  const diagnosticChecks = (diagnosticData?.checks as Array<Record<string, unknown>>) ?? [];
+  const diagnosticStatus = (diagnosticData?.status as string) ?? "unknown";
+  const diagnosticLastRun = (diagnosticData?.lastRun as string) ?? null;
 
   const handleRunDiagnostic = (diagId: string) => {
     setRunningDiag(diagId);
@@ -721,15 +535,11 @@ export default function DeviceDetailPage() {
           <div className="space-y-3">
             <InfoRow label="Version" value={firmware.version} />
             <InfoRow label="Build" value={firmware.build} mono />
-            <InfoRow
-              label="Released"
-              value={formatDateTime(firmware.releasedAt)}
-            />
+            {firmware.releasedAt && (
+              <InfoRow label="Released" value={formatDateTime(firmware.releasedAt)} />
+            )}
             {firmware.installedAt && (
-              <InfoRow
-                label="Installed"
-                value={formatDateTime(firmware.installedAt)}
-              />
+              <InfoRow label="Installed" value={formatDateTime(firmware.installedAt)} />
             )}
             <div className="pt-2">
               <Button variant="outline" size="sm" className="gap-2">
@@ -827,7 +637,7 @@ export default function DeviceDetailPage() {
           detail={
             live
               ? `Updated ${formatRelativeTime(live.telemetry?.timestamp ?? "")}`
-              : "Mock data"
+              : "Static data"
           }
           color="text-emerald-500"
         />
@@ -838,7 +648,7 @@ export default function DeviceDetailPage() {
           detail={
             live
               ? `Updated ${formatRelativeTime(live.telemetry?.timestamp ?? "")}`
-              : "Mock data"
+              : "Static data"
           }
           color="text-orange-500"
         />
@@ -849,7 +659,7 @@ export default function DeviceDetailPage() {
           detail={
             live
               ? `Updated ${formatRelativeTime(live.telemetry?.timestamp ?? "")}`
-              : "Mock data"
+              : "Static data"
           }
           color="text-purple-500"
         />
@@ -860,7 +670,7 @@ export default function DeviceDetailPage() {
           detail={
             live
               ? `Updated ${formatRelativeTime(live.telemetry?.timestamp ?? "")}`
-              : "Mock data"
+              : "Static data"
           }
           color={signalColor(telemetry.signalStrength)}
         />
@@ -874,9 +684,9 @@ export default function DeviceDetailPage() {
     <div className="grid gap-6 lg:grid-cols-2">
       <SectionCard
         title="Inputs"
-        description={`${io.inputs.length} input point${io.inputs.length !== 1 ? "s" : ""}`}
+        description={`${ioInputs.length} input point${ioInputs.length !== 1 ? "s" : ""}`}
       >
-        {io.inputs.length === 0 ? (
+        {ioInputs.length === 0 ? (
           <EmptyState
             icon={Box}
             title="No inputs"
@@ -884,8 +694,8 @@ export default function DeviceDetailPage() {
           />
         ) : (
           <div className="space-y-2">
-            {io.inputs.map((point) => (
-              <IOPointRow key={point.id} point={point} />
+            {ioInputs.map((point, idx) => (
+              <IOPointRow key={(point.name as string) ?? idx} point={point} />
             ))}
           </div>
         )}
@@ -893,9 +703,9 @@ export default function DeviceDetailPage() {
 
       <SectionCard
         title="Outputs"
-        description={`${io.outputs.length} output point${io.outputs.length !== 1 ? "s" : ""}`}
+        description={`${ioOutputs.length} output point${ioOutputs.length !== 1 ? "s" : ""}`}
       >
-        {io.outputs.length === 0 ? (
+        {ioOutputs.length === 0 ? (
           <EmptyState
             icon={Box}
             title="No outputs"
@@ -903,8 +713,8 @@ export default function DeviceDetailPage() {
           />
         ) : (
           <div className="space-y-2">
-            {io.outputs.map((point) => (
-              <IOPointRow key={point.id} point={point} />
+            {ioOutputs.map((point, idx) => (
+              <IOPointRow key={(point.name as string) ?? idx} point={point} />
             ))}
           </div>
         )}
@@ -918,52 +728,70 @@ export default function DeviceDetailPage() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Available Diagnostics</CardTitle>
+          <CardTitle className="text-base">Last Diagnostics</CardTitle>
           <CardDescription>
-            Run diagnostics to check device health and connectivity
+            {diagnosticLastRun
+              ? `Last run: ${formatRelativeTime(diagnosticLastRun)}`
+              : "No diagnostic data available"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {diagnostics.map((diag) => {
-              const DiagIcon = diagnosticStatusIcon(diag.status);
-              const isRunning = runningDiag === diag.id;
-              return (
-                <Card key={diag.id} className="border">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-3">
-                        <DiagIcon
-                          className={`mt-0.5 h-5 w-5 ${diagnosticStatusColor(diag.status)}`}
-                        />
-                        <div>
-                          <p className="text-sm font-medium">{diag.type}</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            {diag.message}
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {formatRelativeTime(diag.ranAt)}
-                          </p>
+          {diagnosticChecks.length === 0 ? (
+            <EmptyState
+              icon={Radio}
+              title="No diagnostics recorded"
+              description="Diagnostic data will appear here after the next check."
+            />
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {diagnosticChecks.map((check, idx) => {
+                const checkStatus = (check.status as string) ?? "unknown";
+                const DiagIcon = diagnosticStatusIcon(checkStatus);
+                const isRunning = runningDiag === `diag-${idx}`;
+                return (
+                  <Card key={`diag-${idx}`} className="border">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3">
+                          <DiagIcon
+                            className={`mt-0.5 h-5 w-5 ${diagnosticStatusColor(checkStatus)}`}
+                          />
+                          <div>
+                            <p className="text-sm font-medium">{check.name as string}</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {String(check.message ?? (checkStatus === "pass" ? "OK" : "Warning"))}
+                            </p>
+                            {check.latency != null && (
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                Latency: {String(check.latency)}
+                              </p>
+                            )}
+                            {check.usage != null && (
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                Usage: {String(check.usage)}
+                              </p>
+                            )}
+                          </div>
                         </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0 gap-1.5"
+                          disabled={isRunning}
+                          onClick={() => handleRunDiagnostic(`diag-${idx}`)}
+                        >
+                          <Play
+                            className={`h-3.5 w-3.5 ${isRunning ? "animate-spin" : ""}`}
+                          />
+                          {isRunning ? "Running..." : "Run"}
+                        </Button>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="shrink-0 gap-1.5"
-                        disabled={isRunning}
-                        onClick={() => handleRunDiagnostic(diag.id)}
-                      >
-                        <Play
-                          className={`h-3.5 w-3.5 ${isRunning ? "animate-spin" : ""}`}
-                        />
-                        {isRunning ? "Running..." : "Run"}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -1020,37 +848,42 @@ export default function DeviceDetailPage() {
   const renderConfig = () => (
     <SectionCard
       title="Device Configuration"
-      description="Current device settings"
+      description="Current device settings from the backend"
     >
       <div className="space-y-3">
-        <InfoRow label="MQTT Topic" value={config.mqttTopic} mono />
-        <InfoRow
-          label="Publish Interval"
-          value={`${config.publishInterval}s`}
-        />
-        <div className="pt-2">
-          <p className="mb-2 text-sm font-medium text-muted-foreground">
-            Thresholds
-          </p>
-          <div className="space-y-2 rounded-lg border p-3">
-            <InfoRow
-              label="Min Battery"
-              value={`${config.thresholds.batteryMin}%`}
-            />
-            <InfoRow
-              label="Min Voltage"
-              value={`${config.thresholds.voltageMin}V`}
-            />
-            <InfoRow
-              label="Temperature Range"
-              value={`${config.thresholds.temperatureMin}°C to ${config.thresholds.temperatureMax}°C`}
-            />
-            <InfoRow
-              label="Min Signal"
-              value={`${config.thresholds.signalMin} dBm`}
-            />
+        <InfoRow label="MQTT Topic" value={mqttTopic} mono />
+        {publishInterval !== null && (
+          <InfoRow label="Publish Interval" value={`${publishInterval}s`} />
+        )}
+        {samplingRate !== null && (
+          <InfoRow label="Sampling Rate" value={`${samplingRate}s`} />
+        )}
+        {logLevel && (
+          <InfoRow label="Log Level" value={logLevel} />
+        )}
+        {thresholds && Object.keys(thresholds).length > 0 && (
+          <div className="pt-2">
+            <p className="mb-2 text-sm font-medium text-muted-foreground">
+              Thresholds
+            </p>
+            <div className="space-y-2 rounded-lg border p-3">
+              {Object.entries(thresholds).map(([key, value]) => (
+                <InfoRow
+                  key={key}
+                  label={key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())}
+                  value={String(value)}
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+        {!thresholds && publishInterval === null && samplingRate === null && !logLevel && (
+          <EmptyState
+            icon={Settings}
+            title="No configuration"
+            description="No device configuration has been stored."
+          />
+        )}
       </div>
     </SectionCard>
   );
@@ -1170,26 +1003,28 @@ function TelemetryCard({
   );
 }
 
-function IOPointRow({ point }: { point: MockIOPoint }) {
-  const stateColor = point.state ? "text-emerald-500" : "text-slate-400";
+function IOPointRow({ point }: { point: Record<string, unknown> }) {
+  const name = (point.name as string) ?? "Unknown";
+  const type = (point.type as string) ?? "digital";
+  const value = point.value;
+  const status = (point.status as string) ?? "normal";
+  const stateColor = status === "normal" ? "text-emerald-500" : "text-amber-500";
+
   return (
     <div className="flex items-center justify-between rounded-lg border p-3 text-sm">
       <div className="flex items-center gap-3">
         <div
-          className={`h-2 w-2 rounded-full ${point.state ? "bg-emerald-500" : "bg-slate-300"}`}
+          className={`h-2 w-2 rounded-full ${status === "normal" ? "bg-emerald-500" : "bg-amber-500"}`}
         />
         <div>
-          <p className="font-medium">{point.label}</p>
+          <p className="font-medium">{name}</p>
           <p className="text-xs text-muted-foreground">
-            {point.id} &middot; {point.type}
+            {type} &middot; {status}
           </p>
         </div>
       </div>
       <div className="text-right">
-        <p className="font-mono text-sm">{point.state ? "ON" : "OFF"}</p>
-        {point.value !== undefined && (
-          <p className="text-xs text-muted-foreground">{point.value}</p>
-        )}
+        <p className="font-mono text-sm">{formatIoValue(value)}</p>
       </div>
     </div>
   );

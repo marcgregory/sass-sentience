@@ -92,6 +92,20 @@ export const queryKeys = {
     kpis: (estateId?: string) => ["dashboard", "kpis", estateId] as const,
   },
 
+  /** Notification rules (admin) */
+  notificationRules: {
+    all: ["notificationRules"] as const,
+    list: () => ["notificationRules", "list"] as const,
+    detail: (id: string) => ["notificationRules", "detail", id] as const,
+  },
+
+  /** API keys (admin) */
+  apiKeys: {
+    all: ["apiKeys"] as const,
+    list: (params?: Record<string, unknown>) => ["apiKeys", "list", params] as const,
+    detail: (id: string) => ["apiKeys", "detail", id] as const,
+  },
+
   /** Health / system status */
   health: {
     status: ["health", "status"] as const,
