@@ -36,6 +36,7 @@ import {
   updateDevice,
   getDevice,
   pruneStaleDevicesDetailed,
+  resetSimulatorDevices,
 } from "./device-registry";
 import type { DeviceStatusValue } from "./socket-server";
 
@@ -87,6 +88,26 @@ async function main(): Promise<void> {
     password: env.MQTT_PASSWORD,
     onConnect: () => {
       console.log(`[bridge] Connected, tracking devices`);
+    },
+
+    onSystemMessage: (payload) => {
+      const topicPath = payload._topic as string | undefined;
+      if (topicPath === "simulator/started") {
+        const sessionId = (payload.sessionId ?? "?") as string;
+        const deviceCount = (payload.deviceCount ?? "?") as number | string;
+        const prevCount = resetSimulatorDevices();
+        console.log(
+          `[simulator] reset session=${sessionId} previous=${prevCount} new=${deviceCount}`,
+        );
+        // Notify all connected clients that the simulator fleet was reset
+        io.to(ROOMS.DASHBOARD).emit(EVENTS.SIMULATOR_RESET, {
+          event: "simulator:reset",
+          sessionId,
+          deviceCount,
+          previousCount: prevCount,
+          timestamp: new Date().toISOString(),
+        });
+      }
     },
 
     onMessage: ({ deviceId, topicType, payload }) => {

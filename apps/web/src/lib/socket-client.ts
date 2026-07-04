@@ -147,9 +147,12 @@ export interface ReportEvent {
 }
 
 export interface SimulatorResetEvent {
+  event?: string;
   sessionId: string;
   deviceCount: number;
-  startedAt: string;
+  previousCount?: number;
+  startedAt?: string;
+  timestamp?: string;
 }
 
 // ─── Room Subscriptions ────────────────────────────────────────────

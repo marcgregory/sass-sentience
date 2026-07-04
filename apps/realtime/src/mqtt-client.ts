@@ -11,9 +11,10 @@
 import mqtt from "mqtt";
 import type { MqttPayload } from "./normalizer";
 
-// ─── Topic Pattern ─────────────────────────────────────────────────
+// ─── Topic Patterns ─────────────────────────────────────────────────
 
 const TOPIC_PATTERN = /^sentience\/devices\/([^/]+)\/(telemetry|status|events)$/;
+const SYSTEM_PATTERN = /^sentience\/system\/(.+)$/;
 
 export type MqttTopicType = "telemetry" | "status" | "events";
 
@@ -25,6 +26,7 @@ export interface MqttMessage {
 }
 
 export type MessageHandler = (msg: MqttMessage) => void;
+export type SystemMessageHandler = (payload: Record<string, unknown>) => void;
 export type ErrorHandler = (err: Error) => void;
 
 // ─── Client ────────────────────────────────────────────────────────
@@ -35,6 +37,7 @@ export interface MqttClientOptions {
   username?: string;
   password?: string;
   onMessage: MessageHandler;
+  onSystemMessage?: SystemMessageHandler;
   onError?: ErrorHandler;
   onConnect?: () => void;
 }
@@ -42,7 +45,7 @@ export interface MqttClientOptions {
 export async function createMqttClient(
   options: MqttClientOptions,
 ): Promise<mqtt.MqttClient> {
-  const { brokerUrl, topicPrefix, username, password, onMessage, onError, onConnect } = options;
+  const { brokerUrl, topicPrefix, username, password, onMessage, onSystemMessage, onError, onConnect } = options;
 
   const client = await mqtt.connectAsync(brokerUrl, {
     username,
@@ -58,6 +61,7 @@ export async function createMqttClient(
     `${topicPrefix}/devices/+/telemetry`,
     `${topicPrefix}/devices/+/status`,
     `${topicPrefix}/devices/+/events`,
+    `${topicPrefix}/system/simulator/started`,
   ];
 
   await client.subscribeAsync(topics, { qos: 1 });
@@ -72,6 +76,14 @@ export async function createMqttClient(
 
   client.on("message", (topic, rawPayload) => {
     try {
+      // Check for system topics first
+      const sysMatch = topic.match(SYSTEM_PATTERN);
+      if (sysMatch) {
+        const parsed = JSON.parse(rawPayload.toString()) as Record<string, unknown>;
+        options.onSystemMessage?.({ ...parsed, _topic: sysMatch[1] });
+        return;
+      }
+
       const match = topic.match(TOPIC_PATTERN);
       if (!match) return;
 

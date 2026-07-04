@@ -122,3 +122,13 @@ export function pruneStaleDevices(ttlMs: number): number {
 export function resetRegistry(): void {
   registry.clear();
 }
+
+/**
+ * Clear all simulator devices from the registry.
+ * Returns the number of devices that were removed.
+ */
+export function resetSimulatorDevices(): number {
+  const count = registry.size;
+  registry.clear();
+  return count;
+}

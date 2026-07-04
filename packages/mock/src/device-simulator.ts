@@ -275,6 +275,25 @@ export async function runSimulator(
     },
   );
 
+  // ─── Publish simulator:started system message ─────────────────────
+  const sessionId = clientId;
+  const startedMessage = JSON.stringify({
+    event: "simulator:started",
+    sessionId,
+    clientId,
+    deviceCount,
+    seed: seed === undefined ? "random" : String(seed),
+    startedAt: startedAt.toISOString(),
+  });
+  await client.publishAsync(
+    `${topicPrefix}/system/simulator/started`,
+    startedMessage,
+    { qos: 1 },
+  );
+  console.log(
+    `[simulator] Published simulator:started (session=${sessionId}, devices=${deviceCount})`,
+  );
+
   // Publish initial status for every device
   for (const sd of devices) {
     await publishStatus(client, sd, topicPrefix);
