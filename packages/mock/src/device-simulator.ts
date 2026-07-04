@@ -86,6 +86,15 @@ function jitterInterval(baseMs: number): number {
   return baseMs - half + Math.random() * baseMs;
 }
 
+function formatUptime(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0) return `${h}h${m}m`;
+  if (m > 0) return `${m}m${s}s`;
+  return `${s}s`;
+}
+
 // ─── Simulator Engine ──────────────────────────────────────────────
 
 export async function runSimulator(options: SimulatorOptions = {}): Promise<void> {
@@ -114,6 +123,7 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
   let lastPublishTime = Date.now();
   let reconnectAttempts = 0;
   let mqttConnected = true;
+  const startTime = Date.now();
 
   // Wrap client.publishAsync so every publish is tracked automatically
   const originalPublish: typeof client.publishAsync = client.publishAsync.bind(client);
@@ -277,11 +287,20 @@ export async function runSimulator(options: SimulatorOptions = {}): Promise<void
   const healthInterval = setInterval(() => {
     const now = Date.now();
     const sinceLastPublish = (now - lastPublishTime) / 1000;
+    const uptimeSeconds = (now - startTime) / 1000;
+    const activeDevices = devices.filter((d) => d.status !== "offline").length;
+    const pausedDevices = devices.filter((d) => d.status === "offline" || d.status === "fault").length;
+    const uptimeStr = formatUptime(uptimeSeconds);
+
     console.log(
-      `[simulator] health: ${publishCount} publishes, last ${sinceLastPublish.toFixed(0)}s ago` +
+      `[simulator] health:` +
+      ` ${activeDevices}/${deviceCount} active` +
+      ` | ${pausedDevices} paused` +
+      ` | ${publishCount} publishes` +
+      ` | last ${sinceLastPublish.toFixed(0)}s ago` +
       ` | MQTT ${mqttConnected ? "connected" : "disconnected"}` +
       ` | reconnects: ${reconnectAttempts}` +
-      ` | devices: ${deviceCount}`,
+      ` | uptime=${uptimeStr}`,
     );
     if (sinceLastPublish > 60) {
       console.warn(
