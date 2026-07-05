@@ -27,12 +27,30 @@ interface SimulatorModeState {
 
 export const useSimulatorModeStore = create<SimulatorModeState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       enabled: false,
 
-      toggle: () => set((s) => ({ enabled: !s.enabled })),
-      enable: () => set({ enabled: true }),
-      disable: () => set({ enabled: false }),
+      toggle: () => {
+        const next = !get().enabled;
+        set({ enabled: next });
+        // When simulator mode is turned off, clear simulated notifications
+        // from the in-memory store so the badge count doesn't show stale data.
+        if (!next) {
+          import("@/stores/notification-store").then(({ useNotificationStore }) => {
+            useNotificationStore.getState().clearSimulatedNotifications();
+          });
+        }
+      },
+      enable: () => {
+        set({ enabled: true });
+      },
+      disable: () => {
+        set({ enabled: false });
+        // Clear simulated notifications when simulator mode is disabled
+        import("@/stores/notification-store").then(({ useNotificationStore }) => {
+          useNotificationStore.getState().clearSimulatedNotifications();
+        });
+      },
     }),
     {
       name: "sentience-simulator-mode",

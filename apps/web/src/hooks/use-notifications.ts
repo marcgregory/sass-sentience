@@ -17,6 +17,7 @@ import {
 } from "@/lib/notifications";
 import { queryKeys } from "@/lib/query-keys";
 import { useNotificationStore } from "@/stores/notification-store";
+import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 import type { Notification } from "@sentience/types";
 
 // ─── useNotifications ─────────────────────────────────────────────────────
@@ -65,6 +66,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
 export function useNotificationUnreadCount() {
   const setUnreadCount = useNotificationStore((s) => s.setUnreadCount);
   const storeNotifications = useNotificationStore((s) => s.notifications);
+  const simulatorMode = useSimulatorModeStore((s) => s.enabled);
 
   const query = useQuery({
     queryKey: queryKeys.notifications.unreadCount,
@@ -76,17 +78,19 @@ export function useNotificationUnreadCount() {
   });
 
   // Sync query result to Zustand store — include simulated unread count
+  // only when simulator mode is active to prevent badge/page mismatch.
   useEffect(() => {
     if (query.data !== undefined) {
-      // Count simulated notifications that haven't been marked read
-      const simulatedUnread = storeNotifications.filter(
-        (n): n is Notification & { isSimulated: boolean } =>
-          "isSimulated" in n && n.isSimulated === true && !n.isRead,
-      ).length;
+      const simulatedUnread = simulatorMode
+        ? storeNotifications.filter(
+            (n): n is Notification & { isSimulated: boolean } =>
+              "isSimulated" in n && n.isSimulated === true && !n.isRead,
+          ).length
+        : 0;
 
       setUnreadCount(query.data + simulatedUnread);
     }
-  }, [query.data, setUnreadCount, storeNotifications]);
+  }, [query.data, setUnreadCount, storeNotifications, simulatorMode]);
 
   return query;
 }
