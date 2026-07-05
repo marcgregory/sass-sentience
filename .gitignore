@@ -36,6 +36,11 @@ pnpm-debug.log*
 # Test
 coverage/
 
+# Playwright
+playwright-report/
+playwright-results/
+test-results/
+
 # Misc
 *.tsbuildinfo
 next-env.d.ts

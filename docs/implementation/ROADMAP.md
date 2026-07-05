@@ -2,7 +2,7 @@
 
 > **Product backlog.** Tracks what is completed, in progress, next, and blocked.
 > Engineering sprint details live in `BUILD_PLAN.md`.
-> Last updated: 2026-07-05
+> Last updated: 2026-07-06
 
 ---
 ## ✅ Completed — v1.0.0 GA (2026-07-05)
@@ -393,6 +393,6 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 ## 🔮 Future (Infrastructure & Polish)
 
 - Notifications — connect dropdown + full page to Socket.IO feed
-- E2E Tests — Playwright or Cypress
+- E2E Tests — ✅ Done in v1.5.0
 - Deployment pipeline — CI/CD
 - Advanced scaling — Kubernetes, Redis, multi-region

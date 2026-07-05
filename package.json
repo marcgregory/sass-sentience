@@ -13,7 +13,8 @@
     "db:migrate": "pnpm --filter @sentience/api db:migrate",
     "db:seed": "pnpm --filter @sentience/api db:seed",
     "api:dev": "pnpm --filter @sentience/api dev",
-    "api:start": "pnpm --filter @sentience/api start"
+    "api:start": "pnpm --filter @sentience/api start",
+    "test:e2e": "pnpm --filter @sentience/web test:e2e"
   },
   "devDependencies": {
     "prettier": "^3.4.2",

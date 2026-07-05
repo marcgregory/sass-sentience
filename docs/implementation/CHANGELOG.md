@@ -4,6 +4,33 @@ All notable changes to the Sentience IoT Platform.
 
 ---
 
+## v1.5.0 — 2026-07-06
+
+### E2E Regression Tests (Playwright)
+
+**Added**
+
+- **Playwright E2E test suite** — 38 tests across 7 spec files covering the 6 most critical user flows. Tests run against the Next.js dev server with API mocking via `page.route()` — no Docker, PostgreSQL, or backend required.
+- **API mock fixtures** — Deterministic mock data for all 12 API domains (auth, devices, alerts, events, notifications, api-keys, notification-rules, reports, audit-logs, users, roles, settings) in `apps/web/e2e/fixtures/api-mocks.ts`.
+
+**Test coverage**
+
+- **Authentication** (6 tests) — Unauthenticated redirect, quick-login for 4 roles, admin login flow, user name/role badge, sign out clearing state, invalid credentials error, re-login as different role.
+- **RBAC** (8 tests) — Admin/support/customer nav filtering, 5 route guard scenarios (Access Denied), customer data isolation.
+- **Notifications** (6 tests) — Page loads with list, mark as read, Mark All Read, bell badge in header, empty state, loading state resolves.
+- **API Keys** (4 tests) — List with masked keys, search input present, summary cards, create dialog opens.
+- **Notification Rules** (5 tests) — Display rules, channel toggle, role checkbox toggle, empty state, loading state resolves.
+- **Reports** (4 tests) — Page header, date range filter buttons present, loading state resolves, error state with retry button.
+- **Audit Log** (4 tests) — Displays entries, search input present, loading state resolves, empty state when no entries.
+
+**Build**
+
+- TypeScript: ✅ Zero errors across 9 packages
+- Production build: ✅ 27/27 pages, shared JS 103 kB
+- E2E tests: ✅ 38/38 passing
+
+---
+
 ## v1.4.0 — 2026-07-05
 
 ### Replace Mock Data With Real Backend
