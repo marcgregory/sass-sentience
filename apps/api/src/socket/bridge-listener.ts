@@ -1,5 +1,5 @@
 /**
- * Bridge listener — connects to the realtime bridge's Socket.IO server,
+ * Realtime listener — connects to the realtime service's Socket.IO server,
  * listens for alert:created events, persists them as notification records
  * in the database, and emits notification:new to connected clients.
  *
@@ -8,12 +8,12 @@
  * /notifications page and survive page refresh.
  *
  * Flow:
- *   MQTT event → Bridge → alert:created → API listener →
+ *   MQTT event → Realtime → alert:created → API listener →
  *   INSERT notifications (DB) → emitNotification() →
- *   Bridge → notification:new → Frontend (badge + page)
+ *   Realtime → notification:new → Frontend (badge + page)
  *
  * The connection is established once at server startup and auto-reconnects
- * if the bridge is temporarily unavailable.
+ * if the realtime service is temporarily unavailable.
  */
 
 import { io as createSocketClient, type Socket } from "socket.io-client";
@@ -24,7 +24,14 @@ import { eq, and, inArray } from "drizzle-orm";
 import { emitNotification } from "./notifications-emitter";
 import { env } from "../config";
 
-const BRIDGE_URL = process.env.BRIDGE_SOCKET_URL ?? "http://localhost:3002";
+const BRIDGE_URL = env.REALTIME_WS_URL;
+
+// ─── Error rate limiting ────────────────────────────────────────────
+//
+// Suppress repetitive connect_error logs to avoid spamming stdout
+// when the realtime service is unavailable (e.g. during deployments).
+let errorSuppressCount = 0;
+const ERROR_SUPPRESS_THRESHOLD = 5; // log every Nth error only
 
 // ─── Service Auth ───────────────────────────────────────────────────
 
@@ -91,7 +98,10 @@ export function connectBridgeListener(): Socket {
     });
 
     client.on("connect", () => {
-      console.log(`[bridge-listener] Connected to bridge at ${BRIDGE_URL}`);
+      console.log(`[bridge-listener] Connected to realtime service at ${env.REALTIME_WS_URL}`);
+
+      // Reset error counter on successful reconnect
+      errorSuppressCount = 0;
     });
 
     client.on("disconnect", (reason) => {
@@ -99,7 +109,12 @@ export function connectBridgeListener(): Socket {
     });
 
     client.on("connect_error", (err) => {
-      console.error(`[bridge-listener] Connection error: ${err.message}`);
+      errorSuppressCount++;
+      if (errorSuppressCount % ERROR_SUPPRESS_THRESHOLD === 1) {
+        console.error(
+          `[bridge-listener] Connection error (attempt ${errorSuppressCount}): ${err.message}`,
+        );
+      }
     });
 
     // ─── Handle alert:created → persist as notification ──────────

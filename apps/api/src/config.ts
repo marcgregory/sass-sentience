@@ -10,6 +10,7 @@ const envSchema = z.object({
   RATE_LIMIT_MAX: z.coerce.number().default(100),
   RENDER_API_KEY: z.string().optional(),
   RENDER_SIMULATOR_SERVICE_ID: z.string().optional(),
+  REALTIME_WS_URL: z.string().default("http://localhost:3002"),
 });
 
 export const env = envSchema.parse(process.env);
