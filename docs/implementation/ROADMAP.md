@@ -24,6 +24,23 @@ See `docs/implementation/RELEASE_PLAN.md` and `docs/implementation/CHANGELOG.md`
 | Production build | ✅ Passed | 27/27 pages, shared JS 102 kB |
 | Tagged | ✅ `v1.1.1` | 
 
+
+---
+
+## ✅ Completed — v1.3.0 Report PDF Export (2026-07-05)
+
+| Area | Status | Notes |
+|------|--------|-------|
+| PDF export button enabled | ✅ Done | Previously disabled, now generates PDF |
+| `usePdfExport` hook | ✅ Done | Dynamic imports of html2canvas + jsPDF, multi-page A4 |
+| PDF header with metadata | ✅ Done | Report title, date range, filters, generated timestamp |
+| Loading/error states | ✅ Done | "Generating PDF…" button + notification toast feedback |
+| Notification integration | ✅ Done | Success (info) and failure (alert) toasts |
+| Filename format | ✅ Done | `report-YYYY-MM-DD.pdf` |
+| TypeScript check | ✅ Passed | Zero errors |
+| Production build | ✅ Passed | 27/27 pages, shared JS 102 kB |
+| Tagged | ✅ `v1.3.0` |
+
 ---
 
 ## ✅ Completed — v1.2.0 Audit Log Filtering (2026-07-05)

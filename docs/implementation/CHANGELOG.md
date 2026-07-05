@@ -4,6 +4,27 @@ All notable changes to the Sentience IoT Platform.
 
 ---
 
+## v1.3.0 — 2026-07-05
+
+### Report PDF Export
+
+**Added**
+
+- **PDF export button enabled** — The previously disabled "Export PDF" button on the Reports page now generates a PDF of the current report view using `html2canvas` + `jsPDF`.
+- **`usePdfExport` hook** — New reusable hook: dynamically imports `html2canvas` and `jsPDF` to avoid impacting initial bundle size. Captures an element as a canvas, renders it onto an A4 PDF with multi-page support, and triggers a download. Returns `{ isExporting, error, exportPdf, clearError }` with a typed `PdfExportResult` for callback handling.
+- **PDF report header** — Exported PDF includes a title ("Fleet Health Report"), active filters (date range, estate, site, device), and a generated timestamp. The header is hidden on screen via `hidden print:block` Tailwind classes.
+- **Notification feedback** — Success/failure toasts via `useNotificationStore` after PDF generation completes.
+- **Loading state** — Button shows "Generating PDF…" with a spinning icon while the PDF is being generated.
+- **Filename format** — `report-YYYY-MM-DD.pdf`.
+
+**Build**
+
+- TypeScript: ✅ Zero errors across 9 packages
+- Production build: ✅ 27/27 pages, shared JS 102 kB
+- Reports page first-load JS: 120 kB (+18 kB from ref wrapper and hook wiring; `html2canvas` and `jsPDF` imported dynamically at runtime)
+
+---
+
 ## v1.2.0 — 2026-07-05
 
 ### Audit Log Filtering

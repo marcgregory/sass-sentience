@@ -99,8 +99,8 @@ The Sprint 2 spec included a sparkline showing device status counts over time, b
 
 ## Reports
 
-### PDF export and scheduled reports are placeholders
-The "Export PDF" button is disabled with a tooltip. The "Schedule Report" card shows Daily/Weekly/Monthly badges but no actual scheduling logic.
+### PDF export is resolved, scheduled reports are placeholder
+The "Export PDF" button now generates a real PDF via html2canvas + jsPDF (dynamic imports). The "Schedule Report" card still shows Daily/Weekly/Monthly badges but no actual scheduling logic.
 
 **Impact:** Users can see the intended feature set but cannot use PDF exports or report scheduling.
 
