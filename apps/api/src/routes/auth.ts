@@ -59,11 +59,13 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     // Generate JWT — embed role name (not UUID) so frontend can use it directly
+    // Embed customerId so downstream middleware can scope queries per tenant
     const token = app.jwt.sign({
       sub: result.id,
       email: result.email,
       role: result.roleName,
       name: result.name,
+      customerId: result.customerId,
     });
 
     return reply.send({

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "../db";
 import { reports, devices, events, alerts, sites, estates } from "../db/schema";
 import { eq, and, count, desc, asc, gte, inArray, SQL } from "drizzle-orm";
-import { requireAuth, requireRole } from "../middleware/auth";
+import { requireAuth, requireRole, customerScope, type JwtPayload } from "../middleware/auth";
 
 const createReportSchema = z.object({
   name: z.string().min(1),
@@ -65,14 +65,39 @@ export async function reportRoutes(app: FastifyInstance) {
   //   batteryDistribution[], signalDistribution[], faultDistribution[]
 
   app.get("/summary", { preHandler: [requireAuth] }, async (request, reply) => {
+    const user = request.user as JwtPayload;
     const query = request.query as {
       estate_id?: string;
       site_id?: string;
       device_id?: string;
     };
 
-    const conditions = await resolveDeviceFilter(query.estate_id, query.site_id, query.device_id);
-    const where = conditions && conditions.length > 0 ? and(...conditions) : undefined;
+    const conditions = (await resolveDeviceFilter(query.estate_id, query.site_id, query.device_id)) ?? [];
+
+    // ── Customer data isolation ────────────────────────────────────────
+    if (user.customerId) {
+      const custEstates = await db
+        .select({ id: estates.id })
+        .from(estates)
+        .where(eq(estates.customerId, user.customerId));
+      const custEstateIds = custEstates.map((e) => e.id);
+      if (custEstateIds.length > 0) {
+        const custSites = await db
+          .select({ id: sites.id })
+          .from(sites)
+          .where(inArray(sites.estateId, custEstateIds));
+        const custSiteIds = custSites.map((s) => s.id);
+        if (custSiteIds.length > 0) {
+          conditions.push(inArray(devices.siteId, custSiteIds));
+        } else {
+          conditions.push(eq(devices.id, "00000000-0000-0000-0000-000000000000"));
+        }
+      } else {
+        conditions.push(eq(devices.id, "00000000-0000-0000-0000-000000000000"));
+      }
+    }
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
 
     const deviceRows = await db.select().from(devices).where(where);
 
@@ -179,6 +204,7 @@ export async function reportRoutes(app: FastifyInstance) {
   // requested period, computed from the events and alerts tables.
 
   app.get("/trends", { preHandler: [requireAuth] }, async (request, reply) => {
+    const user = request.user as JwtPayload;
     const query = request.query as {
       days?: string;
       estate_id?: string;
@@ -192,6 +218,16 @@ export async function reportRoutes(app: FastifyInstance) {
     // Build event conditions scoped to the date range and filters
     const eventConditions: SQL[] = [gte(events.occurredAt, startDate)];
     const alertConditions: SQL[] = [gte(alerts.occurredAt, startDate)];
+
+    // ── Customer data isolation ────────────────────────────────────────
+    const eventScope = await customerScope(user, events.estateId);
+    if (eventScope) {
+      eventConditions.push(eventScope);
+    }
+    const alertScope = await customerScope(user, alerts.estateId);
+    if (alertScope) {
+      alertConditions.push(alertScope);
+    }
 
     if (query.device_id) {
       eventConditions.push(eq(events.deviceId, query.device_id));

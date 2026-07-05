@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "../db";
 import { alerts } from "../db/schema";
 import { eq, and, count, SQL, asc, desc } from "drizzle-orm";
-import { requireAuth, requireRole } from "../middleware/auth";
+import { requireAuth, requireRole, customerScope, type JwtPayload } from "../middleware/auth";
 
 const updateAlertSchema = z.object({
   status: z.enum(["open", "acknowledged", "resolved"]),
@@ -14,6 +14,7 @@ const updateAlertSchema = z.object({
 
 export async function alertRoutes(app: FastifyInstance) {
   app.get("/", { preHandler: [requireAuth] }, async (request, reply) => {
+    const user = request.user as JwtPayload;
     const query = request.query as {
       severity?: string;
       status?: string;
@@ -56,6 +57,12 @@ export async function alertRoutes(app: FastifyInstance) {
       conditions.push(eq(alerts.estateId, query.estate_id));
     }
 
+    // ── Customer data isolation ────────────────────────────────────────
+    const scopeCondition = await customerScope(user, alerts.estateId);
+    if (scopeCondition) {
+      conditions.push(scopeCondition);
+    }
+
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
     const [{ total }] = await db
@@ -86,9 +93,18 @@ export async function alertRoutes(app: FastifyInstance) {
   });
 
   app.get("/:id", { preHandler: [requireAuth] }, async (request, reply) => {
+    const user = request.user as JwtPayload;
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
 
-    const [alert] = await db.select().from(alerts).where(eq(alerts.id, id)).limit(1);
+    const conditions: SQL[] = [eq(alerts.id, id)];
+
+    // ── Customer data isolation ────────────────────────────────────────
+    const scopeCondition = await customerScope(user, alerts.estateId);
+    if (scopeCondition) {
+      conditions.push(scopeCondition);
+    }
+
+    const [alert] = await db.select().from(alerts).where(and(...conditions)).limit(1);
 
     if (!alert) {
       return reply.status(404).send({ message: "Alert not found", code: "NOT_FOUND" });

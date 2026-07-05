@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "../db";
 import { devices, sites, estates } from "../db/schema";
 import { eq, and, count, ilike, SQL, asc, desc, inArray } from "drizzle-orm";
-import { requireAuth, requireRole } from "../middleware/auth";
+import { requireAuth, requireRole, customerScope, type JwtPayload } from "../middleware/auth";
 
 const updateDeviceSchema = z.object({
   name: z.string().min(1).optional(),
@@ -21,6 +21,7 @@ const updateDeviceSchema = z.object({
 
 export async function deviceRoutes(app: FastifyInstance) {
   app.get("/", { preHandler: [requireAuth] }, async (request, reply) => {
+    const user = request.user as JwtPayload;
     const query = request.query as {
       site_id?: string;
       estate_id?: string;
@@ -69,6 +70,30 @@ export async function deviceRoutes(app: FastifyInstance) {
       );
     }
 
+    // ── Customer data isolation ────────────────────────────────────────
+    // Customer users see only devices belonging to their own estates.
+    if (user.customerId) {
+      const custEstates = await db
+        .select({ id: estates.id })
+        .from(estates)
+        .where(eq(estates.customerId, user.customerId));
+      const custEstateIds = custEstates.map((e) => e.id);
+      if (custEstateIds.length > 0) {
+        const custSites = await db
+          .select({ id: sites.id })
+          .from(sites)
+          .where(inArray(sites.estateId, custEstateIds));
+        const custSiteIds = custSites.map((s) => s.id);
+        if (custSiteIds.length > 0) {
+          conditions.push(inArray(devices.siteId, custSiteIds));
+        } else {
+          conditions.push(eq(devices.id, "00000000-0000-0000-0000-000000000000"));
+        }
+      } else {
+        conditions.push(eq(devices.id, "00000000-0000-0000-0000-000000000000"));
+      }
+    }
+
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
     const [{ total }] = await db
@@ -99,6 +124,7 @@ export async function deviceRoutes(app: FastifyInstance) {
   });
 
   app.get("/:id", { preHandler: [requireAuth] }, async (request, reply) => {
+    const user = request.user as JwtPayload;
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
 
     const [device] = await db.select().from(devices).where(eq(devices.id, id)).limit(1);
@@ -107,16 +133,26 @@ export async function deviceRoutes(app: FastifyInstance) {
       return reply.status(404).send({ message: "Device not found", code: "NOT_FOUND" });
     }
 
-    // Fetch site and estate for context
+    // Fetch site and estate for context (also used for customer isolation check)
     const [site] = await db.select().from(sites).where(eq(sites.id, device.siteId)).limit(1);
     let estateName: string | undefined;
     if (site) {
       const [estate] = await db
-        .select({ name: estates.name })
+        .select({ name: estates.name, customerId: estates.customerId })
         .from(estates)
         .where(eq(estates.id, site.estateId))
         .limit(1);
+
+      // ── Customer data isolation ────────────────────────────────────
+      // Customer users cannot access devices outside their own estates.
+      if (user.customerId && estate?.customerId !== user.customerId) {
+        return reply.status(404).send({ message: "Device not found", code: "NOT_FOUND" });
+      }
+
       estateName = estate?.name;
+    } else if (user.customerId) {
+      // Device has no site — customer users should not access it
+      return reply.status(404).send({ message: "Device not found", code: "NOT_FOUND" });
     }
 
     return reply.send({

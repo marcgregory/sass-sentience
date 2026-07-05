@@ -3,10 +3,11 @@ import { z } from "zod";
 import { db } from "../db";
 import { events } from "../db/schema";
 import { eq, and, count, ilike, gte, lte, or, asc, desc, SQL } from "drizzle-orm";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, customerScope, type JwtPayload } from "../middleware/auth";
 
 export async function eventRoutes(app: FastifyInstance) {
   app.get("/", { preHandler: [requireAuth] }, async (request, reply) => {
+    const user = request.user as JwtPayload;
     const query = request.query as {
       severity?: string;
       category?: string;
@@ -62,6 +63,13 @@ export async function eventRoutes(app: FastifyInstance) {
       );
     }
 
+    // ── Customer data isolation ────────────────────────────────────────
+    // Customer users see only events on estates they own.
+    const scopeCondition = await customerScope(user, events.estateId);
+    if (scopeCondition) {
+      conditions.push(scopeCondition);
+    }
+
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
     const [{ total }] = await db
@@ -92,9 +100,18 @@ export async function eventRoutes(app: FastifyInstance) {
   });
 
   app.get("/:id", { preHandler: [requireAuth] }, async (request, reply) => {
+    const user = request.user as JwtPayload;
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
 
-    const [event] = await db.select().from(events).where(eq(events.id, id)).limit(1);
+    const conditions = [eq(events.id, id)];
+
+    // ── Customer data isolation ────────────────────────────────────────
+    const scopeCondition = await customerScope(user, events.estateId);
+    if (scopeCondition) {
+      conditions.push(scopeCondition);
+    }
+
+    const [event] = await db.select().from(events).where(and(...conditions)).limit(1);
 
     if (!event) {
       return reply.status(404).send({ message: "Event not found", code: "NOT_FOUND" });
