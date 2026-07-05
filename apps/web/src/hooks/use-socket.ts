@@ -185,6 +185,33 @@ export function useSocket(options: UseSocketOptions = {}): void {
 
     const alertCreatedHandler = (payload: AlertEvent) => {
       useLiveAlertStore.getState().addAlert(payload);
+
+      // Simulated alerts must also appear as in-memory notifications on
+      // the /notifications page. Since simulated alerts skip DB persistence,
+      // the bridge-listener's alert→notification pipeline never fires for
+      // them. We mirror the conversion here so the notification store
+      // receives a matching simulated notification object.
+      if (payload.isSimulated) {
+        import("@/stores/notification-store").then(({ useNotificationStore }) => {
+          const priorityMap: Record<string, "critical" | "high" | "normal" | "low"> = {
+            critical: "critical",
+            warning: "high",
+            info: "normal",
+          };
+          const message = payload.description ?? payload.title;
+          useNotificationStore.getState().addSimulatedNotification({
+            id: `simulated-notification-${payload.alertId}`,
+            userId: "*",
+            title: payload.title,
+            message,
+            priority: priorityMap[payload.severity] ?? "normal",
+            category: "alert",
+            isRead: false,
+            createdAt: payload.timestamp,
+            isSimulated: true,
+          });
+        });
+      }
     };
     socket.on("alert:created", alertCreatedHandler);
     handlers.push(() => {
