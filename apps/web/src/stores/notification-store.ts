@@ -16,6 +16,7 @@ interface NotificationState {
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   setIsOpen: (open: boolean) => void;
+  clearSimulatedNotifications: () => void;
   setNotifications: (notifications: Notification[]) => void;
   setUnreadCount: (count: number) => void;
 }
@@ -58,6 +59,25 @@ export const useNotificationStore = create<NotificationState>()((set, get) => ({
   },
 
   setIsOpen: (open) => set({ isOpen: open }),
+
+  clearSimulatedNotifications: () => {
+    set((state) => {
+      const remaining = state.notifications.filter(
+        (n) => !("isSimulated" in n) || !(n as SimulatedNotification).isSimulated,
+      );
+      const removedSimulated = state.notifications.length - remaining.length;
+      const removedUnread = state.notifications.filter(
+        (n) =>
+          "isSimulated" in n &&
+          (n as SimulatedNotification).isSimulated === true &&
+          !n.isRead,
+      ).length;
+      return {
+        notifications: remaining,
+        unreadCount: Math.max(0, state.unreadCount - removedUnread),
+      };
+    });
+  },
 
   setNotifications: (notifications) =>
     set({

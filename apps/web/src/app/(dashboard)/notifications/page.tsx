@@ -89,10 +89,19 @@ export default function NotificationsPage() {
 
     // In simulator mode, prepend simulated notifications and deduplicate by ID.
     // Simulated notifications have isSimulated: true and exist only in-memory.
-    const simulated = storeNotifications.filter(
-      (n): n is SimulatedNotification =>
-        "isSimulated" in n && n.isSimulated === true,
-    );
+    // Apply the same client-side filters to simulated notifications so filtering
+    // by "unread only" works correctly for them too.
+    const simulated = storeNotifications.filter((n): n is SimulatedNotification => {
+      if (!("isSimulated" in n) || !(n as SimulatedNotification).isSimulated) {
+        return false;
+      }
+      // Apply read filter
+      if (filterRead === "true" && !n.isRead) return false;
+      if (filterRead === "false" && n.isRead) return false;
+      // Apply category filter
+      if (filterCategory && n.category !== filterCategory) return false;
+      return true;
+    });
 
     if (simulated.length === 0) return api;
 
@@ -105,7 +114,7 @@ export default function NotificationsPage() {
       }
     }
     return merged;
-  }, [data, storeNotifications, simulatorMode]);
+  }, [data, storeNotifications, simulatorMode, filterRead, filterCategory]);
 
   const pagination = data?.pagination;
 
@@ -127,7 +136,9 @@ export default function NotificationsPage() {
     markAllRead.mutate();
   };
 
-  const unreadCount = data?.unreadCount ?? notifications.filter((n) => !n.isRead).length;
+  // Compute the true unread count from the merged notifications list
+  // instead of relying on data?.unreadCount which only reflects API notifications.
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   return (
     <div className="space-y-6 animate-fade-in">

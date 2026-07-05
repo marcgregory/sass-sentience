@@ -259,22 +259,14 @@ export function useSocket(options: UseSocketOptions = {}): void {
     // simulator:reset via the bridge. We clear all live stores and
     // invalidate React Query caches so stale data is not shown.
     // The invalidation is already handled by eventToKeys above.
+    // Simulated notifications are also cleared since they are tied
+    // to the simulator session.
 
     const simulatorResetHandler = () => {
       useLiveDeviceStore.getState().clearLiveState();
       useLiveAlertStore.getState().clearAlerts();
-      // Show a toast notification so the user knows what happened
       import("@/stores/notification-store").then(({ useNotificationStore }) => {
-        useNotificationStore.getState().addNotification({
-          id: `sim-reset-${Date.now()}`,
-          userId: "",
-          title: "Simulator restarted",
-          message: "Refreshing live devices and data.",
-          priority: "normal",
-          category: "system",
-          isRead: false,
-          createdAt: new Date().toISOString(),
-        });
+        useNotificationStore.getState().clearSimulatedNotifications();
       });
     };
     socket.on("simulator:reset", simulatorResetHandler);
