@@ -5,6 +5,7 @@
 > Last updated: 2026-07-06
 
 ---
+
 ## ✅ Completed — v1.0.0 GA (2026-07-05)
 
 **v1.0.0** tagged and released. Full release validation completed across all 15 RC5 checks.
@@ -15,142 +16,141 @@ See `docs/implementation/RELEASE_PLAN.md` and `docs/implementation/CHANGELOG.md`
 
 ## ✅ Completed — v1.1.1 Security & Accessibility Hardening (2026-07-05)
 
-| Area | Status | Notes |
-|------|--------|-------|
-| ARIA labels on icon-only buttons | ✅ Done | 9 buttons across 4 pages — close details, clear search, activate/deactivate toggle, revoke/delete key |
-| CORS origin restriction | ✅ Already configured | `CORS_ORIGIN` env var in `apps/api`, defaults to `http://localhost:3000` |
-| Rate limiting | ✅ Already configured | `@fastify/rate-limit` in `apps/api`, `RATE_LIMIT_MAX` env var defaults to 100/min |
-| TypeScript check | ✅ Passed | Zero errors across 9 packages |
-| Production build | ✅ Passed | 27/27 pages, shared JS 102 kB |
-| Tagged | ✅ `v1.1.1` | 
-
+| Area                             | Status                | Notes                                                                                                 |
+| -------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------- |
+| ARIA labels on icon-only buttons | ✅ Done               | 9 buttons across 4 pages — close details, clear search, activate/deactivate toggle, revoke/delete key |
+| CORS origin restriction          | ✅ Already configured | `CORS_ORIGIN` env var in `apps/api`, defaults to `http://localhost:3000`                              |
+| Rate limiting                    | ✅ Already configured | `@fastify/rate-limit` in `apps/api`, `RATE_LIMIT_MAX` env var defaults to 100/min                     |
+| TypeScript check                 | ✅ Passed             | Zero errors across 9 packages                                                                         |
+| Production build                 | ✅ Passed             | 27/27 pages, shared JS 102 kB                                                                         |
+| Tagged                           | ✅ `v1.1.1`           |
 
 ---
 
 ## ✅ Completed — v1.4.0 Replace Mock Data With Real Backend (2026-07-05)
 
-| Area | Status | Notes |
-|------|--------|-------|
-| Notifications page | ✅ Verified | Already uses `useNotifications()` hook, fetches `GET /api/notifications`, supports simulated notification merge |
-| API Keys page | ✅ Verified | Already uses `useApiKeys()` hook, create/revoke/delete persist through `GET/POST/PATCH/DELETE /api/api-keys` |
-| Notification Rules page | ✅ Verified | Already uses `useNotificationRules()` hook, loads from `GET /api/notification-rules`, saves via `PATCH /api/notification-rules/:id` |
-| All mock data removed from admin pages | ✅ Verified | Zero mock/hardcoded references in notifications, api-keys, or notification-rules pages |
-| Known issues updated | ✅ Done | Removed "4 pages still use partial mock data" from v1.2.0 changelog |
-| TypeScript check | ✅ Passed | Zero errors across 9 packages |
-| Production build | ✅ Passed | 28/28 pages, shared JS 102 kB |
-| Tagged | ✅ `v1.4.0` |
+| Area                                   | Status      | Notes                                                                                                                               |
+| -------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Notifications page                     | ✅ Verified | Already uses `useNotifications()` hook, fetches `GET /api/notifications`, supports simulated notification merge                     |
+| API Keys page                          | ✅ Verified | Already uses `useApiKeys()` hook, create/revoke/delete persist through `GET/POST/PATCH/DELETE /api/api-keys`                        |
+| Notification Rules page                | ✅ Verified | Already uses `useNotificationRules()` hook, loads from `GET /api/notification-rules`, saves via `PATCH /api/notification-rules/:id` |
+| All mock data removed from admin pages | ✅ Verified | Zero mock/hardcoded references in notifications, api-keys, or notification-rules pages                                              |
+| Known issues updated                   | ✅ Done     | Removed "4 pages still use partial mock data" from v1.2.0 changelog                                                                 |
+| TypeScript check                       | ✅ Passed   | Zero errors across 9 packages                                                                                                       |
+| Production build                       | ✅ Passed   | 28/28 pages, shared JS 102 kB                                                                                                       |
+| Tagged                                 | ✅ `v1.4.0` |
 
 ---
 
 ## ✅ Completed — v1.3.0 Report PDF Export (2026-07-05)
 
-| Area | Status | Notes |
-|------|--------|-------|
-| PDF export button enabled | ✅ Done | Previously disabled, now generates PDF |
-| `usePdfExport` hook | ✅ Done | Dynamic imports of html2canvas + jsPDF, multi-page A4 |
-| PDF header with metadata | ✅ Done | Report title, date range, filters, generated timestamp |
-| Loading/error states | ✅ Done | "Generating PDF…" button + notification toast feedback |
-| Notification integration | ✅ Done | Success (info) and failure (alert) toasts |
-| Filename format | ✅ Done | `report-YYYY-MM-DD.pdf` |
-| TypeScript check | ✅ Passed | Zero errors |
-| Production build | ✅ Passed | 27/27 pages, shared JS 102 kB |
-| Tagged | ✅ `v1.3.0` |
+| Area                      | Status      | Notes                                                  |
+| ------------------------- | ----------- | ------------------------------------------------------ |
+| PDF export button enabled | ✅ Done     | Previously disabled, now generates PDF                 |
+| `usePdfExport` hook       | ✅ Done     | Dynamic imports of html2canvas + jsPDF, multi-page A4  |
+| PDF header with metadata  | ✅ Done     | Report title, date range, filters, generated timestamp |
+| Loading/error states      | ✅ Done     | "Generating PDF…" button + notification toast feedback |
+| Notification integration  | ✅ Done     | Success (info) and failure (alert) toasts              |
+| Filename format           | ✅ Done     | `report-YYYY-MM-DD.pdf`                                |
+| TypeScript check          | ✅ Passed   | Zero errors                                            |
+| Production build          | ✅ Passed   | 27/27 pages, shared JS 102 kB                          |
+| Tagged                    | ✅ `v1.3.0` |
 
 ---
 
 ## ✅ Completed — v1.2.0 Audit Log Filtering (2026-07-05)
 
-| Area | Status | Notes |
-|------|--------|-------|
-| Server-side filters wired | ✅ Done | Search, action, pagination params passed to `GET /api/audit-logs` |
-| Client-side filtering removed | ✅ Done | No more downloading 200 rows and filtering in the browser |
-| Accurate pagination counts | ✅ Done | `total` and `totalPages` reflect filtered queries |
-| CSV export fetches full dataset | ✅ Done | Up to 10,000 rows from API, merged with local entries |
-| Loading/empty/error states | ✅ Verified | All three states preserved with server-side data |
-| Severity filter removed | ✅ Done | Not a DB field — action filter covers the use case |
-| TypeScript check | ✅ Passed | Zero errors |
-| Production build | ✅ Passed | 27/27 pages, shared JS 102 kB |
-| Tagged | ✅ `v1.2.0` | 
+| Area                            | Status      | Notes                                                             |
+| ------------------------------- | ----------- | ----------------------------------------------------------------- |
+| Server-side filters wired       | ✅ Done     | Search, action, pagination params passed to `GET /api/audit-logs` |
+| Client-side filtering removed   | ✅ Done     | No more downloading 200 rows and filtering in the browser         |
+| Accurate pagination counts      | ✅ Done     | `total` and `totalPages` reflect filtered queries                 |
+| CSV export fetches full dataset | ✅ Done     | Up to 10,000 rows from API, merged with local entries             |
+| Loading/empty/error states      | ✅ Verified | All three states preserved with server-side data                  |
+| Severity filter removed         | ✅ Done     | Not a DB field — action filter covers the use case                |
+| TypeScript check                | ✅ Passed   | Zero errors                                                       |
+| Production build                | ✅ Passed   | 27/27 pages, shared JS 102 kB                                     |
+| Tagged                          | ✅ `v1.2.0` |
 
 ---
 
 ## ✅ Completed — v1.0 RC1: Backend API + PostgreSQL
 
-| Area | Notes |
-|------|-------|
-| **Backend app** | `apps/api` — Fastify 5 + TypeScript |
-| **Database** | PostgreSQL 16 via Docker, persistent volume |
-| **ORM** | Drizzle ORM with auto-generated migrations |
-| **Schema** | 13 tables: users, roles, role_permissions, customers, estates, sites, devices, events, alerts, audit_logs, reports, api_keys, settings |
-| **API Routes** | /health, /auth/login, /users, /roles, /devices, /events, /alerts, /reports, /settings — all with pagination, filtering, JWT auth |
-| **Seed data** | 4 roles, 4 customers, 4 estates, 8 sites, 24 devices, 50 events, 15 alerts, 8 audit logs, 10 settings, 1 API key, 5 demo users |
-| **JWT Auth** | `@fastify/jwt` — login endpoint returns Bearer token, all routes protected |
-| **Dev commands** | `pnpm db:start/stop/migrate/seed/api:dev` — convenience scripts at root |
-| **Docs** | `docs/backend-api.md` — full API reference with examples |
-| **No frontend changes** | Existing frontend untouched — still builds full 26 pages |
+| Area                    | Notes                                                                                                                                  |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Backend app**         | `apps/api` — Fastify 5 + TypeScript                                                                                                    |
+| **Database**            | PostgreSQL 16 via Docker, persistent volume                                                                                            |
+| **ORM**                 | Drizzle ORM with auto-generated migrations                                                                                             |
+| **Schema**              | 13 tables: users, roles, role_permissions, customers, estates, sites, devices, events, alerts, audit_logs, reports, api_keys, settings |
+| **API Routes**          | /health, /auth/login, /users, /roles, /devices, /events, /alerts, /reports, /settings — all with pagination, filtering, JWT auth       |
+| **Seed data**           | 4 roles, 4 customers, 4 estates, 8 sites, 24 devices, 50 events, 15 alerts, 8 audit logs, 10 settings, 1 API key, 5 demo users         |
+| **JWT Auth**            | `@fastify/jwt` — login endpoint returns Bearer token, all routes protected                                                             |
+| **Dev commands**        | `pnpm db:start/stop/migrate/seed/api:dev` — convenience scripts at root                                                                |
+| **Docs**                | `docs/backend-api.md` — full API reference with examples                                                                               |
+| **No frontend changes** | Existing frontend untouched — still builds full 26 pages                                                                               |
 
 ---
 
 ## ✅ Completed — Platform Phase
 
-| Area | Notes |
-|------|-------|
-| **Monorepo** | pnpm workspaces, Turborepo, shared configs |
-| **Shared packages** | `@sentience/types`, `@sentience/utils`, `@sentience/config`, `@sentience/hooks`, `@sentience/ui` (scaffolded) |
-| **Design System** | shadcn/ui CSS variables (light + dark), Tailwind preset, custom animations, Inter font |
-| **UI Components** | Button, Badge, Card, StatusDot, StatusBadge, EmptyState, PageHeader |
-| **Layout** | DashboardShell, Sidebar (collapsible, 13 nav items, mobile drawer), Header (search, theme toggle, notifications, connection indicator) |
-| **Providers** | QueryProvider (TanStack Query, 30s staleTime), ThemeProvider (system preference, persisted) |
-| **Auth Store** | `useAuthStore`: mock login, role/permission stubs, persisted |
-| **UI Store** | `useUIStore`: sidebar, theme, mobile menu (persisted, tested) |
-| **Notification Store** | `useNotificationStore`: addNotification, markAsRead/markAllAsRead |
-| **Live Device Store** | `useLiveDeviceStore`: ephemeral real-time overlay, ring buffer (max 50) |
-| **API Client** | `api-client.ts`, `query-keys.ts` (tested), pagination types |
-| **Socket Client** | Singleton Socket.IO client, 14 typed events, auto-reconnect, rooms |
-| **MQTT Simulator** | Device generator (4 estates, 8 sites), telemetry simulator, CLI, Docker Mosquitto |
-| **Realtime Bridge** | MQTT client, event normalizer (14 tests), device registry (9 tests), Socket.IO server with room routing |
-| **Socket Hook** | `useSocket()`: event-to-query invalidation, live-store updates (tested) |
-| **Devices Hook** | `useDevices()`: TanStack Query + live overlay; `useDevice(id)`: single device detail + live overlay |
-| **Dashboard Data Hook** | `useDashboardData()`: live KPIs with mock fallback |
-| **Live Dashboard** | KPI cards, System Health gauges, Live Events, Alerts feed, widgets |
-| **Device Table** | HTML table with live overlay (status/battery/signal/temp) |
-| **Connection Indicator** | Header Wifi/WifiOff icon |
-| **Documentation** | ADRs (3), DEPLOYMENT.md, MQTT guide, Realtime bridge guide, CLAUDE.md, CHANGELOG.md, ROADMAP.md, BUILD_PLAN.md |
+| Area                            | Notes                                                                                                                                                                 |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Monorepo**                    | pnpm workspaces, Turborepo, shared configs                                                                                                                            |
+| **Shared packages**             | `@sentience/types`, `@sentience/utils`, `@sentience/config`, `@sentience/hooks`, `@sentience/ui` (scaffolded)                                                         |
+| **Design System**               | shadcn/ui CSS variables (light + dark), Tailwind preset, custom animations, Inter font                                                                                |
+| **UI Components**               | Button, Badge, Card, StatusDot, StatusBadge, EmptyState, PageHeader                                                                                                   |
+| **Layout**                      | DashboardShell, Sidebar (collapsible, 13 nav items, mobile drawer), Header (search, theme toggle, notifications, connection indicator)                                |
+| **Providers**                   | QueryProvider (TanStack Query, 30s staleTime), ThemeProvider (system preference, persisted)                                                                           |
+| **Auth Store**                  | `useAuthStore`: mock login, role/permission stubs, persisted                                                                                                          |
+| **UI Store**                    | `useUIStore`: sidebar, theme, mobile menu (persisted, tested)                                                                                                         |
+| **Notification Store**          | `useNotificationStore`: addNotification, markAsRead/markAllAsRead                                                                                                     |
+| **Live Device Store**           | `useLiveDeviceStore`: ephemeral real-time overlay, ring buffer (max 50)                                                                                               |
+| **API Client**                  | `api-client.ts`, `query-keys.ts` (tested), pagination types                                                                                                           |
+| **Socket Client**               | Singleton Socket.IO client, 14 typed events, auto-reconnect, rooms                                                                                                    |
+| **MQTT Simulator**              | Device generator (4 estates, 8 sites), telemetry simulator, CLI, Docker Mosquitto                                                                                     |
+| **Realtime Bridge**             | MQTT client, event normalizer (14 tests), device registry (9 tests), Socket.IO server with room routing                                                               |
+| **Socket Hook**                 | `useSocket()`: event-to-query invalidation, live-store updates (tested)                                                                                               |
+| **Devices Hook**                | `useDevices()`: TanStack Query + live overlay; `useDevice(id)`: single device detail + live overlay                                                                   |
+| **Dashboard Data Hook**         | `useDashboardData()`: live KPIs with mock fallback                                                                                                                    |
+| **Live Dashboard**              | KPI cards, System Health gauges, Live Events, Alerts feed, widgets                                                                                                    |
+| **Device Table**                | HTML table with live overlay (status/battery/signal/temp)                                                                                                             |
+| **Connection Indicator**        | Header Wifi/WifiOff icon                                                                                                                                              |
+| **Documentation**               | ADRs (3), DEPLOYMENT.md, MQTT guide, Realtime bridge guide, CLAUDE.md, CHANGELOG.md, ROADMAP.md, BUILD_PLAN.md                                                        |
 | **Sprint 1: Device Management** | Device detail page (`/devices/[id]`) with 6 tabs (Overview, Telemetry, I/O, Diagnostics, Events, Config), live telemetry overlay, device table linking, dynamic route |
 
 ---
 
 ## ✅ Completed — Sprint 2: Dashboard
 
-| Area | Notes |
-|------|-------|
-| **Fleet Health Score** | Composite gauge (online% × 0.4 + battery × 0.3 + signal × 0.3) with green/amber thresholding |
-| **Live KPI cards** | Total, Online, Offline, Fault, Warning counts from live device store |
-| **Battery Distribution** | Horizontal bar chart (Good/Fair/Low) via recharts |
-| **Signal Distribution** | Horizontal bar chart (Excellent/Good/Fair/Poor) via recharts |
-| **Temperature Distribution** | Horizontal bar chart (Normal/High/Critical) via recharts |
-| **Devices by Estate** | Summary cards per estate with status dots and drill-down links |
-| **Recent Activity feed** | Live event stream from ring buffer with severity icons |
-| **Offline Device list** | Recently offline devices with name, site, last-seen links |
-| **Quick Action cards** | View Offline, View Faults, Open Diagnostics, Export Report (placeholder) |
-| **Simulator banner** | Informational card when no live data is present |
-| **Today's Overview** | Side panel with events count, connection status, health score |
-| **Shared components** | `FleetHealthGauge`, `DistributionBar`, `RecentActivity`, `EstateSummaryCards`, `QuickActions` |
+| Area                         | Notes                                                                                         |
+| ---------------------------- | --------------------------------------------------------------------------------------------- |
+| **Fleet Health Score**       | Composite gauge (online% × 0.4 + battery × 0.3 + signal × 0.3) with green/amber thresholding  |
+| **Live KPI cards**           | Total, Online, Offline, Fault, Warning counts from live device store                          |
+| **Battery Distribution**     | Horizontal bar chart (Good/Fair/Low) via recharts                                             |
+| **Signal Distribution**      | Horizontal bar chart (Excellent/Good/Fair/Poor) via recharts                                  |
+| **Temperature Distribution** | Horizontal bar chart (Normal/High/Critical) via recharts                                      |
+| **Devices by Estate**        | Summary cards per estate with status dots and drill-down links                                |
+| **Recent Activity feed**     | Live event stream from ring buffer with severity icons                                        |
+| **Offline Device list**      | Recently offline devices with name, site, last-seen links                                     |
+| **Quick Action cards**       | View Offline, View Faults, Open Diagnostics, Export Report (placeholder)                      |
+| **Simulator banner**         | Informational card when no live data is present                                               |
+| **Today's Overview**         | Side panel with events count, connection status, health score                                 |
+| **Shared components**        | `FleetHealthGauge`, `DistributionBar`, `RecentActivity`, `EstateSummaryCards`, `QuickActions` |
 
 ---
 
 ## ✅ Completed — Sprint 3: Alerts
 
-| Area | Notes |
-|------|-------|
-| **Live Alert Store** | Zustand store with ring buffer (max 100), acknowledge/resolve actions, history tracking |
-| **Alert Emission** | Bridge emits `alert:created` for battery_low/signal_weak/device_offline/device_fault |
-| **Alert Resolution** | Bridge emits `alert:updated` for status transitions (acknowledge/resolve) |
-| **Socket Wiring** | `useSocket` pushes `alert:created`/`alert:updated` to live alert store |
-| **Alerts Page** | Severity filters (critical/warning/info), status filters (open/acknowledged/resolved) |
-| **Alert Detail Panel** | Side sheet with full alert info, acknowledge/resolve actions, timeline |
-| **Empty State** | EmptyState component when no alerts exist |
-| **Live Alerts Demo** | Start simulator → low battery/fault → alert appears → acknowledge → resolve |
+| Area                   | Notes                                                                                   |
+| ---------------------- | --------------------------------------------------------------------------------------- |
+| **Live Alert Store**   | Zustand store with ring buffer (max 100), acknowledge/resolve actions, history tracking |
+| **Alert Emission**     | Bridge emits `alert:created` for battery_low/signal_weak/device_offline/device_fault    |
+| **Alert Resolution**   | Bridge emits `alert:updated` for status transitions (acknowledge/resolve)               |
+| **Socket Wiring**      | `useSocket` pushes `alert:created`/`alert:updated` to live alert store                  |
+| **Alerts Page**        | Severity filters (critical/warning/info), status filters (open/acknowledged/resolved)   |
+| **Alert Detail Panel** | Side sheet with full alert info, acknowledge/resolve actions, timeline                  |
+| **Empty State**        | EmptyState component when no alerts exist                                               |
+| **Live Alerts Demo**   | Start simulator → low battery/fault → alert appears → acknowledge → resolve             |
 
 ---
 
@@ -158,103 +158,104 @@ See `docs/implementation/RELEASE_PLAN.md` and `docs/implementation/CHANGELOG.md`
 
 ## ✅ Completed — Sprint 4: Event History
 
-| Area | Notes |
-|------|-------|
-| **Event History Page** | Full event log with severity, category, device, and date filters |
-| **Search** | Text search across event titles and descriptions |
+| Area                   | Notes                                                                               |
+| ---------------------- | ----------------------------------------------------------------------------------- |
+| **Event History Page** | Full event log with severity, category, device, and date filters                    |
+| **Search**             | Text search across event titles and descriptions                                    |
 | **Event Detail Panel** | Side panel with full event info, device/site/estate context, links to device detail |
-| **CSV Export** | Client-side CSV export of filtered events |
-| **Pagination** | Server-style page navigation through event list |
-| **Empty State** | EmptyState when no events match filters |
+| **CSV Export**         | Client-side CSV export of filtered events                                           |
+| **Pagination**         | Server-style page navigation through event list                                     |
+| **Empty State**        | EmptyState when no events match filters                                             |
 
 ## ✅ Completed — Sprint 5: Reports
 
-| Area | Notes |
-|------|-------|
-| **Report Dashboard** | Filter bar with date range (today/7d/30d/90d), estate, site, device cascade filters |
-| **Fleet Summary Cards** | Total devices, avg battery, avg signal, open alerts — computed from live store |
-| **Fleet Health Gauge** | Composite health score with status breakdown bars |
-| **Alert Trends Chart** | Stacked area chart (critical/warning/info) over selected time range |
-| **Device Availability Chart** | Stacked bar chart (online/offline/fault) over time |
-| **Battery Health Chart** | Distribution bar (Good/Fair/Low) — reuse from dashboard pattern |
-| **Signal Quality Chart** | Distribution bar (Excellent/Good/Fair/Poor) — reuse from dashboard pattern |
-| **Fault Distribution Chart** | Donut pie chart with 6 fault categories and percentage labels |
-| **CSV Export** | Client-side CSV generation with full metric, distribution, and alert data |
-| **PDF Export (placeholder)** | Button disabled with "Coming soon" tooltip |
-| **Scheduling UI (placeholder)** | Daily/Weekly/Monthly badges with coming-soon state |
-| **Recent Exports List** | In-memory list of recently exported reports with re-download buttons |
+| Area                            | Notes                                                                               |
+| ------------------------------- | ----------------------------------------------------------------------------------- |
+| **Report Dashboard**            | Filter bar with date range (today/7d/30d/90d), estate, site, device cascade filters |
+| **Fleet Summary Cards**         | Total devices, avg battery, avg signal, open alerts — computed from live store      |
+| **Fleet Health Gauge**          | Composite health score with status breakdown bars                                   |
+| **Alert Trends Chart**          | Stacked area chart (critical/warning/info) over selected time range                 |
+| **Device Availability Chart**   | Stacked bar chart (online/offline/fault) over time                                  |
+| **Battery Health Chart**        | Distribution bar (Good/Fair/Low) — reuse from dashboard pattern                     |
+| **Signal Quality Chart**        | Distribution bar (Excellent/Good/Fair/Poor) — reuse from dashboard pattern          |
+| **Fault Distribution Chart**    | Donut pie chart with 6 fault categories and percentage labels                       |
+| **CSV Export**                  | Client-side CSV generation with full metric, distribution, and alert data           |
+| **PDF Export (placeholder)**    | Button disabled with "Coming soon" tooltip                                          |
+| **Scheduling UI (placeholder)** | Daily/Weekly/Monthly badges with coming-soon state                                  |
+| **Recent Exports List**         | In-memory list of recently exported reports with re-download buttons                |
 
 ## ✅ Completed — Sprint 6: User Management (RBAC)
 
-| Area | Notes |
-|------|-------|
-| **Permission system** | Full matrix (4 roles × 14 resources × 5 actions) in `@/lib/permissions` |
-| **Auth store: real RBAC** | `hasPermission()`/`hasRole()` return real results; `loginAsRole()` for instant switching |
-| **Sidebar nav filtering** | Admin sees 13 items, Support sees 10, Customer sees 5 |
-| **Route guards** | `AuthGuard` (unauthenticated redirect) + `RequirePermission` (Access Denied for unauthorized) |
-| **User management** | User list, search/filter, create dialog, inline role change, activate/deactivate |
-| **Roles & Permissions** | Role summary cards, expandable permission matrix with toggle switches |
-| **Audit Log** | Live store, search, action filter, CSV export, pagination |
-| **Settings** | Tabbed UI (General/Security/Notifications/Maintenance), mock fields, save feedback |
-| **Profile** | Live auth data, personal info edit, password change, notification prefs |
-| **Demo role switching** | Header role badge, Switch Role modal, quick-login on login page |
+| Area                      | Notes                                                                                         |
+| ------------------------- | --------------------------------------------------------------------------------------------- |
+| **Permission system**     | Full matrix (4 roles × 14 resources × 5 actions) in `@/lib/permissions`                       |
+| **Auth store: real RBAC** | `hasPermission()`/`hasRole()` return real results; `loginAsRole()` for instant switching      |
+| **Sidebar nav filtering** | Admin sees 13 items, Support sees 10, Customer sees 5                                         |
+| **Route guards**          | `AuthGuard` (unauthenticated redirect) + `RequirePermission` (Access Denied for unauthorized) |
+| **User management**       | User list, search/filter, create dialog, inline role change, activate/deactivate              |
+| **Roles & Permissions**   | Role summary cards, expandable permission matrix with toggle switches                         |
+| **Audit Log**             | Live store, search, action filter, CSV export, pagination                                     |
+| **Settings**              | Tabbed UI (General/Security/Notifications/Maintenance), mock fields, save feedback            |
+| **Profile**               | Live auth data, personal info edit, password change, notification prefs                       |
+| **Demo role switching**   | Header role badge, Switch Role modal, quick-login on login page                               |
 
 ## ✅ Completed — v1.0 RC2: Frontend Integration
 
 All 9 domains integrated with the backend API. The frontend no longer relies on mock data for core data flows. Settings load from `GET /api/settings` and persist changes via `PATCH /api/settings/:key` through TanStack Query.
 
-| Domain | Status | Notes |
-|--------|--------|-------|
-| **1. Health** | ✅ Done | Platform Health polls `GET /api/health`, shows real API status |
-| **2. Devices** | ✅ Done | Devices list and detail load from `GET /api/devices` + `GET /api/devices/:id`, live Socket.IO telemetry overlaid via Zustand, fallback error/loading/empty states, pagination count from API |
-| **3. Events** | ✅ Done | Event history loads from `GET /api/events` + `GET /api/events/:id` via TanStack Query. Live Socket.IO events merged on top via Zustand ring buffer. Deduplication by eventId. Loading skeleton, error state with retry, empty state preserved. Client-side filters (severity/category/device/date/search) and CSV export preserved. Query keys add `events.detail`. New files: `lib/events.ts` (API types + functions), `hooks/use-events.ts` (`useEvents` + `useEvent`). |
-| **4. Alerts** | ✅ Done | Alerts load from `GET /api/alerts` + `GET /api/alerts/:id` via TanStack Query. Live `alert:created`/`alert:updated` Socket.IO events merged on top via Zustand store. Acknowledge/resolve via `PATCH /api/alerts/:id` with optimistic mutations. Deduplication by alert ID. Loading skeleton, error state with retry, empty state preserved. Filters (severity/status) preserved. New files: `lib/alerts.ts` (API types + functions + mutations), `hooks/use-alerts.ts` (`useAlerts`, `useAlert`, `useAcknowledgeAlert`, `useResolveAlert`). |
-| **5. Reports** | ✅ Done | Report summary and trends load from `GET /api/reports/summary` + `GET /api/reports/trends` via TanStack Query. Live device/alert overlay preserved for freshness. Client-side filters (date range, estate, site, device) preserved. CSV export unchanged. PDF export placeholder preserved. Loading skeleton with summary/gauge/chart placeholders. Error state with retry. New files: `lib/reports.ts` (API types + functions), `hooks/use-reports.ts` (`useReportSummary`, `useReportTrends`, `useRecentReports`, `useGenerateReport`). Backend: `GET /api/reports/summary` and `GET /api/reports/trends` endpoints added to compute aggregate data from devices/events/alerts tables with optional estate/site/device filtering. |
-| **6. Users** | ✅ Done | Users list loads from `GET /api/users` via TanStack Query. Role drop-down populated from `GET /api/roles`. Create/edit/deactivate via `POST/PATCH/DELETE /api/users` with mutations. Backend users route updated to join with `roles` table so API returns both `roleId` (UUID) and `role` (enum name). Loading spinner, error state with retry, empty state preserved. Search, filters, pagination, dialog, role badges all preserved. New files: `lib/users.ts` (API types + functions), `lib/roles.ts` (API types + functions), `hooks/use-users.ts` (`useUsers`, `useUser`, `useRoles`, `useCreateUser`, `useUpdateUser`, `useDeactivateUser`). No mock user records remain in users page. |
-| **7. Roles** | ✅ Done | Role list loads from `GET /api/roles`, permission detail from `GET /api/roles/:id`. Inline toggle to grant/revoke permissions via `POST/DELETE /api/roles/:id/permissions` with admin-only mutations. Backend: added `POST /api/roles/:id/permissions` and `DELETE /api/roles/:id/permissions` endpoints, Zod validation, duplicate checking, admin role guard. New files: `hooks/use-roles.ts` (`useRole`, `useGrantPermission`, `useRevokePermission`). Updated: `lib/roles.ts` (`getRole`, `grantPermission`, `revokePermission`), `query-keys.ts` (`roles.detail`). Loading spinner, error state with retry (falls back to static matrix), empty state for no roles. Role card granted-resources badges reflect live permission data during expansion. |
-| **8. Audit Log** | ✅ Done | Audit log loads from `GET /api/audit-logs` via TanStack Query. Backend: `apps/api/src/routes/audit-logs.ts` with pagination, action/resource/date/search filters. New files: `lib/audit-logs.ts` (`getAuditLogs`, `getAuditLog`, `AuditLogApiItem`, `AuditLogListResponse`), `hooks/use-audit-logs.ts` (`useAuditLogs`, `useAuditLog`), `query-keys.ts` (`auditLogs.all/list/detail`). Merges API entries with locally-recorded entries (for write-back visibility). Deduplicates by ID. Client-side search, action filter, severity filter, pagination, CSV export, detail drawer preserved. Loading spinner, error state with retry (falls back to local entries), empty state preserved. |
-| **9. Settings** | ✅ Done | Settings page loads from `GET /api/settings` via TanStack Query. Changed settings persist through `PATCH /api/settings/:key` mutations. Platform name, timezone, password policy, session timeout, MFA toggle, data retention, maintenance mode, and feature flags (CSV export, MFA) all read/write through the API. Loading spinner, error state with retry, save feedback with error handling. Table-driven local state hydration from API response. New files: `lib/settings.ts` (`getSettings`, `updateSetting`, `SettingApiItem`, `SettingListResponse`), `hooks/use-settings.ts` (`useSettings`, `useUpdateSetting`), `query-keys.ts` (`settings.all`). |
+| Domain           | Status  | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1. Health**    | ✅ Done | Platform Health polls `GET /api/health`, shows real API status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **2. Devices**   | ✅ Done | Devices list and detail load from `GET /api/devices` + `GET /api/devices/:id`, live Socket.IO telemetry overlaid via Zustand, fallback error/loading/empty states, pagination count from API                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **3. Events**    | ✅ Done | Event history loads from `GET /api/events` + `GET /api/events/:id` via TanStack Query. Live Socket.IO events merged on top via Zustand ring buffer. Deduplication by eventId. Loading skeleton, error state with retry, empty state preserved. Client-side filters (severity/category/device/date/search) and CSV export preserved. Query keys add `events.detail`. New files: `lib/events.ts` (API types + functions), `hooks/use-events.ts` (`useEvents` + `useEvent`).                                                                                                                                                                                                                                                                                  |
+| **4. Alerts**    | ✅ Done | Alerts load from `GET /api/alerts` + `GET /api/alerts/:id` via TanStack Query. Live `alert:created`/`alert:updated` Socket.IO events merged on top via Zustand store. Acknowledge/resolve via `PATCH /api/alerts/:id` with optimistic mutations. Deduplication by alert ID. Loading skeleton, error state with retry, empty state preserved. Filters (severity/status) preserved. New files: `lib/alerts.ts` (API types + functions + mutations), `hooks/use-alerts.ts` (`useAlerts`, `useAlert`, `useAcknowledgeAlert`, `useResolveAlert`).                                                                                                                                                                                                               |
+| **5. Reports**   | ✅ Done | Report summary and trends load from `GET /api/reports/summary` + `GET /api/reports/trends` via TanStack Query. Live device/alert overlay preserved for freshness. Client-side filters (date range, estate, site, device) preserved. CSV export unchanged. PDF export placeholder preserved. Loading skeleton with summary/gauge/chart placeholders. Error state with retry. New files: `lib/reports.ts` (API types + functions), `hooks/use-reports.ts` (`useReportSummary`, `useReportTrends`, `useRecentReports`, `useGenerateReport`). Backend: `GET /api/reports/summary` and `GET /api/reports/trends` endpoints added to compute aggregate data from devices/events/alerts tables with optional estate/site/device filtering.                        |
+| **6. Users**     | ✅ Done | Users list loads from `GET /api/users` via TanStack Query. Role drop-down populated from `GET /api/roles`. Create/edit/deactivate via `POST/PATCH/DELETE /api/users` with mutations. Backend users route updated to join with `roles` table so API returns both `roleId` (UUID) and `role` (enum name). Loading spinner, error state with retry, empty state preserved. Search, filters, pagination, dialog, role badges all preserved. New files: `lib/users.ts` (API types + functions), `lib/roles.ts` (API types + functions), `hooks/use-users.ts` (`useUsers`, `useUser`, `useRoles`, `useCreateUser`, `useUpdateUser`, `useDeactivateUser`). No mock user records remain in users page.                                                             |
+| **7. Roles**     | ✅ Done | Role list loads from `GET /api/roles`, permission detail from `GET /api/roles/:id`. Inline toggle to grant/revoke permissions via `POST/DELETE /api/roles/:id/permissions` with admin-only mutations. Backend: added `POST /api/roles/:id/permissions` and `DELETE /api/roles/:id/permissions` endpoints, Zod validation, duplicate checking, admin role guard. New files: `hooks/use-roles.ts` (`useRole`, `useGrantPermission`, `useRevokePermission`). Updated: `lib/roles.ts` (`getRole`, `grantPermission`, `revokePermission`), `query-keys.ts` (`roles.detail`). Loading spinner, error state with retry (falls back to static matrix), empty state for no roles. Role card granted-resources badges reflect live permission data during expansion. |
+| **8. Audit Log** | ✅ Done | Audit log loads from `GET /api/audit-logs` via TanStack Query. Backend: `apps/api/src/routes/audit-logs.ts` with pagination, action/resource/date/search filters. New files: `lib/audit-logs.ts` (`getAuditLogs`, `getAuditLog`, `AuditLogApiItem`, `AuditLogListResponse`), `hooks/use-audit-logs.ts` (`useAuditLogs`, `useAuditLog`), `query-keys.ts` (`auditLogs.all/list/detail`). Merges API entries with locally-recorded entries (for write-back visibility). Deduplicates by ID. Client-side search, action filter, severity filter, pagination, CSV export, detail drawer preserved. Loading spinner, error state with retry (falls back to local entries), empty state preserved.                                                                |
+| **9. Settings**  | ✅ Done | Settings page loads from `GET /api/settings` via TanStack Query. Changed settings persist through `PATCH /api/settings/:key` mutations. Platform name, timezone, password policy, session timeout, MFA toggle, data retention, maintenance mode, and feature flags (CSV export, MFA) all read/write through the API. Loading spinner, error state with retry, save feedback with error handling. Table-driven local state hydration from API response. New files: `lib/settings.ts` (`getSettings`, `updateSetting`, `SettingApiItem`, `SettingListResponse`), `hooks/use-settings.ts` (`useSettings`, `useUpdateSetting`), `query-keys.ts` (`settings.all`).                                                                                              |
 
 ---
 
 ## ✅ Completed — v1.0 RC1: Backend API + PostgreSQL
 
-| Area | Notes |
-|------|-------|
-| **Admin overview page** | Hub page with admin module cards and system-wide status |
-| **Tenant settings** | Platform name, org profile, timezone, branding in enhanced settings |
-| **Feature flags** | Toggle-based feature flag management UI |
-| **Maintenance mode** | Global maintenance mode with toggle and status indicator |
-| **API key management** | Create/revoke API keys, masked display, last used tracking |
-| **Audit log enhancements** | Detail drawer, severity filters, improved export |
-| **Notification rules** | Alert thresholds, channel toggles, role-based preferences |
-| **Platform health** | Bridge, MQTT, Simulator, DB/API status cards |
-| **Admin route protection** | Non-admin roles blocked from admin pages |
+| Area                       | Notes                                                               |
+| -------------------------- | ------------------------------------------------------------------- |
+| **Admin overview page**    | Hub page with admin module cards and system-wide status             |
+| **Tenant settings**        | Platform name, org profile, timezone, branding in enhanced settings |
+| **Feature flags**          | Toggle-based feature flag management UI                             |
+| **Maintenance mode**       | Global maintenance mode with toggle and status indicator            |
+| **API key management**     | Create/revoke API keys, masked display, last used tracking          |
+| **Audit log enhancements** | Detail drawer, severity filters, improved export                    |
+| **Notification rules**     | Alert thresholds, channel toggles, role-based preferences           |
+| **Platform health**        | Bridge, MQTT, Simulator, DB/API status cards                        |
+| **Admin route protection** | Non-admin roles blocked from admin pages                            |
 
-| Sprint | Module | Demo |
-|--------|--------|------|
-| **7** | **Admin** | ⭐⭐⭐ | Log in as Admin → manage feature flags, API keys, platform health |
+| Sprint | Module    | Demo   |
+| ------ | --------- | ------ |
+| **7**  | **Admin** | ⭐⭐⭐ | Log in as Admin → manage feature flags, API keys, platform health |
 
 ---
 
 ## ✅ Completed — RC3 Phase 1: Application Audit
 
-| Checklist Item | Status | Notes |
-|----------------|--------|-------|
-| Find remaining mock data | ✅ Done | Found in 4 pages + auth store + audit store (partial fix applied to audit store) |
-| Verify every page uses backend APIs | ✅ Done | 15/19 pages use real APIs — api-keys, notification-rules, notifications, device detail tabs use mock |
-| Verify TanStack Query owns server state | ✅ Done | No server state leaked into Zustand |
-| Verify Zustand only holds UI/realtime/session state | ✅ Done | All stores correctly scoped |
-| Verify query invalidation after mutations | ✅ Done | All mutations properly invalidate |
-| Verify optimistic mutations and rollback | ✅ Fixed | 6 mutations were missing optimistic rollback — **all fixed** |
-| Find duplicated business logic | ✅ Fixed | `use-live-devices.ts` dead code deleted, local `cn()` replaced |
-| Find dead code from old mock implementations | ✅ Fixed | 1 dead file deleted, 1 config entry cleaned, 1 mock seed data removed |
-| Confirm shared selectors for derived metrics | ✅ Done | All metrics use `@sentience/utils` selectors |
-| **Deliverable: Audit Report** | ✅ Done | `docs/implementation/APPLICATION_AUDIT_REPORT.md` |
-| TypeScript clean | ✅ Passed | Zero errors |
-| Production build clean | ✅ Passed | 26/26 pages, no bundle errors |
+| Checklist Item                                      | Status    | Notes                                                                                                |
+| --------------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------- |
+| Find remaining mock data                            | ✅ Done   | Found in 4 pages + auth store + audit store (partial fix applied to audit store)                     |
+| Verify every page uses backend APIs                 | ✅ Done   | 15/19 pages use real APIs — api-keys, notification-rules, notifications, device detail tabs use mock |
+| Verify TanStack Query owns server state             | ✅ Done   | No server state leaked into Zustand                                                                  |
+| Verify Zustand only holds UI/realtime/session state | ✅ Done   | All stores correctly scoped                                                                          |
+| Verify query invalidation after mutations           | ✅ Done   | All mutations properly invalidate                                                                    |
+| Verify optimistic mutations and rollback            | ✅ Fixed  | 6 mutations were missing optimistic rollback — **all fixed**                                         |
+| Find duplicated business logic                      | ✅ Fixed  | `use-live-devices.ts` dead code deleted, local `cn()` replaced                                       |
+| Find dead code from old mock implementations        | ✅ Fixed  | 1 dead file deleted, 1 config entry cleaned, 1 mock seed data removed                                |
+| Confirm shared selectors for derived metrics        | ✅ Done   | All metrics use `@sentience/utils` selectors                                                         |
+| **Deliverable: Audit Report**                       | ✅ Done   | `docs/implementation/APPLICATION_AUDIT_REPORT.md`                                                    |
+| TypeScript clean                                    | ✅ Passed | Zero errors                                                                                          |
+| Production build clean                              | ✅ Passed | 26/26 pages, no bundle errors                                                                        |
 
 ### Issues Fixed
+
 - Deleted dead `use-live-devices.ts` hook (never imported)
 - Removed `@sentience/mock` from next.config.ts transpilePackages
 - Replaced local `cn()` with `@sentience/utils` import
@@ -262,6 +263,7 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 - Added optimistic updates + rollback to 3 user mutations, 2 role permission mutations, 1 settings mutation
 
 ### Known Remaining Debt
+
 - Auth store mock login (no backend auth endpoint)
 - `useGenerateReport` missing optimistic update (low priority)
 
@@ -269,23 +271,24 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 
 ## ✅ Completed — RC3 Phase 2: UX Audit
 
-| Checklist Item | Status | Notes |
-|----------------|--------|-------|
-| Loading states on all data-driven views | ✅ Done | 14/20 pages covered (6 mock-data pages excluded) |
-| Empty states on all data-driven views | ✅ Done | 15/20 pages covered (5 mock-data pages excluded) |
-| Error states with retry actions | ✅ Done | 14/20 pages covered (6 mock-data pages excluded) |
-| Offline/connection handling | ✅ Done | 100% of API-backed pages have connection banners |
-| Responsive layouts (375px, 768px, 1280px+) | ✅ Done | 20/20 pages pass |
-| Dark mode rendering | ✅ Done | 20/20 pages pass |
-| Keyboard navigation | ⚠️ Partial | 12/20 pages covered |
+| Checklist Item                                     | Status     | Notes                                                      |
+| -------------------------------------------------- | ---------- | ---------------------------------------------------------- |
+| Loading states on all data-driven views            | ✅ Done    | 14/20 pages covered (6 mock-data pages excluded)           |
+| Empty states on all data-driven views              | ✅ Done    | 15/20 pages covered (5 mock-data pages excluded)           |
+| Error states with retry actions                    | ✅ Done    | 14/20 pages covered (6 mock-data pages excluded)           |
+| Offline/connection handling                        | ✅ Done    | 100% of API-backed pages have connection banners           |
+| Responsive layouts (375px, 768px, 1280px+)         | ✅ Done    | 20/20 pages pass                                           |
+| Dark mode rendering                                | ✅ Done    | 20/20 pages pass                                           |
+| Keyboard navigation                                | ⚠️ Partial | 12/20 pages covered                                        |
 | Accessibility labels (ARIA, htmlFor, radio groups) | ⚠️ Partial | 10/20 pages; 14 issues fixed, ~20 icon-only buttons remain |
-| Form validation (number bounds, required fields) | ✅ Done | 15/20 pages covered |
-| Toast/save feedback after mutations | ✅ Done | 7/15 mutation-capable pages covered |
-| **Deliverable: UX Audit Report** | ✅ Done | `docs/implementation/UX_AUDIT_REPORT.md` |
-| TypeScript clean | ✅ Passed | Zero errors |
-| Production build clean | ✅ Passed | 26/26 pages |
+| Form validation (number bounds, required fields)   | ✅ Done    | 15/20 pages covered                                        |
+| Toast/save feedback after mutations                | ✅ Done    | 7/15 mutation-capable pages covered                        |
+| **Deliverable: UX Audit Report**                   | ✅ Done    | `docs/implementation/UX_AUDIT_REPORT.md`                   |
+| TypeScript clean                                   | ✅ Passed  | Zero errors                                                |
+| Production build clean                             | ✅ Passed  | 26/26 pages                                                |
 
 ### Issues Fixed
+
 - 5 search inputs missing `aria-label` — Added labels
 - Back button on device detail icon-only — Added `aria-label`
 - Event/Alert severity filter buttons — Added `role="radio"` + `aria-pressed`
@@ -295,6 +298,7 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 - Estates, Notifications, Diagnostics — Added EmptyState components
 
 ### Remaining UX Debt
+
 - Connection banners use `<div>` instead of `role="status"`
 - Devices table pagination "Previous" always disabled (no server-side pagination wired)
 - Estates, Sites, Notifications, Diagnostics, API Keys use hardcoded mock data (need API integration)
@@ -303,23 +307,24 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 
 ## ✅ Completed — RC3 Phase 3: API Audit & RBAC Hardening
 
-| Checklist Item | Status | Notes |
-|----------------|--------|-------|
-| HTTP status codes | ✅ Done | 1 low inconsistency (soft-delete returns 200 vs 204) |
-| Error response format | ✅ Done | All errors follow `{ message, code, details? }` |
-| Zod validation | ✅ Done | Good coverage; 2 gaps identified (roleId not verified, z.any() on settings) |
-| Authentication enforcement | ✅ Done | All protected endpoints require auth |
-| RBAC enforcement | **⚠️ Fixed** | 4 critical gaps found and patched |
-| Pagination consistency | ✅ Done | All list endpoints use same pattern |
-| Filtering | ✅ Done | 2 low gaps (alerts missing search/date, reports no filters) |
-| Sorting | ✅ Done | Consistent across all endpoints |
-| Search | ⚠️ Partial | 2 gaps (alerts no search, devices no serial# search) |
-| Transactions | ❌ Not used | Tracked as debt |
-| Response shape consistency | ✅ Done | 2 minor inconsistencies (documented) |
-| Documentation gaps | ⚠️ Partial | 4 undocumented endpoint areas |
-| **Deliverable: API Audit Report** | ✅ Done | `docs/implementation/API_AUDIT_REPORT.md` |
+| Checklist Item                    | Status       | Notes                                                                       |
+| --------------------------------- | ------------ | --------------------------------------------------------------------------- |
+| HTTP status codes                 | ✅ Done      | 1 low inconsistency (soft-delete returns 200 vs 204)                        |
+| Error response format             | ✅ Done      | All errors follow `{ message, code, details? }`                             |
+| Zod validation                    | ✅ Done      | Good coverage; 2 gaps identified (roleId not verified, z.any() on settings) |
+| Authentication enforcement        | ✅ Done      | All protected endpoints require auth                                        |
+| RBAC enforcement                  | **⚠️ Fixed** | 4 critical gaps found and patched                                           |
+| Pagination consistency            | ✅ Done      | All list endpoints use same pattern                                         |
+| Filtering                         | ✅ Done      | 2 low gaps (alerts missing search/date, reports no filters)                 |
+| Sorting                           | ✅ Done      | Consistent across all endpoints                                             |
+| Search                            | ⚠️ Partial   | 2 gaps (alerts no search, devices no serial# search)                        |
+| Transactions                      | ❌ Not used  | Tracked as debt                                                             |
+| Response shape consistency        | ✅ Done      | 2 minor inconsistencies (documented)                                        |
+| Documentation gaps                | ⚠️ Partial   | 4 undocumented endpoint areas                                               |
+| **Deliverable: API Audit Report** | ✅ Done      | `docs/implementation/API_AUDIT_REPORT.md`                                   |
 
 ### Critical Issues Fixed (RBAC)
+
 - `PATCH /api/settings/:key` — Added `requireRole("admin")` (was: any auth user)
 - `PATCH /api/users/:id` — Added `requireRole("admin")` + role ID validation (was: any user)
 - `PATCH /api/devices/:id` — Added `requireRole("admin", "support")` (was: any user)
@@ -327,6 +332,7 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 - `GET /api/users` — Added `requireRole("admin")` (was: any auth user)
 
 ### Remaining API Debt
+
 - Customer-level data isolation not implemented
 - No transactions on multi-query operations
 - No OpenAPI/Swagger spec
@@ -336,33 +342,34 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 
 ## ✅ Completed — RC3 Phase 4: Performance Audit
 
-| Checklist Item | Status | Notes |
-|----------------|--------|-------|
-| Shared JS bundle | ✅ < 150 kB | **102 kB** ✅ |
-| Dashboard first-load JS | ✅ Reduced | **123 kB** (was 222 kB — Recharts lazy-loaded) |
-| All other pages | ✅ < 140 kB | Range: 107–138 kB |
-| Database indexing | ✅ Done | Indexes added for high-frequency query patterns |
-| TanStack Query staleTime | ✅ Done | 30s staleTime on non-critical queries |
-| Socket invalidation debounce | ✅ Done | 100ms debounce window |
-| **Deliverable: Performance Audit Report** | ✅ Done | `docs/implementation/PERFORMANCE_AUDIT_REPORT.md` |
+| Checklist Item                            | Status      | Notes                                             |
+| ----------------------------------------- | ----------- | ------------------------------------------------- |
+| Shared JS bundle                          | ✅ < 150 kB | **102 kB** ✅                                     |
+| Dashboard first-load JS                   | ✅ Reduced  | **123 kB** (was 222 kB — Recharts lazy-loaded)    |
+| All other pages                           | ✅ < 140 kB | Range: 107–138 kB                                 |
+| Database indexing                         | ✅ Done     | Indexes added for high-frequency query patterns   |
+| TanStack Query staleTime                  | ✅ Done     | 30s staleTime on non-critical queries             |
+| Socket invalidation debounce              | ✅ Done     | 100ms debounce window                             |
+| **Deliverable: Performance Audit Report** | ✅ Done     | `docs/implementation/PERFORMANCE_AUDIT_REPORT.md` |
 
 ---
 
 ## ✅ Completed — RC3 Phase 5: Security Audit
 
-| Checklist Item | Status | Notes |
-|----------------|--------|-------|
-| Authentication flow | ✅ Fixed | Real login via `POST /api/auth/login`, JWT stored in Zustand |
-| JWT secret | ✅ Fixed | No default — required at startup |
-| Password hashing | ✅ Fixed | bcrypt (cost 12), was SHA-256 |
-| Socket.IO auth | ✅ Fixed | JWT verified during handshake |
-| RBAC enforcement | ✅ Fixed | 4 critical gaps patched |
-| Input validation | ⚠️ Partial | 2 Zod gaps tracked as debt |
-| CORS | ⚠️ Debt | `origin: true` allows any origin |
-| Secrets management | ✅ Fixed | Dev `.env` gitignored |
-| **Deliverable: Security Audit Report** | ✅ Done | `docs/implementation/SECURITY_AUDIT_REPORT.md` |
+| Checklist Item                         | Status     | Notes                                                        |
+| -------------------------------------- | ---------- | ------------------------------------------------------------ |
+| Authentication flow                    | ✅ Fixed   | Real login via `POST /api/auth/login`, JWT stored in Zustand |
+| JWT secret                             | ✅ Fixed   | No default — required at startup                             |
+| Password hashing                       | ✅ Fixed   | bcrypt (cost 12), was SHA-256                                |
+| Socket.IO auth                         | ✅ Fixed   | JWT verified during handshake                                |
+| RBAC enforcement                       | ✅ Fixed   | 4 critical gaps patched                                      |
+| Input validation                       | ⚠️ Partial | 2 Zod gaps tracked as debt                                   |
+| CORS                                   | ⚠️ Debt    | `origin: true` allows any origin                             |
+| Secrets management                     | ✅ Fixed   | Dev `.env` gitignored                                        |
+| **Deliverable: Security Audit Report** | ✅ Done    | `docs/implementation/SECURITY_AUDIT_REPORT.md`               |
 
 ### Issues Fixed
+
 - SHA-256 → bcrypt password hashing (C-1)
 - JWT secret has no default fallback (C-2)
 - Dev .env gitignored, unique secret (C-3)
@@ -375,24 +382,53 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 
 ## ✅ Completed — RC3 Phase 6: Documentation & Release Readiness
 
-| Checklist Item | Status | Notes |
-|----------------|--------|-------|
-| CLAUDE.md aligned | ✅ Done | RC3 complete, real RBAC, real auth |
-| BUILD_PLAN.md complete | ✅ Done | All RC3 phases added |
-| ROADMAP.md deduplicated | ✅ Done | Future section fixed |
-| CHANGELOG.md deduplicated | ✅ Done | All RC3 phases recorded |
-| RELEASE_PLAN.md updated | ✅ Done | Criteria match current state |
-| TECHNICAL_DEBT.md pruned | ✅ Done | Outdated entries removed |
-| DEPLOYMENT.md aligned | ✅ Done | Realtime bridge reflected |
-| Production Readiness Report | ✅ Done | `docs/implementation/PRODUCTION_READINESS.md` |
-| pnpm lint | ✅ Passed | Zero errors |
-| pnpm build | ✅ Passed | 26/26 pages |
+| Checklist Item              | Status    | Notes                                         |
+| --------------------------- | --------- | --------------------------------------------- |
+| CLAUDE.md aligned           | ✅ Done   | RC3 complete, real RBAC, real auth            |
+| BUILD_PLAN.md complete      | ✅ Done   | All RC3 phases added                          |
+| ROADMAP.md deduplicated     | ✅ Done   | Future section fixed                          |
+| CHANGELOG.md deduplicated   | ✅ Done   | All RC3 phases recorded                       |
+| RELEASE_PLAN.md updated     | ✅ Done   | Criteria match current state                  |
+| TECHNICAL_DEBT.md pruned    | ✅ Done   | Outdated entries removed                      |
+| DEPLOYMENT.md aligned       | ✅ Done   | Realtime bridge reflected                     |
+| Production Readiness Report | ✅ Done   | `docs/implementation/PRODUCTION_READINESS.md` |
+| pnpm lint                   | ✅ Passed | Zero errors                                   |
+| pnpm build                  | ✅ Passed | 26/26 pages                                   |
 
 ---
 
 ## 🔮 Future (Infrastructure & Polish)
 
 - Notifications — connect dropdown + full page to Socket.IO feed
-- E2E Tests — ✅ Done in v1.5.0
+- Playwright UI Regression Suite (API Mocked) — ✅ Done in v1.5.0
 - Deployment pipeline — CI/CD
 - Advanced scaling — Kubernetes, Redis, multi-region
+
+---
+
+## ⏳ In Progress — v1.6.0 — Full-Stack End-to-End Validation
+
+| Area                          | Status     | Notes                                             |
+| ----------------------------- | ---------- | ------------------------------------------------- |
+| **Real backend**              | ⬜ Pending | Validate against the running Fastify API          |
+| **PostgreSQL**                | ⬜ Pending | Verify data persistence and query correctness     |
+| **MQTT broker**               | ⬜ Pending | Validate telemetry ingestion through Mosquitto    |
+| **Realtime WebSocket**        | ⬜ Pending | End-to-end Socket.IO event flow                   |
+| **Authentication middleware** | ⬜ Pending | Login → JWT → protected route round-trip          |
+| **Customer isolation**        | ⬜ Pending | Verify customer A cannot see customer B data      |
+| **Notification pipeline**     | ⬜ Pending | Simulator → MQTT → Bridge → DB → notification:new |
+| **API Keys**                  | ⬜ Pending | Create → authenticate → revoke lifecycle          |
+| **Reports**                   | ⬜ Pending | Generate reports from real persisted data         |
+| **Notification Rules**        | ⬜ Pending | Rule persistence and enforcement                  |
+| **Device lifecycle**          | ⬜ Pending | Register → telemetry → decommission               |
+
+**Success Criteria**
+
+- MQTT publish persists telemetry in PostgreSQL
+- Alerts generate correctly from real event thresholds
+- Notifications persist to DB and broadcast via Socket.IO
+- Customer isolation verified across all data endpoints
+- Reports generated from real (not mocked) data
+- No mocked API routes used in any test
+
+See `docs/implementation/TESTING_STRATEGY.md` for the full testing layer breakdown.

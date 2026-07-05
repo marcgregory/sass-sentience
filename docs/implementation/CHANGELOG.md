@@ -6,11 +6,11 @@ All notable changes to the Sentience IoT Platform.
 
 ## v1.5.0 — 2026-07-06
 
-### E2E Regression Tests (Playwright)
+### Playwright UI Regression Suite (API Mocked)
 
 **Added**
 
-- **Playwright E2E test suite** — 38 tests across 7 spec files covering the 6 most critical user flows. Tests run against the Next.js dev server with API mocking via `page.route()` — no Docker, PostgreSQL, or backend required.
+- **Playwright UI Regression Suite** — 38 tests across 7 spec files covering 6 critical user flows. Tests run against the Next.js dev server with API mocking via `page.route()` — no Docker, PostgreSQL, or backend required. Validates frontend wiring and UI behavior only; does NOT validate backend correctness.
 - **API mock fixtures** — Deterministic mock data for all 12 API domains (auth, devices, alerts, events, notifications, api-keys, notification-rules, reports, audit-logs, users, roles, settings) in `apps/web/e2e/fixtures/api-mocks.ts`.
 
 **Test coverage**
@@ -23,11 +23,15 @@ All notable changes to the Sentience IoT Platform.
 - **Reports** (4 tests) — Page header, date range filter buttons present, loading state resolves, error state with retry button.
 - **Audit Log** (4 tests) — Displays entries, search input present, loading state resolves, empty state when no entries.
 
+**Notes**
+
+- Uses mocked API responses. Full-stack validation scheduled for v1.6.0.
+
 **Build**
 
 - TypeScript: ✅ Zero errors across 9 packages
 - Production build: ✅ 27/27 pages, shared JS 103 kB
-- E2E tests: ✅ 38/38 passing
+- Playwright tests: ✅ 38/38 passing
 
 ---
 

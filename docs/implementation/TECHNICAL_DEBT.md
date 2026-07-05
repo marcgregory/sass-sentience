@@ -166,12 +166,12 @@ When alerts are acknowledged or resolved via `PATCH /api/alerts/:id`, no Socket.
 
 ## Testing
 
-### No E2E test infrastructure
-Playwright/Cypress not set up. No browser-level tests.
+### No Full-Stack end-to-end test suite
+Playwright UI Regression Suite (API Mocked) covers frontend behavior with 38 tests. Full-stack validation against real infrastructure (backend, PostgreSQL, MQTT, Socket.IO) is not yet implemented.
 
-**Impact:** Regressions may go undetected, especially on responsive layout and realtime interactions.
+**Impact:** Backend regressions (API contract changes, database issues, real-time pipeline failures) are not caught by the current suite.
 
-**Resolution:** Deferred to infrastructure backlog.
+**Resolution:** Scheduled for v1.6.0 — see `docs/implementation/TESTING_STRATEGY.md` and `docs/implementation/ROADMAP.md`.
 
 ### Device detail page has no unit tests
 The `/devices/[id]` page has no Vitest tests. Mock data generators and computed diagnostics logic lack test coverage.
