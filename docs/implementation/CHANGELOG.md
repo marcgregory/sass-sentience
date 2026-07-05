@@ -4,6 +4,35 @@ All notable changes to the Sentience IoT Platform.
 
 ---
 
+## v1.0.0 — 2026-07-05
+
+### RC5: Production Release
+
+**Changed**
+
+- **Notifications pipeline end-to-end** — Bridge listener (`apps/api/src/socket/bridge-listener.ts`) now listens for `alert:created` events from the realtime bridge, persists them as notification records in the database, and emits `notification:new` to connected clients. Flow: MQTT event → Bridge → `alert:created` → API listener → INSERT notifications (DB) → emitNotification() → Bridge → `notification:new` → Frontend (badge + page).
+
+**Fixed**
+
+- **Simulator estate UUID mismatch** — Fixed `mock/device-generator.ts` ESTATES IDs to use deterministic UUIDs matching DB seed output, eliminating `invalid input syntax for type uuid` errors in bridge listener.
+- **Unread notification sync** — Added `unreadCount` to `GET /api/notifications` response so the bell badge has unread count in a single round-trip.
+
+**Added**
+
+- **Mosquitto configuration** — `.docker/mosquitto.conf` with listener on port 1883 and anonymous access for local development.
+- **RC5 release docs** — Release plan and validation updated for v1.0.0 GA.
+
+**Build**
+
+- TypeScript: ✅ Zero errors across 9 packages
+- Production build: ✅ 27/27 pages, shared JS 102 kB
+
+### Known Issues
+
+Same as RC3 — see CHANGELOG below. No new issues introduced in RC5.
+
+---
+
 ## v1.0.0-rc.3 — 2026-07-03
 
 ### RC3 Phase 2 — UX Audit & Fixes

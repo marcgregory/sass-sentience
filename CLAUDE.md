@@ -48,32 +48,30 @@ Only one sprint may be active at a time. See `docs/implementation/BUILD_PLAN.md`
 
 ## Current Phase
 
-**RC3 — Production Stabilization** ✅ Complete
+**v1.0.0 — General Availability** ✅ Released 2026-07-05
 
-All 6 RC3 phases delivered. The project is ready for v1.0 release candidate tagging.
+All 7 sprints, 6 RC3 phases, RC4 stabilization, and RC5 notification pipeline delivered. See `docs/implementation/RELEASE_PLAN.md` for the full release decision.
 
 | Phase | Focus | Status |
 |-------|-------|--------|
-| **Phase 1** | Application Audit | ✅ Delivered |
-| **Phase 2** | UX Audit & Fixes | ✅ Delivered |
-| **Phase 3** | API Audit & RBAC | ✅ Delivered |
-| **Phase 4** | Performance Audit | ✅ Delivered |
-| **Phase 5** | Security Audit | ✅ Delivered |
-| **Phase 6** | Documentation & Release Readiness | ✅ Delivered |
+| **Sprints 1-7** | All product sprints | ✅ Delivered |
+| **RC3 Phases 1-6** | Application Audit through Release Readiness | ✅ Delivered |
+| **RC4** | Simulator lifecycle, live notifications, security, a11y | ✅ Delivered |
+| **RC5** | Bridge listener, notification pipeline, estate UUID fix | ✅ Delivered |
+| **v1.0.0 GA** | Production release tag | ✅ Released |
 
-**Next:** v1.0 Release — tag and ship.
+### Key Achievements
 
-### RC3 Achievements
-
-- **Real authentication** — Frontend login now calls `POST /api/auth/login`, receives JWT, stores it in Zustand (persisted). `api-client.ts` injects `Authorization: Bearer <token>` automatically. Backend verifies JWT on every protected route.
-- **Socket.IO authentication** — JWT sent during socket handshake (`s.auth = { token }`). Backend `socket-server.ts` verifies the JWT before accepting connections. Socket reconnects on login/logout.
-- **Bcrypt password hashing** — Passwords hashed with bcrypt (cost 12) instead of SHA-256.
-- **JWT secret required** — No default fallback for `JWT_SECRET`. Server refuses to start without it.
-- **RBAC enforced** — 4 critical and 1 medium RBAC gaps fixed across settings, users, devices, alerts routes. Admin-only operations are properly gated.
-- **Optimistic mutations** — 6 mutations now have optimistic updates with rollback.
-- **Lazy-loaded Recharts** — Dashboard JS reduced from 222 kB to 123 kB.
-- **17 UX issues fixed** — ARIA labels, empty states, form validation, dark mode.
-- **18 security issues triaged** — 8 fixed, 10 documented as remaining debt.
+- **Real authentication** — Frontend login calls `POST /api/auth/login`, receives JWT, stores in Zustand (persisted). `api-client.ts` injects `Authorization: Bearer <token>`.
+- **Socket.IO authentication** — JWT verified during handshake, reconnects on login/logout.
+- **Bcrypt password hashing** — bcrypt (cost 12), no SHA-256.
+- **JWT secret required** — No default fallback.
+- **RBAC enforced** — 5 gaps fixed, route guards, nav filtering, permission matrix.
+- **Optimistic mutations** — 6 mutations with rollback.
+- **Notification pipeline** — Bridge listener (`bridge-listener.ts`) persists alert events as DB notifications with RBAC-scoped delivery and real-time Socket.IO emission.
+- **Unread count sync** — Bell badge and notifications page return consistent unread counts in a single API round-trip.
+- **Performance** — Dashboard JS 123 kB, shared JS 102 kB.
+- **Security** — 18 issues triaged, 8 fixed, 10 documented as debt.
 
 ---
 

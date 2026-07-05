@@ -2,9 +2,17 @@
 
 > **Product backlog.** Tracks what is completed, in progress, next, and blocked.
 > Engineering sprint details live in `BUILD_PLAN.md`.
-> Last updated: 2026-07-03
+> Last updated: 2026-07-05
 
 ---
+## ✅ Completed — v1.0.0 GA (2026-07-05)
+
+**v1.0.0** tagged and released. Full release validation completed across all 15 RC5 checks.
+
+See `docs/implementation/RELEASE_PLAN.md` and `docs/implementation/CHANGELOG.md`.
+
+---
+
 ## ✅ Completed — v1.0 RC1: Backend API + PostgreSQL
 
 | Area | Notes |

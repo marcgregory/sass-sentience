@@ -72,6 +72,10 @@
 
 **Status:** ✅ Released as v1.0.0-rc.4 — 2026-07-05
 
+**Status:** ✅ Released as v1.0.0-rc.5 — 2026-07-05
+
+**Status:** ✅ Released as **v1.0.0** — 2026-07-05
+
 | Check | Status |
 |-------|--------|
 | All must-haves complete | ✅ 7/7 sprints |
@@ -87,7 +91,12 @@
 | Documentation aligned | ✅ All docs verified against code |
 | Demo works end-to-end | ✅ |
 | pnpm lint passes | ✅ Zero errors |
-| pnpm build passes | ✅ 26/26 pages |
+| pnpm build passes | ✅ 27/27 pages |
+| Bridge listener persists alerts as notifications | ✅ alert:created → DB → notification:new |
+| Notification pipeline end-to-end | ✅ Simulator → MQTT → Bridge → alert:created → DB → notification:new |
+| Unread count sync | ✅ Bell count matches /notifications response |
+| Mark all/single read | ✅ PATCH read-all and /:id/read verified |
+| RBAC notification isolation | ✅ Admin/Support/Customer scoped correctly |
 | Release reviewed | ✅ Released |
 
 ---
