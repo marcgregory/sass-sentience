@@ -19,7 +19,7 @@ import { io as createSocketClient, type Socket } from "socket.io-client";
 import jwt from "jsonwebtoken";
 import { env } from "../config";
 
-const BRIDGE_URL = process.env.BRIDGE_SOCKET_URL ?? "http://localhost:3002";
+let client: Socket | null = null;
 
 /**
  * Signed service token — the bridge authenticates this as a server process
@@ -37,8 +37,6 @@ function createServiceToken(): string {
     { expiresIn: "1h" },
   );
 }
-
-let client: Socket | null = null;
 
 // Notification payload shape that matches the frontend's NotificationEvent
 export interface NotificationEvent {
@@ -60,7 +58,10 @@ function getClient(): Socket {
   if (client?.connected) return client;
 
   if (!client) {
-    client = createSocketClient(BRIDGE_URL, {
+    const realtimeUrl = env.REALTIME_WS_URL;
+    console.log(`[notifications-emitter] Connecting to realtime: ${realtimeUrl}`);
+
+    client = createSocketClient(realtimeUrl, {
       auth: { token: createServiceToken() },
       transports: ["websocket"],
       reconnection: true,
@@ -69,7 +70,7 @@ function getClient(): Socket {
     });
 
     client.on("connect", () => {
-      console.log(`[notifications-emitter] Connected to bridge at ${BRIDGE_URL}`);
+      console.log(`[notifications-emitter] Connected to realtime: ${realtimeUrl}`);
     });
 
     client.on("disconnect", (reason) => {
@@ -100,10 +101,15 @@ export function emitNotification(event: NotificationEvent): void {
     const s = getClient();
     if (s.connected) {
       s.emit("notification:new", event);
+    } else {
+      console.warn(
+        `[notifications-emitter] failed to emit notification:new because realtime socket is disconnected`,
+      );
     }
-  } catch {
-    // Silently ignore bridge connection failures — the notification is
-    // already persisted in the DB and polling will catch it.
+  } catch (err) {
+    console.warn(
+      `[notifications-emitter] failed to emit notification:new: ${err instanceof Error ? err.message : err}`,
+    );
   }
 }
 
