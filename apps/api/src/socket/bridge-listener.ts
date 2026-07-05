@@ -19,8 +19,8 @@
 import { io as createSocketClient, type Socket } from "socket.io-client";
 import jwt from "jsonwebtoken";
 import { db } from "../db";
-import { notifications, users } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { notifications, users, roles, estates, notificationRules } from "../db/schema";
+import { eq, and, inArray } from "drizzle-orm";
 import { emitNotification } from "./notifications-emitter";
 import { env } from "../config";
 
@@ -113,16 +113,124 @@ export function connectBridgeListener(): Socket {
           const message =
             payload.description ?? payload.title;
 
-          // Determine which users should receive this notification.
-          // Query active users (admin + support) who manage the fleet.
-          const targetUsers = await db
-            .select({ id: users.id })
-            .from(users)
-            .where(eq(users.isActive, true));
+          // ── 1. Look up the notification rule for this alert type ──
+          //
+          // The category on an alert event corresponds to the event type
+          // (battery_low, signal_weak, device_offline, etc.) which matches
+          // the notificationRules.alertType.
+          const alertCategory = payload.category;
+          const rules = await db
+            .select()
+            .from(notificationRules)
+            .where(
+              eq(
+                notificationRules.alertType,
+                (alertCategory ?? "") as "device_offline" | "device_fault" | "battery_low" | "signal_weak" | "temperature_high" | "firmware_update" | "diagnostic_failure",
+              ),
+            );
+
+          const rule = rules[0];
+          const rolePrefs = rule?.rolePreferences as
+            | Record<string, boolean>
+            | undefined;
+
+          // ── 2. Resolve the estate's customer (for tenant scoping) ──
+          //
+          // Platform roles (admin, support, installer) have no customerId
+          // and see all estates. Customer roles are scoped to their
+          // customer's estates only.
+          let estateCustomerId: string | null = null;
+          if (payload.estateId) {
+            const [estate] = await db
+              .select({ customerId: estates.customerId })
+              .from(estates)
+              .where(eq(estates.id, payload.estateId))
+              .limit(1);
+            estateCustomerId = estate?.customerId ?? null;
+          }
+
+          // ── 3. Determine which role names are enabled ─────────────
+          const enabledRoles = new Set<string>();
+          if (rolePrefs) {
+            for (const [role, enabled] of Object.entries(rolePrefs)) {
+              if (enabled) enabledRoles.add(role);
+            }
+          } else {
+            // No rule found — fall back to all roles
+            enabledRoles.add("admin");
+            enabledRoles.add("support");
+          }
+
+          if (enabledRoles.size === 0) return;
+
+          // ── 4. Look up role IDs matching the enabled roles ────────
+          const matchingRoles = await db
+            .select({ id: roles.id, name: roles.name })
+            .from(roles)
+            .where(inArray(roles.name, [...enabledRoles]));
+
+          const matchingRoleIds = matchingRoles.map((r) => r.id);
+          if (matchingRoleIds.length === 0) return;
+
+          // ── 5. Find active users with a matching role, scoped ─────
+          //
+          // Platform roles (admin, support, installer — no customerId):
+          //   receive notifications for all estates.
+          //
+          // Customer roles (have a customerId):
+          //   only receive notifications for estates belonging to their customer.
+
+          const isPlatformRole = new Set(
+            matchingRoles
+              .filter((r) => r.name === "admin" || r.name === "support" || r.name === "installer")
+              .map((r) => r.id),
+          );
+          const isCustomerRole = new Set(
+            matchingRoles
+              .filter((r) => r.name === "customer")
+              .map((r) => r.id),
+          );
+
+          // Build role-based + tenant-scoped user query
+          const platformWhere = and(
+            eq(users.isActive, true),
+            inArray(users.roleId, [...isPlatformRole]),
+          );
+
+          let targetUsers: { id: string }[] = [];
+
+          if (isPlatformRole.size > 0) {
+            const platformUsers = await db
+              .select({ id: users.id })
+              .from(users)
+              .where(platformWhere);
+            targetUsers.push(...platformUsers);
+          }
+
+          if (isCustomerRole.size > 0 && estateCustomerId) {
+            const customerUsers = await db
+              .select({ id: users.id })
+              .from(users)
+              .where(
+                and(
+                  eq(users.isActive, true),
+                  inArray(users.roleId, [...isCustomerRole]),
+                  eq(users.customerId, estateCustomerId),
+                ),
+              );
+            // Avoid duplicates (a user shouldn't have both platform + customer roles,
+            // but safe to dedup)
+            const existingIds = new Set(targetUsers.map((u) => u.id));
+            for (const cu of customerUsers) {
+              if (!existingIds.has(cu.id)) {
+                targetUsers.push(cu);
+              }
+            }
+          }
 
           if (targetUsers.length === 0) return;
 
-          // Create a notification record for each target user
+          // ── 6. Create a notification record for each target user ──
           const notificationValues = targetUsers.map((u) => ({
             userId: u.id,
             title: payload.title,
@@ -137,8 +245,7 @@ export function connectBridgeListener(): Socket {
             .values(notificationValues)
             .returning();
 
-          // Emit a notification:new event through the bridge for each
-          // created notification so connected clients receive it live
+          // ── 7. Emit notification:new for each created row ─────────
           for (const n of created) {
             emitNotification({
               notificationId: n.id,
@@ -151,7 +258,7 @@ export function connectBridgeListener(): Socket {
           }
 
           console.log(
-            `[bridge-listener] Created ${created.length} notification(s) from alert: "${payload.title}"`,
+            `[bridge-listener] Created ${created.length} notification(s) from alert: "${payload.title}" (rule: ${alertCategory}, roles: ${[...enabledRoles].join(",")})`,
           );
         } catch (err) {
           console.error(
