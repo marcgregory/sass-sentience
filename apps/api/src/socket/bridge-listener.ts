@@ -138,7 +138,7 @@ export function connectBridgeListener(): Socket {
               payload.description ?? payload.title;
 
             emitNotification({
-              notificationId: payload.alertId,
+              notificationId: `simulated-notification-${payload.alertId}`,
               userId: "*", // broadcast to all connected clients
               title: payload.title,
               message,

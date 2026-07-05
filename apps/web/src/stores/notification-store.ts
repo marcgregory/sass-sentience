@@ -36,10 +36,18 @@ export const useNotificationStore = create<NotificationState>()((set, get) => ({
   },
 
   addSimulatedNotification: (notification) => {
-    set((state) => ({
-      notifications: [notification, ...state.notifications],
-      unreadCount: state.unreadCount + 1,
-    }));
+    set((state) => {
+      // Deduplicate by stable ID — the same simulated alert can arrive via
+      // both notification:new (backend) and alert:created (frontend fallback).
+      // Using the stable ID ensures only one notification appears regardless
+      // of how many times or from which path it arrives.
+      const exists = state.notifications.some((n) => n.id === notification.id);
+      if (exists) return state;
+      return {
+        notifications: [notification, ...state.notifications],
+        unreadCount: state.unreadCount + 1,
+      };
+    });
   },
 
   markAsRead: (id) => {
