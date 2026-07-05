@@ -162,7 +162,7 @@ function EventDetailPanel({
       <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md border-l bg-background shadow-xl animate-slide-in-right overflow-y-auto">
         <div className="flex items-center justify-between border-b px-6 py-4">
           <h2 className="text-lg font-semibold">Event Details</h2>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8" aria-label="Close event details">
             <XCircle className="h-5 w-5" />
           </Button>
         </div>
@@ -483,6 +483,7 @@ export default function EventsPage() {
               <button
                 onClick={() => { setSearchQuery(""); setPage(0); }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Clear search"
               >
                 <X className="h-3.5 w-3.5" />
               </button>

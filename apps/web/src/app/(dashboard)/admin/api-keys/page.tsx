@@ -214,6 +214,7 @@ export default function ApiKeysPage() {
             <button
               onClick={() => setSearch("")}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label="Clear search"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -301,7 +302,7 @@ export default function ApiKeysPage() {
                             onClick={() => setConfirmRevoke(key.id)}
                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
                             disabled={revokeMutation.isPending}
-                            title="Revoke key"
+                            aria-label={`Revoke key: ${key.name}`}
                           >
                             <XCircle className="h-4 w-4" />
                           </Button>
@@ -314,7 +315,7 @@ export default function ApiKeysPage() {
                           onClick={() => setConfirmDelete(key.id)}
                           className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                           disabled={deleteMutation.isPending}
-                          title="Delete key permanently"
+                          aria-label={`Delete key: ${key.name}`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

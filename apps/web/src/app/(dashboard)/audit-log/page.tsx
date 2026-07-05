@@ -278,6 +278,7 @@ export default function AuditLogPage() {
               <button
                 onClick={() => handleSearch("")}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Clear search"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -458,7 +459,7 @@ export default function AuditLogPage() {
                     <ClipboardList className="h-5 w-5 text-primary" />
                     <h2 className="text-lg font-semibold">Audit Entry Details</h2>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => setSelectedEntry(null)}>
+                  <Button variant="ghost" size="icon" onClick={() => setSelectedEntry(null)} aria-label="Close details">
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
