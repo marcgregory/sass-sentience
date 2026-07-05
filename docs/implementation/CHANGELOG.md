@@ -4,6 +4,33 @@ All notable changes to the Sentience IoT Platform.
 
 ---
 
+## v1.2.0 — 2026-07-05
+
+### Audit Log Filtering
+
+**Changed**
+
+- **Filters now apply server-side** — The audit log page passes search, action, and pagination params to `GET /api/audit-logs` as query parameters. Previously the frontend fetched 200 rows and filtered/paginated them client-side.
+- **Pagination totals reflect filtered results** — The API returns `total` and `totalPages` based on the filtered query, so page counts are accurate even with active filters.
+- **Severity filter removed** — Severity was derived from action type (not a DB field), so it had no server-side equivalent. Users can filter by action directly.
+- **CSV export fetches full filtered dataset** — Clicking Export CSV now fetches all matching rows (up to 10,000) from the API, merged with local session entries, rather than exporting only the client-side filtered subset of 200.
+- **Local entries still merged** — Session-local audit entries (from `audit-store`) are still prepended and deduplicated for immediate write-back visibility.
+
+**Build**
+
+- TypeScript: ✅ Zero errors across 9 packages
+- Production build: ✅ 27/27 pages, shared JS 102 kB
+
+### Known Issues
+
+- Auth store `loginAsRole()` still bypasses backend auth — gated by DEV ONLY guards.
+- 4 pages still use partial mock data: API Keys, Notification Rules, Notifications, and device detail fallback tabs.
+- `useGenerateReport` has no optimistic update.
+- No OpenAPI/Swagger spec generation.
+- No WebSocket event emission from REST mutations.
+
+---
+
 ## v1.1.1 — 2026-07-05
 
 ### Security & Accessibility Hardening

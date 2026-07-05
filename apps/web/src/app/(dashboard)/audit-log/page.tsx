@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,10 +8,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatRelativeTime } from "@sentience/utils";
 import { useAuditLogs } from "@/hooks/use-audit-logs";
-import { useAuthStore } from "@/stores/auth-store";
 import { useAuditStore } from "@/stores/audit-store";
 import { RequirePermission } from "@/components/shared/require-permission";
-import { hasPermission, ROLE_META } from "@/lib/permissions";
+import { ROLE_META } from "@/lib/permissions";
 import {
   Download,
   Search,
@@ -87,28 +86,45 @@ const ACTION_OPTIONS = [
   "mfa_change",
 ] as const;
 
+const SeverityIndicator = ({ action }: { action: string }) => {
+  const sev = actionSeverity[action] ?? "info";
+  const color = severityColors[sev] ?? "text-blue-500";
+  return (
+    <span className={`inline-block h-2 w-2 rounded-full ${color.replace("text-", "bg-")} ${sev === "critical" ? "animate-pulse" : ""}`} title={`Severity: ${sev}`} />
+  );
+};
+
 export default function AuditLogPage() {
-  const currentUser = useAuthStore((s) => s.user);
   const localEntries = useAuditStore((s) => s.entries);
   const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState<string>("all");
-  const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [selectedEntry, setSelectedEntry] = useState<AuditLogApiItem | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const perPage = 15;
 
-  const canManage = hasPermission(currentUser?.role, "audit-log", "manage");
+  // Build API query params from filter state — filters are applied server-side
+  const apiParams = useMemo(() => {
+    const params: Record<string, unknown> = {
+      page,
+      limit: perPage,
+    };
+    if (search) params.search = search;
+    if (actionFilter !== "all") params.action = actionFilter;
+    params.sort = "createdAt";
+    params.order = "desc";
+    return params;
+  }, [search, actionFilter, page]);
 
-  // Fetch audit log entries from API (limit=200 gives a good working set for client-side filtering)
+  // Fetch audit log entries from API with server-side filtering
   const {
     entries: apiEntries,
+    pagination,
     isLoading,
     isError,
     error,
     refetch,
-  } = useAuditLogs({
-    limit: 200,
-  });
+  } = useAuditLogs(apiParams);
 
   // Merge API entries with locally-created entries (from this session)
   // Local entries appear first (most recent)
@@ -123,82 +139,56 @@ export default function AuditLogPage() {
     });
   }, [localEntries, apiEntries]);
 
-  // Apply search and severity filter (client-side — severity is derived from action)
-  const filtered = useMemo(() => {
-    let result = mergedEntries;
-
-    // Search filter
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (e) =>
-          e.userName.toLowerCase().includes(q) ||
-          e.description.toLowerCase().includes(q) ||
-          e.resource.toLowerCase().includes(q) ||
-          e.id.toLowerCase().includes(q),
-      );
-    }
-
-    // Action filter
-    if (actionFilter !== "all") {
-      result = result.filter((e) => e.action === actionFilter);
-    }
-
-    // Severity filter
-    if (severityFilter !== "all") {
-      result = result.filter((e) => (actionSeverity[e.action] ?? "info") === severityFilter);
-    }
-
-    return result;
-  }, [mergedEntries, search, actionFilter, severityFilter]);
-
   // Get unique action types from merged entries
   const actionTypes = useMemo(() => {
     const types = new Set(mergedEntries.map((e) => e.action));
     return Array.from(types);
   }, [mergedEntries]);
 
-  // Client-side pagination
-  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
-  const paged = filtered.slice((page - 1) * perPage, page * perPage);
+  const totalCount = pagination?.total ?? 0;
+  const totalPages = pagination?.totalPages ?? 1;
+  // We use mergedEntries for display so local entries show, but respect API pagination for the total
+  // Local entries are usually just 1-2 from the current session, so they don't affect pagination materially
 
-  const severityOptions = [
-    { value: "all", label: "All Severities" },
-    { value: "critical", label: "Critical" },
-    { value: "warning", label: "Warning" },
-    { value: "info", label: "Info" },
-    { value: "debug", label: "Debug" },
-  ];
+  const handleCSVExport = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      const { getAuditLogs } = await import("@/lib/audit-logs");
+      const exportParams: Record<string, unknown> = { limit: 10000 };
+      if (search) exportParams.search = search;
+      if (actionFilter !== "all") exportParams.action = actionFilter;
+      exportParams.sort = "createdAt";
+      exportParams.order = "desc";
+      const result = await getAuditLogs(exportParams);
 
-  const handleCSVExport = () => {
-    const headers = ["ID", "User", "Action", "Resource", "Resource ID", "Description", "Timestamp", "IP Address"];
-    const rows = filtered.map((e) => [
-      e.id,
-      e.userName,
-      e.action,
-      e.resource,
-      e.resourceId ?? "",
-      e.description,
-      new Date(e.createdAt).toISOString(),
-      e.ipAddress ?? "",
-    ]);
-    const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `audit-log-${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+      // Merge local entries not yet in the API result
+      const allIds = new Set(result.data.map((e: AuditLogApiItem) => e.id));
+      const localOnly = localEntries.filter((e) => !allIds.has(e.id));
+      const exportData = [...localOnly, ...result.data];
 
-  const SeverityIndicator = ({ action }: { action: string }) => {
-    const sev = actionSeverity[action] ?? "info";
-    const color = severityColors[sev] ?? "text-blue-500";
-    return (
-      <span className={`inline-block h-2 w-2 rounded-full ${color.replace("text-", "bg-")} ${sev === "critical" ? "animate-pulse" : ""}`} title={`Severity: ${sev}`} />
-    );
-  };
+      const headers = ["ID", "User", "Action", "Resource", "Resource ID", "Description", "Timestamp", "IP Address"];
+      const rows = exportData.map((e: AuditLogApiItem) => [
+        e.id,
+        e.userName,
+        e.action,
+        e.resource,
+        e.resourceId ?? "",
+        e.description,
+        new Date(e.createdAt).toISOString(),
+        e.ipAddress ?? "",
+      ]);
+      const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `audit-log-${new Date().toISOString().split("T")[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [search, actionFilter, localEntries]);
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -210,19 +200,13 @@ export default function AuditLogPage() {
     setPage(1);
   };
 
-  const handleSeverityFilter = (value: string) => {
-    setSeverityFilter(value);
-    setPage(1);
-  };
-
   const clearFilters = () => {
     setSearch("");
     setActionFilter("all");
-    setSeverityFilter("all");
     setPage(1);
   };
 
-  const hasActiveFilters = search || actionFilter !== "all" || severityFilter !== "all";
+  const hasActiveFilters = search || actionFilter !== "all";
 
   return (
     <RequirePermission resource="audit-log" action="read">
@@ -232,9 +216,9 @@ export default function AuditLogPage() {
           description="Track all system activity and changes"
           actions={
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleCSVExport}>
+              <Button variant="outline" size="sm" onClick={handleCSVExport} disabled={isExporting}>
                 <Download className="h-4 w-4" />
-                Export CSV ({filtered.length})
+                {isExporting ? "Exporting..." : `Export CSV (${totalCount})`}
               </Button>
             </div>
           }
@@ -244,11 +228,11 @@ export default function AuditLogPage() {
         <div className="grid gap-4 sm:grid-cols-4">
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground mb-1">Total Entries</p>
-            <p className="text-2xl font-bold">{mergedEntries.length}</p>
+            <p className="text-2xl font-bold">{totalCount}</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground mb-1">Filtered</p>
-            <p className="text-2xl font-bold">{filtered.length}</p>
+            <p className="text-2xl font-bold">{totalCount}</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground mb-1">Unique Users</p>
@@ -296,16 +280,6 @@ export default function AuditLogPage() {
             ))}
           </select>
 
-          <select
-            value={severityFilter}
-            onChange={(e) => { handleSeverityFilter(e.target.value); }}
-            className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
-          >
-            {severityOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-
           {hasActiveFilters && (
             <Button
               variant="ghost"
@@ -348,7 +322,7 @@ export default function AuditLogPage() {
         )}
 
         {/* Empty state */}
-        {!isLoading && !isError && filtered.length === 0 && (
+        {!isLoading && !isError && mergedEntries.length === 0 && (
           <EmptyState
             icon={ClipboardList}
             title="No audit entries found"
@@ -361,11 +335,11 @@ export default function AuditLogPage() {
         )}
 
         {/* Audit entries */}
-        {filtered.length > 0 && (
+        {mergedEntries.length > 0 && (
           <>
             <div className="rounded-lg border">
               <div className="divide-y">
-                {paged.map((log) => {
+                {mergedEntries.map((log) => {
                   const sev = actionSeverity[log.action] ?? "info";
                   return (
                     <button
@@ -422,7 +396,7 @@ export default function AuditLogPage() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
-                  Page {page} of {totalPages} ({filtered.length} entries)
+                  Page {page} of {totalPages} ({totalCount} entries)
                 </p>
                 <div className="flex gap-2">
                   <Button

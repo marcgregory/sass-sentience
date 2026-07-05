@@ -26,6 +26,22 @@ See `docs/implementation/RELEASE_PLAN.md` and `docs/implementation/CHANGELOG.md`
 
 ---
 
+## ✅ Completed — v1.2.0 Audit Log Filtering (2026-07-05)
+
+| Area | Status | Notes |
+|------|--------|-------|
+| Server-side filters wired | ✅ Done | Search, action, pagination params passed to `GET /api/audit-logs` |
+| Client-side filtering removed | ✅ Done | No more downloading 200 rows and filtering in the browser |
+| Accurate pagination counts | ✅ Done | `total` and `totalPages` reflect filtered queries |
+| CSV export fetches full dataset | ✅ Done | Up to 10,000 rows from API, merged with local entries |
+| Loading/empty/error states | ✅ Verified | All three states preserved with server-side data |
+| Severity filter removed | ✅ Done | Not a DB field — action filter covers the use case |
+| TypeScript check | ✅ Passed | Zero errors |
+| Production build | ✅ Passed | 27/27 pages, shared JS 102 kB |
+| Tagged | ✅ `v1.2.0` | 
+
+---
+
 ## ✅ Completed — v1.0 RC1: Backend API + PostgreSQL
 
 | Area | Notes |
