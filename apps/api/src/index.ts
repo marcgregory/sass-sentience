@@ -9,6 +9,7 @@ import { db, pool } from "./db";
 import { registerErrorHandler } from "./lib/errors";
 import { initSocketIO } from "./socket";
 import { connectBridgeListener } from "./socket/bridge-listener";
+import { connectNotificationsEmitter } from "./socket/notifications-emitter";
 
 // ─── Type augmentation ────────────────────────────────────────────
 
@@ -131,6 +132,11 @@ async function main() {
     // Connect to the realtime bridge to listen for alert:created events
     // and persist them as notifications in the database.
     connectBridgeListener();
+
+    // Pre-warm the notifications emitter socket so it is ready for the
+    // first simulated event — without this warm-up, emitNotification()
+    // silently drops notifications while its socket handshake is pending.
+    connectNotificationsEmitter();
   } catch (err) {
     app.log.error(err);
     process.exit(1);

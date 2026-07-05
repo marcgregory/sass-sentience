@@ -108,6 +108,26 @@ export function emitNotification(event: NotificationEvent): void {
 }
 
 /**
+ * Pre-warm the bridge client connection so it is ready when simulated or
+ * real notification events arrive. Call once at server startup to ensure
+ * the socket handshake completes before the first emitNotification() call.
+ *
+ * Safe to call multiple times — returns the existing client if already
+ * connected, or awaits the pending handshake.
+ */
+export function connectNotificationsEmitter(): Promise<void> {
+  const s = getClient();
+  if (s.connected) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    if (s.connected) {
+      resolve();
+      return;
+    }
+    s.once("connect", () => resolve());
+  });
+}
+
+/**
  * Gracefully disconnect the bridge client. Safe to call multiple times.
  */
 export function disconnectNotificationsEmitter(): void {
