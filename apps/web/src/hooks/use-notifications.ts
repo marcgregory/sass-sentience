@@ -17,6 +17,7 @@ import {
 } from "@/lib/notifications";
 import { queryKeys } from "@/lib/query-keys";
 import { useNotificationStore } from "@/stores/notification-store";
+import type { Notification } from "@sentience/types";
 
 // ─── useNotifications ─────────────────────────────────────────────────────
 
@@ -57,9 +58,13 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
  * Fetch the unread notification count for the current user.
  * Syncs the result into the Zustand store so the header badge
  * and other components can read it without re-rendering on every query change.
+ *
+ * When Simulation Mode is active, the API unread count and simulated in-memory
+ * unread count are combined so the badge reflects both sources.
  */
 export function useNotificationUnreadCount() {
   const setUnreadCount = useNotificationStore((s) => s.setUnreadCount);
+  const storeNotifications = useNotificationStore((s) => s.notifications);
 
   const query = useQuery({
     queryKey: queryKeys.notifications.unreadCount,
@@ -70,12 +75,18 @@ export function useNotificationUnreadCount() {
     refetchInterval: 30_000, // Poll every 30s as safety net
   });
 
-  // Sync query result to Zustand store
+  // Sync query result to Zustand store — include simulated unread count
   useEffect(() => {
     if (query.data !== undefined) {
-      setUnreadCount(query.data);
+      // Count simulated notifications that haven't been marked read
+      const simulatedUnread = storeNotifications.filter(
+        (n): n is Notification & { isSimulated: boolean } =>
+          "isSimulated" in n && n.isSimulated === true && !n.isRead,
+      ).length;
+
+      setUnreadCount(query.data + simulatedUnread);
     }
-  }, [query.data, setUnreadCount]);
+  }, [query.data, setUnreadCount, storeNotifications]);
 
   return query;
 }

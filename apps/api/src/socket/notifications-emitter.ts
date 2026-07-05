@@ -48,6 +48,8 @@ export interface NotificationEvent {
   message: string;
   priority: "low" | "normal" | "high" | "critical";
   timestamp: string;
+  /** Simulated notifications are in-memory only and not persisted to the database. */
+  isSimulated?: boolean;
 }
 
 /**

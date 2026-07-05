@@ -1,11 +1,18 @@
 import { create } from "zustand";
 import type { Notification } from "@sentience/types";
 
+// Extended notification type that includes the isSimulated flag
+// used for in-memory-only simulated notifications.
+export interface SimulatedNotification extends Notification {
+  isSimulated?: boolean;
+}
+
 interface NotificationState {
-  notifications: Notification[];
+  notifications: (Notification | SimulatedNotification)[];
   unreadCount: number;
   isOpen: boolean;
   addNotification: (notification: Notification) => void;
+  addSimulatedNotification: (notification: SimulatedNotification) => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   setIsOpen: (open: boolean) => void;
@@ -24,6 +31,13 @@ export const useNotificationStore = create<NotificationState>()((set, get) => ({
       unreadCount: notification.isRead
         ? state.unreadCount
         : state.unreadCount + 1,
+    }));
+  },
+
+  addSimulatedNotification: (notification) => {
+    set((state) => ({
+      notifications: [notification, ...state.notifications],
+      unreadCount: state.unreadCount + 1,
     }));
   },
 

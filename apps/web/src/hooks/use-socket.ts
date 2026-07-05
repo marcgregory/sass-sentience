@@ -29,6 +29,7 @@ import {
   type DeviceTelemetryEvent,
   type EventStreamEvent,
   type AlertEvent,
+  type NotificationEvent,
 } from "@/lib/socket-client";
 import { queryKeys } from "@/lib/query-keys";
 
@@ -217,13 +218,34 @@ export function useSocket(options: UseSocketOptions = {}): void {
     handlers.push(() => socket.off("disconnect", handleDisconnect));
 
     // Handle notification events — increment the unread count in the
-    // Zustand store for instant badge updates. The actual notification
-    // data is fetched by TanStack Query after cache invalidation above.
-    const notificationHandler = () => {
+    // Zustand store for instant badge updates. For real notifications,
+    // the data is fetched by TanStack Query after cache invalidation above.
+    // For simulated notifications (isSimulated: true), we add the full
+    // payload directly to the store so they display in the UI even though
+    // they were never persisted to the database.
+    const notificationHandler = (payload: NotificationEvent) => {
       import("@/stores/notification-store").then(({ useNotificationStore }) => {
-        useNotificationStore.getState().setUnreadCount(
-          useNotificationStore.getState().unreadCount + 1,
-        );
+        if (payload.isSimulated) {
+          // Simulated notifications are in-memory only — add them directly
+          // to the store so they appear in the UI without an API call.
+          useNotificationStore.getState().addSimulatedNotification({
+            id: payload.notificationId,
+            userId: payload.userId,
+            title: payload.title,
+            message: payload.message,
+            priority: payload.priority,
+            category: "alert",
+            isRead: false,
+            createdAt: payload.timestamp,
+            isSimulated: true,
+          });
+        } else {
+          // Real notifications: just bump the unread count.
+          // The actual data arrives via TanStack Query after invalidation.
+          useNotificationStore.getState().setUnreadCount(
+            useNotificationStore.getState().unreadCount + 1,
+          );
+        }
       });
     };
     socket.on("notification:new" as any, notificationHandler);

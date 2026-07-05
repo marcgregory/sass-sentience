@@ -112,6 +112,8 @@ export interface AlertEvent {
   estateId?: string;
   estateName?: string;
   timestamp: string;
+  /** Simulated events originate from the MQTT simulator and should not be persisted. */
+  isSimulated?: boolean;
 }
 
 export interface NotificationEvent {
@@ -121,6 +123,8 @@ export interface NotificationEvent {
   message: string;
   priority: "low" | "normal" | "high" | "critical";
   timestamp: string;
+  /** Simulated notifications are in-memory only and not persisted to the database. */
+  isSimulated?: boolean;
 }
 
 export interface EventStreamEvent {

@@ -65,6 +65,8 @@ interface AlertCreatedPayload {
   estateId?: string;
   estateName?: string;
   timestamp: string;
+  /** Simulated events originate from the MQTT simulator and should not be persisted. */
+  isSimulated?: boolean;
 }
 
 const SEVERITY_TO_PRIORITY: Record<
@@ -123,6 +125,34 @@ export function connectBridgeListener(): Socket {
       "alert:created",
       async (payload: AlertCreatedPayload) => {
         try {
+          // ── Fast path: simulated alerts ─────────────────────────────
+          //
+          // When Simulation Mode is active, simulated alert events carry
+          // isSimulated: true. We bypass all DB interactions and emit
+          // notifications directly over WebSocket so they appear in the
+          // UI in real time but disappear on page refresh.
+          if (payload.isSimulated) {
+            const priority =
+              SEVERITY_TO_PRIORITY[payload.severity] ?? "normal";
+            const message =
+              payload.description ?? payload.title;
+
+            emitNotification({
+              notificationId: payload.alertId,
+              userId: "*", // broadcast to all connected clients
+              title: payload.title,
+              message,
+              priority,
+              timestamp: payload.timestamp,
+              isSimulated: true,
+            });
+
+            console.log(
+              `[bridge-listener] Simulated notification broadcast: "${payload.title}" (severity: ${payload.severity})`,
+            );
+            return;
+          }
+
           const priority =
             SEVERITY_TO_PRIORITY[payload.severity] ?? "normal";
           const message =

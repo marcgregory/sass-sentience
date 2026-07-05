@@ -120,6 +120,8 @@ export interface AlertEvent {
   estateId?: string;
   estateName?: string;
   timestamp: string;
+  /** Simulated events originate from the MQTT simulator and should not be persisted. */
+  isSimulated?: boolean;
 }
 
 // ─── Normalization ─────────────────────────────────────────────────
@@ -324,6 +326,9 @@ export function toAlertEvent(
     estateId: payload.estateId ?? undefined,
     estateName: payload.estateName ?? undefined,
     timestamp: payload.timestamp ?? new Date().toISOString(),
+    // If the MQTT payload carries a sessionId, this is a simulated event —
+    // the bridge listener will skip DB persistence and only broadcast via WebSocket.
+    isSimulated: !!payload.sessionId,
   };
 }
 

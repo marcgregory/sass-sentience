@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -20,9 +20,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Cpu,
 } from "lucide-react";
 import { formatRelativeTime } from "@sentience/utils";
 import { useNotifications, useMarkNotificationRead, useMarkAllNotificationsRead } from "@/hooks/use-notifications";
+import { useNotificationStore, type SimulatedNotification } from "@/stores/notification-store";
+import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 import type { NotificationCategory, NotificationPriority } from "@sentience/types";
 
 const categoryIcons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -72,14 +75,55 @@ export default function NotificationsPage() {
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
 
-  const notifications = data?.data ?? [];
+  // Merge simulated notifications from the Zustand store into the display list
+  // so they appear when Simulation Mode is active.
+  const storeNotifications = useNotificationStore((s) => s.notifications);
+  const simulatorMode = useSimulatorModeStore((s) => s.enabled);
+
+  const notifications = useMemo(() => {
+    const api = data?.data ?? [];
+
+    if (!simulatorMode) {
+      return api;
+    }
+
+    // In simulator mode, prepend simulated notifications and deduplicate by ID.
+    // Simulated notifications have isSimulated: true and exist only in-memory.
+    const simulated = storeNotifications.filter(
+      (n): n is SimulatedNotification =>
+        "isSimulated" in n && n.isSimulated === true,
+    );
+
+    if (simulated.length === 0) return api;
+
+    const seenIds = new Set(api.map((n) => n.id));
+    const merged = [...api];
+    for (const s of simulated) {
+      if (!seenIds.has(s.id)) {
+        merged.unshift(s);
+        seenIds.add(s.id);
+      }
+    }
+    return merged;
+  }, [data, storeNotifications, simulatorMode]);
+
   const pagination = data?.pagination;
 
   const handleMarkRead = (id: string) => {
+    // Check if this is a simulated notification — mark it locally only
+    const n = notifications.find((n) => n.id === id);
+    if (n && "isSimulated" in n && (n as SimulatedNotification).isSimulated) {
+      useNotificationStore.getState().markAsRead(id);
+      return;
+    }
     markRead.mutate(id);
   };
 
   const handleMarkAllRead = () => {
+    // Mark simulated notifications locally
+    const store = useNotificationStore.getState();
+    store.markAllAsRead();
+    // Also mark real notifications via the API
     markAllRead.mutate();
   };
 
@@ -207,6 +251,12 @@ export default function NotificationsPage() {
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                             {priorityLabels[n.priority] ?? n.priority}
                           </Badge>
+                          {"isSimulated" in n && (n as SimulatedNotification).isSimulated && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 flex items-center gap-1">
+                              <Cpu className="h-2.5 w-2.5" />
+                              Simulated
+                            </Badge>
+                          )}
                         </div>
                       </div>
                       {!n.isRead && (
