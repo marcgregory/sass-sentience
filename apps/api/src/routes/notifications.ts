@@ -78,19 +78,6 @@ export async function notificationRoutes(app: FastifyInstance) {
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-    // DEBUG: check what the API actually sees
-    const debugTotal = await db
-      .select({ total: sql<number>`count(*)` })
-      .from(notifications);
-    console.log("[DEBUG] TOTAL notifications:", JSON.stringify(debugTotal));
-
-    const debugMine = await db
-      .select()
-      .from(notifications)
-      .where(eq(notifications.userId, user.sub));
-    console.log("[DEBUG] user.sub:", user.sub);
-    console.log("[DEBUG] MINE count:", debugMine.length);
-
     const [{ total }] = await db
       .select({ total: count() })
       .from(notifications)
@@ -104,6 +91,14 @@ export async function notificationRoutes(app: FastifyInstance) {
       .limit(limit)
       .offset(offset);
 
+    // Include unread count for the bell badge in a single response
+    const [{ count: unreadCount }] = await db
+      .select({ count: count() })
+      .from(notifications)
+      .where(
+        and(eq(notifications.userId, user.sub), eq(notifications.isRead, false)),
+      );
+
     return reply.send({
       data: result,
       pagination: {
@@ -112,6 +107,7 @@ export async function notificationRoutes(app: FastifyInstance) {
         total,
         totalPages: Math.ceil(total / limit),
       },
+      unreadCount,
     });
   });
 

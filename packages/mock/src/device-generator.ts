@@ -26,35 +26,35 @@ interface EstateDef {
 
 const ESTATES: EstateDef[] = [
   {
-    id: "estate-riverside",
+    id: "d5fccfdd-d81b-4569-8ed6-bd93a6e1ea38",
     name: "Riverside Complex",
     sites: [
-      { id: "site-riverside-a", name: "Building A" },
-      { id: "site-riverside-b", name: "Building B" },
+      { id: "82f58874-7f8a-4983-8364-a0f46609df23", name: "Building A" },
+      { id: "4c9d5adc-9bfc-4054-89d5-fce6bd547419", name: "Building B" },
     ],
   },
   {
-    id: "estate-techvalley",
+    id: "4ed20b8d-0d6c-462e-8b10-9508c3848ddf",
     name: "Tech Valley Park",
     sites: [
-      { id: "site-techvalley-1", name: "Warehouse 1" },
-      { id: "site-techvalley-admin", name: "Admin Block" },
+      { id: "0a44eb57-69ba-417c-844b-efd9c97caef9", name: "Warehouse 1" },
+      { id: "f5998d0e-72fb-4c8c-8c30-730f0f6fb87d", name: "Admin Block" },
     ],
   },
   {
-    id: "estate-harbour",
+    id: "79d8e7aa-e05e-4abe-8936-650051c580bb",
     name: "Harbour Terminal",
     sites: [
-      { id: "site-harbour-main", name: "Main Terminal" },
-      { id: "site-harbour-north", name: "North Gate" },
+      { id: "8d51899f-aca0-44df-82ff-7222cbdfa1c6", name: "Main Terminal" },
+      { id: "0b0d6ea1-8c5c-48c6-8fe2-646df35a74db", name: "North Gate" },
     ],
   },
   {
-    id: "estate-greenfield",
+    id: "5e9a665c-a352-4b20-83d0-24da3f39313b",
     name: "Greenfield Data Centre",
     sites: [
-      { id: "site-greenfield-a", name: "Server Hall A" },
-      { id: "site-greenfield-b", name: "Server Hall B" },
+      { id: "aa0aafe8-10bf-45e3-8a78-48853832dcd6", name: "Server Hall A" },
+      { id: "c8721e32-1b34-4810-811b-885107a044d5", name: "Server Hall B" },
     ],
   },
 ];
