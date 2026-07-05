@@ -1,7 +1,7 @@
 # Technical Debt
 
 > Items intentionally deferred or known to need cleanup.
-> Last updated: 2026-07-03 (RC3 Phase 6 — pruned resolved items, added security debt)
+> Last updated: 2026-07-05 (v1.1.1 — removed resolved CORS/rate-limit/ARIA debt)
 
 ---
 
@@ -65,10 +65,9 @@ The device table on `/devices` is a plain `<table>` with inline styling rather t
 
 **Resolution:** When `@tanstack/react-table` is introduced (deferred).
 
-### ~20 icon-only buttons missing aria-label
+### ~10 icon-only buttons missing aria-label
 Several interactive icon buttons throughout the app lack `aria-label` attributes, making them inaccessible to screen reader users.
-
-**Impact:** Accessibility compliance gap.
+❌ **Partially resolved (v1.1.1):** 9 buttons fixed across 4 pages. ~10 remain.
 
 **Resolution:** Audit and add `aria-label` to all icon-only buttons. Low-priority per-page fix.
 
@@ -136,15 +135,6 @@ Several endpoints execute sequential queries without isolation: `GET /api/device
 
 **Resolution:** Wrap multi-query operations in `db.transaction()`.
 
-### CORS origin: true allows any origin
-The CORS configuration in `apps/api/src/index.ts` uses `origin: true`, which reflects the requesting origin.
-
-**Severity:** Medium
-
-**Impact:** Any website can make API requests from a browser.
-
-**Resolution:** Restrict to known origins before production deployment.
-
 ### No OpenAPI/Swagger spec
 The API has no auto-generated OpenAPI specification. Documentation is maintained manually in `docs/backend-api.md`.
 
@@ -162,15 +152,6 @@ When alerts are acknowledged or resolved via `PATCH /api/alerts/:id`, no Socket.
 **Impact:** Users on the Alerts page only see live updates from MQTT simulator events, not from REST API mutations made by other users.
 
 **Resolution:** Either emit socket events from the API route handler after successful mutations, or set up a database publication/notification mechanism (e.g., PostgreSQL LISTEN/NOTIFY).
-
-### No rate limiting
-`@fastify/rate-limit` is not installed.
-
-**Severity:** Medium
-
-**Impact:** API is vulnerable to abuse in production.
-
-**Resolution:** Add rate limiting middleware before production deployment.
 
 ### Demo loginAsRole bypasses backend auth
 `loginAsRole()` in `auth-store.ts` creates a synthetic JWT and sets user state directly without calling the backend.

@@ -4,6 +4,34 @@ All notable changes to the Sentience IoT Platform.
 
 ---
 
+## v1.1.1 — 2026-07-05
+
+### Security & Accessibility Hardening
+
+**Fixed**
+
+- **Missing ARIA labels on icon-only buttons** — Added `aria-label` to 9 icon-only buttons across 4 pages (events, audit-log, users, admin/api-keys) including close details, clear search, activate/deactivate toggle, revoke/delete key buttons.
+
+**Verified**
+
+- CORS origin restriction — Already configured via `CORS_ORIGIN` env var (default: `http://localhost:3000`) in `apps/api`. Documented in `.env.example`.
+- Rate limiting — Already configured via `RATE_LIMIT_MAX` env var (default: 100/min) in `apps/api`. Documented in `.env.example`.
+
+**Build**
+
+- TypeScript: ✅ Zero errors across 9 packages
+- Production build: ✅ 27/27 pages, shared JS 102 kB
+
+### Known Issues
+
+- Auth store `loginAsRole()` still bypasses backend auth — gated by DEV ONLY guards.
+- 4 pages still use partial mock data: API Keys, Notification Rules, Notifications, and device detail fallback tabs.
+- `useGenerateReport` has no optimistic update.
+- No OpenAPI/Swagger spec generation.
+- No WebSocket event emission from REST mutations.
+
+---
+
 ## v1.0.0 — 2026-07-05
 
 ### RC5: Production Release

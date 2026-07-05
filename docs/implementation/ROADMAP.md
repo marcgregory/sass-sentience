@@ -13,6 +13,19 @@ See `docs/implementation/RELEASE_PLAN.md` and `docs/implementation/CHANGELOG.md`
 
 ---
 
+## ✅ Completed — v1.1.1 Security & Accessibility Hardening (2026-07-05)
+
+| Area | Status | Notes |
+|------|--------|-------|
+| ARIA labels on icon-only buttons | ✅ Done | 9 buttons across 4 pages — close details, clear search, activate/deactivate toggle, revoke/delete key |
+| CORS origin restriction | ✅ Already configured | `CORS_ORIGIN` env var in `apps/api`, defaults to `http://localhost:3000` |
+| Rate limiting | ✅ Already configured | `@fastify/rate-limit` in `apps/api`, `RATE_LIMIT_MAX` env var defaults to 100/min |
+| TypeScript check | ✅ Passed | Zero errors across 9 packages |
+| Production build | ✅ Passed | 27/27 pages, shared JS 102 kB |
+| Tagged | ✅ `v1.1.1` | 
+
+---
+
 ## ✅ Completed — v1.0 RC1: Backend API + PostgreSQL
 
 | Area | Notes |
@@ -235,7 +248,6 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 - Estates, Notifications, Diagnostics — Added EmptyState components
 
 ### Remaining UX Debt
-- ~20 icon-only buttons still missing `aria-label`
 - Connection banners use `<div>` instead of `role="status"`
 - Devices table pagination "Previous" always disabled (no server-side pagination wired)
 - Estates, Sites, Notifications, Diagnostics, API Keys use hardcoded mock data (need API integration)
@@ -270,8 +282,6 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 ### Remaining API Debt
 - Customer-level data isolation not implemented
 - No transactions on multi-query operations
-- No rate limiting (`@fastify/rate-limit`)
-- CORS `origin: true` allows any origin
 - No OpenAPI/Swagger spec
 - No WebSocket event emission from REST mutations
 
