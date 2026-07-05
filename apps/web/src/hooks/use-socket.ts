@@ -57,6 +57,12 @@ const eventToKeys: EventInvalidationMap = {
       : queryKeys.events.all,
   "estate:updated": () => queryKeys.estates.all,
   "site:updated": () => queryKeys.sites.all,
+  "notification:new": () => [
+    queryKeys.notifications.all,
+  ],
+  "notification:updated": () => [
+    queryKeys.notifications.all,
+  ],
   "kpi:updated": (p) => queryKeys.dashboard.kpis(p.estateId as string | undefined),
   "simulator:reset": () => [
     queryKeys.devices.all,
@@ -210,25 +216,14 @@ export function useSocket(options: UseSocketOptions = {}): void {
     handlers.push(() => socket.off("connect", handleConnect));
     handlers.push(() => socket.off("disconnect", handleDisconnect));
 
-    // Handle notification events separately — they feed the Zustand store
-    // for instant UI updates, not just cache invalidation.
-    const notificationHandler = (payload: { notificationId: string; title: string; message: string; priority: string; timestamp: string }) => {
-      // Dynamic import to avoid circular dependency
+    // Handle notification events — increment the unread count in the
+    // Zustand store for instant badge updates. The actual notification
+    // data is fetched by TanStack Query after cache invalidation above.
+    const notificationHandler = () => {
       import("@/stores/notification-store").then(({ useNotificationStore }) => {
-        useNotificationStore.getState().setNotifications([
-          {
-            id: payload.notificationId,
-            userId: "",
-            title: payload.title,
-            message: payload.message,
-            priority: payload.priority as "low" | "normal" | "high" | "critical",
-            category: "alert",
-            isRead: false,
-            link: undefined,
-            createdAt: payload.timestamp,
-          },
-          ...useNotificationStore.getState().notifications,
-        ]);
+        useNotificationStore.getState().setUnreadCount(
+          useNotificationStore.getState().unreadCount + 1,
+        );
       });
     };
     socket.on("notification:new" as any, notificationHandler);

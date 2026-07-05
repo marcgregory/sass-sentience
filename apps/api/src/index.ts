@@ -8,6 +8,7 @@ import { env } from "./config";
 import { db, pool } from "./db";
 import { registerErrorHandler } from "./lib/errors";
 import { initSocketIO } from "./socket";
+import { connectBridgeListener } from "./socket/bridge-listener";
 
 // ─── Type augmentation ────────────────────────────────────────────
 
@@ -126,6 +127,10 @@ async function main() {
 
     await app.listen({ port: env.PORT, host: env.HOST });
     app.log.info(`API server listening on http://${env.HOST}:${env.PORT}`);
+
+    // Connect to the realtime bridge to listen for alert:created events
+    // and persist them as notifications in the database.
+    connectBridgeListener();
   } catch (err) {
     app.log.error(err);
     process.exit(1);
