@@ -4,6 +4,27 @@ All notable changes to the Sentience IoT Platform.
 
 ---
 
+## v1.4.0 — 2026-07-05
+
+### Replace Mock Data With Real Backend
+
+**Changed**
+
+- **Notifications page** — Already fully API-backed via `useNotifications()` hook. Fetches from `GET /api/notifications` with pagination, category, and read-status filters. Live simulated notifications merged in-memory when simulation mode is active. Simulated notifications marked read locally without an API round-trip.
+- **API Keys page** — Already fully API-backed via `useApiKeys()` hook. Create, revoke, and delete operations persist through real API mutations to `GET/POST/PATCH/DELETE /api/api-keys`. Search and status filtering pass through to server-side query parameters.
+- **Notification Rules page** — Already fully API-backed via `useNotificationRules()` hook. Loads rules from `GET /api/notification-rules`, saves edits through `PATCH /api/notification-rules/:id` with batched change detection. Loading, error, and empty states all present.
+
+**Removed**
+
+- **Known issues entry** — "4 pages still use partial mock data" removed (all 3 admin pages now API-backed; device detail fallback tabs already verified clean).
+
+**Build**
+
+- TypeScript: ✅ Zero errors across 9 packages
+- Production build: ✅ 28/28 pages, shared JS 102 kB
+
+---
+
 ## v1.3.0 — 2026-07-05
 
 ### Report PDF Export
@@ -45,7 +66,6 @@ All notable changes to the Sentience IoT Platform.
 ### Known Issues
 
 - Auth store `loginAsRole()` still bypasses backend auth — gated by DEV ONLY guards.
-- 4 pages still use partial mock data: API Keys, Notification Rules, Notifications, and device detail fallback tabs.
 - `useGenerateReport` has no optimistic update.
 - No OpenAPI/Swagger spec generation.
 - No WebSocket event emission from REST mutations.

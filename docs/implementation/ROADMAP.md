@@ -27,6 +27,21 @@ See `docs/implementation/RELEASE_PLAN.md` and `docs/implementation/CHANGELOG.md`
 
 ---
 
+## ✅ Completed — v1.4.0 Replace Mock Data With Real Backend (2026-07-05)
+
+| Area | Status | Notes |
+|------|--------|-------|
+| Notifications page | ✅ Verified | Already uses `useNotifications()` hook, fetches `GET /api/notifications`, supports simulated notification merge |
+| API Keys page | ✅ Verified | Already uses `useApiKeys()` hook, create/revoke/delete persist through `GET/POST/PATCH/DELETE /api/api-keys` |
+| Notification Rules page | ✅ Verified | Already uses `useNotificationRules()` hook, loads from `GET /api/notification-rules`, saves via `PATCH /api/notification-rules/:id` |
+| All mock data removed from admin pages | ✅ Verified | Zero mock/hardcoded references in notifications, api-keys, or notification-rules pages |
+| Known issues updated | ✅ Done | Removed "4 pages still use partial mock data" from v1.2.0 changelog |
+| TypeScript check | ✅ Passed | Zero errors across 9 packages |
+| Production build | ✅ Passed | 28/28 pages, shared JS 102 kB |
+| Tagged | ✅ `v1.4.0` |
+
+---
+
 ## ✅ Completed — v1.3.0 Report PDF Export (2026-07-05)
 
 | Area | Status | Notes |
@@ -248,7 +263,6 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 
 ### Known Remaining Debt
 - Auth store mock login (no backend auth endpoint)
-- 4 pages with partial mock data (API Keys, Notification Rules, Notifications, device detail tabs)
 - `useGenerateReport` missing optimistic update (low priority)
 
 ---
