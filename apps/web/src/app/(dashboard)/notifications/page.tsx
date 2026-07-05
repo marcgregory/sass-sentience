@@ -83,7 +83,7 @@ export default function NotificationsPage() {
     markAllRead.mutate();
   };
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const unreadCount = data?.unreadCount ?? notifications.filter((n) => !n.isRead).length;
 
   return (
     <div className="space-y-6 animate-fade-in">
