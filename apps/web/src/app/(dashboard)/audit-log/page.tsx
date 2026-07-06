@@ -144,7 +144,10 @@ export default function AuditLogPage() {
   // Merge API entries with locally-created entries (from this session)
   // When Simulator Mode is ON, also merge simulated audit entries in-memory.
   // Simulated entries carry isSimulated: true and are never persisted to the DB.
-  const mergedEntries: (AuditEntry | AuditLogApiItem)[] = useMemo(() => {
+  //
+  // IMPORTANT: Filters (search, action) are applied AFTER merging so that
+  // simulated and local entries are filtered identically to API entries.
+  const rawMerged: (AuditEntry | AuditLogApiItem)[] = useMemo(() => {
     // Separate store entries into local (real) and simulated
     const localEntries = storeEntries.filter((e) => !e.isSimulated);
     const simulatedEntries = storeEntries.filter((e) => e.isSimulated);
@@ -166,6 +169,32 @@ export default function AuditLogPage() {
       return true;
     });
   }, [storeEntries, apiEntries, simulatorMode]);
+
+  // Apply client-side filters (search + action) to the merged dataset.
+  // API entries arrive pre-filtered, but store entries (local + simulated)
+  // need client-side filtering to match.
+  const mergedEntries: (AuditEntry | AuditLogApiItem)[] = useMemo(() => {
+    let filtered = rawMerged;
+
+    if (actionFilter !== "all") {
+      filtered = filtered.filter((e) => e.action === actionFilter);
+    }
+
+    if (search) {
+      const q = search.toLowerCase();
+      filtered = filtered.filter(
+        (e) =>
+          e.userName.toLowerCase().includes(q) ||
+          e.action.toLowerCase().includes(q) ||
+          e.resource.toLowerCase().includes(q) ||
+          (e.description && e.description.toLowerCase().includes(q)) ||
+          (e.resourceId && e.resourceId.toLowerCase().includes(q)) ||
+          (e.ipAddress && e.ipAddress.toLowerCase().includes(q))
+      );
+    }
+
+    return filtered;
+  }, [rawMerged, actionFilter, search]);
 
   // Get unique action types from merged entries
   const actionTypes = useMemo(() => {
@@ -191,10 +220,30 @@ export default function AuditLogPage() {
       exportParams.order = "desc";
       const result = await getAuditLogs(exportParams);
 
-      // Merge local entries not yet in the API result
+      // Merge store entries (local + simulated) not yet in the API result.
+      // Simulated entries are included when simulator mode is active.
       const allIds = new Set(result.data.map((e: AuditLogApiItem) => e.id));
-      const localOnly = storeEntries.filter((e) => !e.isSimulated && !allIds.has(e.id));
-      const exportData = [...localOnly, ...result.data];
+      const storeOnly = storeEntries.filter((e) => !allIds.has(e.id));
+
+      // Apply the same client-side filters to store entries for the export
+      let filteredStore = storeOnly;
+      if (actionFilter !== "all") {
+        filteredStore = filteredStore.filter((e) => e.action === actionFilter);
+      }
+      if (search) {
+        const q = search.toLowerCase();
+        filteredStore = filteredStore.filter(
+          (e) =>
+            e.userName.toLowerCase().includes(q) ||
+            e.action.toLowerCase().includes(q) ||
+            e.resource.toLowerCase().includes(q) ||
+            (e.description && e.description.toLowerCase().includes(q)) ||
+            (e.resourceId && e.resourceId.toLowerCase().includes(q)) ||
+            (e.ipAddress && e.ipAddress.toLowerCase().includes(q))
+        );
+      }
+
+      const exportData = [...filteredStore, ...result.data];
 
       const headers = ["ID", "User", "Action", "Resource", "Resource ID", "Description", "Timestamp", "IP Address"];
       const rows = exportData.map((e: AuditLogApiItem) => [
