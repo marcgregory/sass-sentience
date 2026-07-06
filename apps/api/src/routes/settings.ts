@@ -4,6 +4,7 @@ import { db } from "../db";
 import { settings } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth, requireRole } from "../middleware/auth";
+import { logAuditEvent } from "../lib/audit";
 
 const updateSettingSchema = z.object({
   value: z.any(),
@@ -28,6 +29,19 @@ export async function settingRoutes(app: FastifyInstance) {
     if (!updated) {
       return reply.status(404).send({ message: "Setting not found", code: "NOT_FOUND" });
     }
+
+    const user = request.user as { sub: string; name: string; role: string };
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "config_change",
+      resource: "Settings",
+      resourceId: key,
+      description: `Setting "${key}" changed`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
 
     return reply.send(updated);
   });

@@ -4,6 +4,7 @@ import { db } from "../db";
 import { alerts } from "../db/schema";
 import { eq, and, count, SQL, asc, desc } from "drizzle-orm";
 import { requireAuth, requireRole, customerScope, type JwtPayload } from "../middleware/auth";
+import { logAuditEvent } from "../lib/audit";
 
 const updateAlertSchema = z.object({
   status: z.enum(["open", "acknowledged", "resolved"]),
@@ -142,6 +143,19 @@ export async function alertRoutes(app: FastifyInstance) {
     if (!updated) {
       return reply.status(404).send({ message: "Alert not found", code: "NOT_FOUND" });
     }
+
+    const user = request.user as JwtPayload;
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "update",
+      resource: "Alert",
+      resourceId: id,
+      description: `Alert ${body.status === "acknowledged" ? "acknowledged" : "resolved"} — ${updated.title}`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
 
     return reply.send(updated);
   });

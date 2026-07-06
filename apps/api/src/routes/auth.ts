@@ -9,6 +9,7 @@ import { users, roles, passwordResetTokens } from "../db/schema";
 import { env } from "../config";
 import { requireAuth } from "../middleware/auth";
 import { getEmailService } from "../lib/email";
+import { logAuditEvent } from "../lib/audit";
 
 // ─── Schemas ───────────────────────────────────────────────────────────
 
@@ -136,6 +137,16 @@ export async function authRoutes(app: FastifyInstance) {
       .limit(1);
 
     if (!result) {
+      await logAuditEvent({
+        userId: "unknown",
+        userName: body.email,
+        userRole: "unknown",
+        action: "failed_login",
+        resource: "Session",
+        description: `Failed login attempt for ${body.email} — user not found`,
+        ipAddress: request.ip,
+        userAgent: request.headers["user-agent"],
+      });
       return reply.status(401).send({
         message: "Invalid email or password",
         code: "INVALID_CREDENTIALS",
@@ -144,6 +155,16 @@ export async function authRoutes(app: FastifyInstance) {
 
     const passwordValid = await bcrypt.compare(body.password, result.passwordHash);
     if (!passwordValid) {
+      await logAuditEvent({
+        userId: result.id,
+        userName: result.name,
+        userRole: result.roleName,
+        action: "failed_login",
+        resource: "Session",
+        description: `Failed login attempt for ${result.email} — invalid password`,
+        ipAddress: request.ip,
+        userAgent: request.headers["user-agent"],
+      });
       return reply.status(401).send({
         message: "Invalid email or password",
         code: "INVALID_CREDENTIALS",
@@ -151,6 +172,16 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     if (!result.isActive) {
+      await logAuditEvent({
+        userId: result.id,
+        userName: result.name,
+        userRole: result.roleName,
+        action: "failed_login",
+        resource: "Session",
+        description: `Failed login attempt for ${result.email} — account deactivated`,
+        ipAddress: request.ip,
+        userAgent: request.headers["user-agent"],
+      });
       return reply.status(403).send({
         message: "Account is deactivated",
         code: "ACCOUNT_DISABLED",
@@ -190,6 +221,17 @@ export async function authRoutes(app: FastifyInstance) {
       role: result.roleName,
       name: result.name,
       customerId: result.customerId,
+    });
+
+    await logAuditEvent({
+      userId: result.id,
+      userName: result.name ?? result.email,
+      userRole: result.roleName,
+      action: "login",
+      resource: "Session",
+      description: `User logged in`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
     });
 
     return reply.send({
@@ -259,6 +301,18 @@ export async function authRoutes(app: FastifyInstance) {
       name: user.name,
     });
 
+    await logAuditEvent({
+      userId: user.id,
+      userName: user.name,
+      userRole: "customer",
+      action: "password_reset",
+      resource: "User",
+      resourceId: user.id,
+      description: `Password reset requested for ${user.email}`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
+
     return reply.send(genericResponse);
   });
 
@@ -321,6 +375,18 @@ export async function authRoutes(app: FastifyInstance) {
             gt(passwordResetTokens.expiresAt, new Date()),
           ),
         );
+    });
+
+    await logAuditEvent({
+      userId: matchingToken.userId,
+      userName: "system",
+      userRole: "system",
+      action: "password_reset",
+      resource: "User",
+      resourceId: matchingToken.userId,
+      description: "Password reset completed",
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
     });
 
     return reply.send({
@@ -526,6 +592,17 @@ export async function authRoutes(app: FastifyInstance) {
         customerId: userData.customerId,
       });
 
+      await logAuditEvent({
+        userId: userData.id,
+        userName: userData.name ?? userData.email,
+        userRole: userData.roleName,
+        action: "login",
+        resource: "Session",
+        description: `User logged in (MFA)`,
+        ipAddress: request.ip,
+        userAgent: request.headers["user-agent"],
+      });
+
       return reply.send({
         token,
         user: {
@@ -546,6 +623,25 @@ export async function authRoutes(app: FastifyInstance) {
       .set({ mfaEnabled: true, updatedAt: new Date() })
       .where(eq(users.id, userId));
 
+    const [mfaUser] = await db
+      .select({ name: users.name, roleName: roles.name })
+      .from(users)
+      .innerJoin(roles, eq(users.roleId, roles.id))
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    await logAuditEvent({
+      userId,
+      userName: mfaUser?.name ?? "unknown",
+      userRole: mfaUser?.roleName ?? "unknown",
+      action: "mfa_change",
+      resource: "User",
+      resourceId: userId,
+      description: "MFA enabled",
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
+
     return reply.send({
       message: "MFA has been enabled successfully.",
       mfaEnabled: true,
@@ -555,7 +651,7 @@ export async function authRoutes(app: FastifyInstance) {
   // ─── MFA: Disable ───────────────────────────────────────────────────
 
   app.post("/mfa/disable", { preHandler: [requireAuth] }, async (request, reply) => {
-    const payload = request.user as { sub: string };
+    const payload = request.user as { sub: string; name: string; role: string };
     const body = mfaDisableSchema.parse(request.body);
 
     const [user] = await db
@@ -593,6 +689,18 @@ export async function authRoutes(app: FastifyInstance) {
       })
       .where(eq(users.id, user.id));
 
+    await logAuditEvent({
+      userId: user.id,
+      userName: payload.name ?? "unknown",
+      userRole: payload.role ?? "unknown",
+      action: "mfa_change",
+      resource: "User",
+      resourceId: user.id,
+      description: "MFA disabled",
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
+
     return reply.send({
       message: "MFA has been disabled.",
       mfaEnabled: false,
@@ -626,7 +734,7 @@ export async function authRoutes(app: FastifyInstance) {
   // ─── Change Password ────────────────────────────────────────────────
 
   app.post("/change-password", { preHandler: [requireAuth] }, async (request, reply) => {
-    const payload = request.user as { sub: string };
+    const payload = request.user as { sub: string; name: string; role: string };
     const body = changePasswordSchema.parse(request.body);
 
     const [user] = await db
@@ -657,6 +765,18 @@ export async function authRoutes(app: FastifyInstance) {
     // Optionally invalidate other sessions by changing the JWT secret
     // This is left as a configurable option — for now, sessions remain valid.
 
+    await logAuditEvent({
+      userId: user.id,
+      userName: payload.name ?? "unknown",
+      userRole: payload.role ?? "unknown",
+      action: "password_reset",
+      resource: "User",
+      resourceId: user.id,
+      description: "Password changed",
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
+
     return reply.send({
       message: "Password changed successfully.",
     });
@@ -665,7 +785,7 @@ export async function authRoutes(app: FastifyInstance) {
   // ─── Update Profile (PUT /api/auth/me) ────────────────────────────
 
   app.put("/me", { preHandler: [requireAuth] }, async (request, reply) => {
-    const payload = request.user as { sub: string };
+    const payload = request.user as { sub: string; name: string; role: string };
     const body = updateProfileSchema.parse(request.body);
 
     // If changing email, check for duplicates
@@ -696,6 +816,23 @@ export async function authRoutes(app: FastifyInstance) {
       .update(users)
       .set(updateData)
       .where(eq(users.id, payload.sub));
+
+    const changes = [];
+    if (body.name) changes.push("name");
+    if (body.email) changes.push("email");
+
+    await logAuditEvent({
+      userId: payload.sub,
+      userName: payload.name,
+      userRole: payload.role,
+      action: "update",
+      resource: "User",
+      resourceId: payload.sub,
+      description: `Profile updated (${changes.join(", ")})`,
+      details: { ...updateData, updatedAt: undefined },
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
 
     const [updated] = await db
       .select(userColumns)

@@ -4,6 +4,7 @@ import { db } from "../db";
 import { diagnosticTests, diagnosticResults, devices } from "../db/schema";
 import { eq, and, desc, count, type SQL } from "drizzle-orm";
 import { requireAuth, requireRole, type JwtPayload } from "../middleware/auth";
+import { logAuditEvent } from "../lib/audit";
 
 // ─── Zod Schemas ─────────────────────────────────────────────────────────
 
@@ -210,6 +211,19 @@ export async function diagnosticRoutes(app: FastifyInstance) {
         durationMs: result.durationMs,
       })
       .returning();
+
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "diagnostic",
+      resource: "Diagnostic",
+      resourceId: created.id,
+      description: `Diagnostic "${test.name}" run on "${device.name}" — ${result.status}`,
+      details: { testName: test.name, testType: test.type, deviceName: device.name, status: result.status, durationMs: result.durationMs },
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
 
     return reply.status(201).send({
       ...created,

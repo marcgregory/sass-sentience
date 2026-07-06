@@ -36,10 +36,13 @@ const actionColors: Record<string, string> = {
   delete: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-400",
   login: "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-400",
   logout: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+  failed_login: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-400",
   export: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-400",
   permission_change: "bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-400",
   password_reset: "bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-400",
   mfa_change: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-400",
+  diagnostic: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-400",
+  config_change: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-400",
 };
 
 const actionLabels: Record<string, string> = {
@@ -48,10 +51,13 @@ const actionLabels: Record<string, string> = {
   delete: "Deleted",
   login: "Login",
   logout: "Logout",
+  failed_login: "Failed Login",
   export: "Exported",
   permission_change: "Permission Change",
   password_reset: "Password Reset",
   mfa_change: "MFA Change",
+  diagnostic: "Diagnostic",
+  config_change: "Config Change",
 };
 
 const severityColors: Record<string, string> = {
@@ -66,6 +72,7 @@ const severityColors: Record<string, string> = {
 const actionSeverity: Record<string, string> = {
   delete: "critical",
   permission_change: "critical",
+  failed_login: "critical",
   password_reset: "warning",
   mfa_change: "warning",
   update: "info",
@@ -73,6 +80,8 @@ const actionSeverity: Record<string, string> = {
   login: "info",
   logout: "debug",
   export: "info",
+  diagnostic: "info",
+  config_change: "warning",
 };
 
 const ACTION_OPTIONS = [
@@ -82,10 +91,13 @@ const ACTION_OPTIONS = [
   "delete",
   "login",
   "logout",
+  "failed_login",
   "export",
   "permission_change",
   "password_reset",
   "mfa_change",
+  "diagnostic",
+  "config_change",
 ] as const;
 
 const SeverityIndicator = ({ action }: { action: string }) => {

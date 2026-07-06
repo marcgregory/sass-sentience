@@ -4,6 +4,7 @@ import { db } from "../db";
 import { estates, sites, devices } from "../db/schema";
 import { eq, ilike, and, or, asc, desc, count, inArray, type SQL } from "drizzle-orm";
 import { requireAuth, requireRole, customerScope, type JwtPayload } from "../middleware/auth";
+import { logAuditEvent } from "../lib/audit";
 
 // ─── Zod Schemas ─────────────────────────────────────────────────────────
 
@@ -129,6 +130,18 @@ export async function estateRoutes(app: FastifyInstance) {
       .values({ ...body, customerId })
       .returning();
 
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "create",
+      resource: "Estate",
+      resourceId: created.id,
+      description: `Estate "${body.name}" created`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
+
     return reply.status(201).send(created);
   });
 
@@ -146,6 +159,19 @@ export async function estateRoutes(app: FastifyInstance) {
     if (!updated) {
       return reply.status(404).send({ message: "Estate not found", code: "NOT_FOUND" });
     }
+
+    const user = request.user as JwtPayload;
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "update",
+      resource: "Estate",
+      resourceId: id,
+      description: `Estate "${updated.name}" updated`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
 
     return reply.send(updated);
   });
@@ -175,6 +201,19 @@ export async function estateRoutes(app: FastifyInstance) {
     if (!deleted) {
       return reply.status(404).send({ message: "Estate not found", code: "NOT_FOUND" });
     }
+
+    const user = request.user as JwtPayload;
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "delete",
+      resource: "Estate",
+      resourceId: id,
+      description: "Estate deleted",
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
 
     return reply.send({ success: true });
   });

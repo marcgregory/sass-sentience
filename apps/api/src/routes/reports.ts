@@ -4,6 +4,7 @@ import { db } from "../db";
 import { reports, devices, events, alerts, sites, estates } from "../db/schema";
 import { eq, and, count, desc, asc, gte, inArray, SQL } from "drizzle-orm";
 import { requireAuth, requireRole, customerScope, type JwtPayload } from "../middleware/auth";
+import { logAuditEvent } from "../lib/audit";
 
 const createReportSchema = z.object({
   name: z.string().min(1),
@@ -409,6 +410,19 @@ export async function reportRoutes(app: FastifyInstance) {
       })
       .where(eq(reports.id, report.id))
       .returning();
+
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "export",
+      resource: "Report",
+      resourceId: report.id,
+      description: `Report "${body.name}" generated (${body.type}, ${body.format})`,
+      details: { type: body.type, format: body.format, dateRangeStart: body.dateRangeStart, dateRangeEnd: body.dateRangeEnd },
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
 
     return reply.status(201).send(readyReport);
   });

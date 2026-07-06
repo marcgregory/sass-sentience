@@ -5,6 +5,7 @@ import { db } from "../db";
 import { apiKeys } from "../db/schema";
 import { eq, and, count, desc, ilike, or, SQL } from "drizzle-orm";
 import { requireAuth, requireRole, type JwtPayload } from "../middleware/auth";
+import { logAuditEvent } from "../lib/audit";
 
 const createApiKeySchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
@@ -144,6 +145,19 @@ export async function apiKeyRoutes(app: FastifyInstance) {
         expiresAt: apiKeys.expiresAt,
       });
 
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "create",
+      resource: "ApiKey",
+      resourceId: created.id,
+      description: `API key "${body.name}" created`,
+      details: { name: body.name, maskedKey: created.maskedKey },
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
+
     return reply.status(201).send({
       ...created,
       fullKey: rawKey, // Only returned on creation
@@ -190,6 +204,23 @@ export async function apiKeyRoutes(app: FastifyInstance) {
       return reply.status(404).send({ message: "API key not found", code: "NOT_FOUND" });
     }
 
+    const user = request.user as JwtPayload;
+    const changeDesc = body.status === "revoked"
+      ? `API key "${updated.name}" revoked`
+      : body.name ? `API key renamed to "${body.name}"` : "API key updated";
+
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: body.status === "revoked" ? "delete" : "update",
+      resource: "ApiKey",
+      resourceId: id,
+      description: changeDesc,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
+
     return reply.send(updated);
   });
 
@@ -205,6 +236,20 @@ export async function apiKeyRoutes(app: FastifyInstance) {
     if (!deleted) {
       return reply.status(404).send({ message: "API key not found", code: "NOT_FOUND" });
     }
+
+    const user = request.user as JwtPayload;
+
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "delete",
+      resource: "ApiKey",
+      resourceId: id,
+      description: "API key deleted",
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
 
     return reply.status(204).send();
   });

@@ -4,6 +4,7 @@ import { db } from "../db";
 import { sites, estates, devices } from "../db/schema";
 import { eq, ilike, and, or, asc, desc, count, inArray, type SQL } from "drizzle-orm";
 import { requireAuth, requireRole, type JwtPayload } from "../middleware/auth";
+import { logAuditEvent } from "../lib/audit";
 
 // ─── Zod Schemas ─────────────────────────────────────────────────────────
 
@@ -174,6 +175,19 @@ export async function siteRoutes(app: FastifyInstance) {
       .set({ siteCount: newCount, updatedAt: new Date() })
       .where(eq(estates.id, body.estateId));
 
+    const user = request.user as JwtPayload;
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "create",
+      resource: "Site",
+      resourceId: created.id,
+      description: `Site "${body.name}" created`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
+
     return reply.status(201).send(created);
   });
 
@@ -191,6 +205,19 @@ export async function siteRoutes(app: FastifyInstance) {
     if (!updated) {
       return reply.status(404).send({ message: "Site not found", code: "NOT_FOUND" });
     }
+
+    const user = request.user as JwtPayload;
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "update",
+      resource: "Site",
+      resourceId: id,
+      description: `Site "${updated.name}" updated`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
 
     return reply.send(updated);
   });
@@ -239,6 +266,19 @@ export async function siteRoutes(app: FastifyInstance) {
         .set({ siteCount: newCount, updatedAt: new Date() })
         .where(eq(estates.id, site.estateId));
     }
+
+    const user = request.user as JwtPayload;
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "delete",
+      resource: "Site",
+      resourceId: id,
+      description: "Site deleted",
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
 
     return reply.send({ success: true });
   });

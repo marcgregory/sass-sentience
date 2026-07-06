@@ -4,6 +4,7 @@ import { db } from "../db";
 import { notificationRules } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth, requireRole } from "../middleware/auth";
+import { logAuditEvent } from "../lib/audit";
 
 const updateRuleSchema = z.object({
   enabled: z.boolean().optional(),
@@ -62,6 +63,20 @@ export async function notificationRuleRoutes(app: FastifyInstance) {
     if (!updated) {
       return reply.status(404).send({ message: "Notification rule not found", code: "NOT_FOUND" });
     }
+
+    const user = request.user as { sub: string; name: string; role: string };
+    const changed = Object.keys(body).join(", ");
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "update",
+      resource: "NotificationRule",
+      resourceId: id,
+      description: `Notification rule "${updated.alertType}" updated (${changed})`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
 
     return reply.send(updated);
   });

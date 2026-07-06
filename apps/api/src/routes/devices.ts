@@ -4,6 +4,7 @@ import { db } from "../db";
 import { devices, sites, estates } from "../db/schema";
 import { eq, and, count, ilike, SQL, asc, desc, inArray } from "drizzle-orm";
 import { requireAuth, requireRole, customerScope, type JwtPayload } from "../middleware/auth";
+import { logAuditEvent } from "../lib/audit";
 
 const updateDeviceSchema = z.object({
   name: z.string().min(1).optional(),
@@ -188,6 +189,20 @@ export async function deviceRoutes(app: FastifyInstance) {
     if (!updated) {
       return reply.status(404).send({ message: "Device not found", code: "NOT_FOUND" });
     }
+
+    const user = request.user as JwtPayload;
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "update",
+      resource: "Device",
+      resourceId: id,
+      description: `Device "${updated.name}" updated`,
+      details: Object.keys(body).length > 0 ? { changed: Object.keys(body) } : undefined,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
 
     return reply.send(updated);
   });

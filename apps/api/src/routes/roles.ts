@@ -4,6 +4,7 @@ import { db } from "../db";
 import { roles, rolePermissions } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, requireRole } from "../middleware/auth";
+import { logAuditEvent } from "../lib/audit";
 
 const grantPermissionSchema = z.object({
   resource: z.string().min(1),
@@ -70,6 +71,25 @@ export async function roleRoutes(app: FastifyInstance) {
       })
       .returning();
 
+    const user = request.user as { sub: string; name: string; role: string };
+    const [roleRecord] = await db
+      .select({ name: roles.name })
+      .from(roles)
+      .where(eq(roles.id, id))
+      .limit(1);
+
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "permission_change",
+      resource: "Role",
+      resourceId: id,
+      description: `Permission granted: ${body.action} on ${body.resource} for role ${roleRecord?.name ?? id}`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
+
     return reply.status(201).send(permission);
   });
 
@@ -92,6 +112,25 @@ export async function roleRoutes(app: FastifyInstance) {
           eq(rolePermissions.action, query.action),
         ),
       );
+
+    const user = request.user as { sub: string; name: string; role: string };
+    const [roleRecord] = await db
+      .select({ name: roles.name })
+      .from(roles)
+      .where(eq(roles.id, id))
+      .limit(1);
+
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "permission_change",
+      resource: "Role",
+      resourceId: id,
+      description: `Permission revoked: ${query.action} on ${query.resource} from role ${roleRecord?.name ?? id}`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
 
     return reply.status(204).send();
   });

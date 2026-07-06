@@ -5,6 +5,7 @@ import { db } from "../db";
 import { users, roles } from "../db/schema";
 import { eq, ilike, and, or, asc, desc, count, SQL } from "drizzle-orm";
 import { requireAuth, requireRole } from "../middleware/auth";
+import { logAuditEvent } from "../lib/audit";
 
 // ─── Shared Columns ─────────────────────────────────────────────────────────
 const userWithRole = {
@@ -175,6 +176,20 @@ export async function userRoutes(app: FastifyInstance) {
       .where(eq(users.id, newUser.id))
       .limit(1);
 
+    const currentUser = request.user as { sub: string; name: string; role: string };
+
+    await logAuditEvent({
+      userId: currentUser.sub,
+      userName: currentUser.name,
+      userRole: currentUser.role,
+      action: "create",
+      resource: "User",
+      resourceId: newUser.id,
+      description: `User "${body.name}" (${body.email}) created`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
+
     return reply.status(201).send(created);
   });
 
@@ -216,6 +231,21 @@ export async function userRoutes(app: FastifyInstance) {
       .where(eq(users.id, id))
       .limit(1);
 
+    const currentUser = request.user as { sub: string; name: string; role: string };
+    const changedFields = Object.keys(body).join(", ");
+
+    await logAuditEvent({
+      userId: currentUser.sub,
+      userName: currentUser.name,
+      userRole: currentUser.role,
+      action: "update",
+      resource: "User",
+      resourceId: id,
+      description: `User "${updatedUser?.name ?? id}" updated (${changedFields})`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
+
     return reply.send(updatedUser);
   });
 
@@ -231,6 +261,20 @@ export async function userRoutes(app: FastifyInstance) {
     if (!deactivated) {
       return reply.status(404).send({ message: "User not found", code: "NOT_FOUND" });
     }
+
+    const currentUser = request.user as { sub: string; name: string; role: string };
+
+    await logAuditEvent({
+      userId: currentUser.sub,
+      userName: currentUser.name,
+      userRole: currentUser.role,
+      action: "delete",
+      resource: "User",
+      resourceId: id,
+      description: `User ${id} deactivated`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
 
     return reply.send(deactivated);
   });
