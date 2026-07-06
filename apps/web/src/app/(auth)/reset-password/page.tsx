@@ -19,12 +19,29 @@ function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Always read token fresh from URL — never cache it in a ref or state.
-  // The `searchParams` object is stable within a route segment, but URL
-  // edits before submit must use the current URL value, not a closure
-  // captured at render time. Using a ref avoids the stale-URL bug.
+  // Use a ref that we re-sync on every render.  On submit we will read
+  // window.location.search directly as a fallback so React's stale route-
+  // cache cannot hide a URL-bar edit made moments before clicking submit.
   const tokenRef = useRef<string | null>(null);
+
+  // Sync from React cache on each render (catches client-side nav).
   tokenRef.current = searchParams.get("token");
+
+  function getToken(): string | null {
+    // Primary: read the browser location directly.  This covers the case
+    // where the user typed in the URL bar and clicked submit without the
+    // Next.js router having processed the change.  window.location always
+    // reflects the current URL regardless of React's re-render state.
+    if (typeof window !== "undefined") {
+      const fromLocation = new URLSearchParams(
+        window.location.search,
+      ).get("token");
+      if (fromLocation) return fromLocation;
+    }
+
+    // Fallback: React's searchParams (catches programmatic navigation).
+    return searchParams.get("token") ?? null;
+  }
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -45,10 +62,11 @@ function ResetPasswordForm() {
       e.preventDefault();
       setLocalError(null);
 
-      // Read token from ref at SUBMIT TIME — not from a closure captured
-      // during render. This ensures URL-bar edits made without pressing
-      // Enter (which don't cause a React re-render) are picked up.
-      const currentToken = tokenRef.current;
+      // Read token at SUBMIT TIME, directly from browser location.
+      // This intentionally bypasses React's searchParams cache to catch
+      // URL-bar edits made without pressing Enter (which never produce a
+      // React re-render, so any cached value is stale).
+      const currentToken = getToken();
 
       if (!currentToken) {
         setLocalError("Invalid or missing reset token.");

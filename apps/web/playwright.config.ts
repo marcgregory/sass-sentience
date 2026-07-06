@@ -35,7 +35,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: "next dev",
+    command: "pnpm next dev",
     url: "http://localhost:3000/login",
     reuseExistingServer: false,
     timeout: 120_000,
