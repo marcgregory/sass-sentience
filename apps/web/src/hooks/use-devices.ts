@@ -157,11 +157,22 @@ export function useDevices(page: number = 1) {
     enabled: !simulatorMode,
   });
 
-  // Simulator Mode: return ONLY live store devices
+  // Client-side page slicing for simulator mode and search/filter display.
+  const PAGE_LIMIT = 20;
+
+  // Simulator Mode: return ONLY live store devices, sliced by page.
   const simulatorDevices = useMemo<DeviceListRow[]>(() => {
     if (!simulatorMode) return [];
     const entries = Object.values(liveDevices);
-    return entries.map((entry, i) => mapLiveEntryToRow(entry, i));
+    const allRows = entries.map((entry, i) => mapLiveEntryToRow(entry, i));
+    const offset = (page - 1) * PAGE_LIMIT;
+    return allRows.slice(offset, offset + PAGE_LIMIT);
+  }, [simulatorMode, liveDevices, page]);
+
+  // Total count of simulator devices (for pagination math).
+  const simulatorTotal = useMemo(() => {
+    if (!simulatorMode) return 0;
+    return Object.keys(liveDevices).length;
   }, [simulatorMode, liveDevices]);
 
   // Normal Mode: merge API devices with live overlay — no sim-only devices
@@ -213,7 +224,7 @@ export function useDevices(page: number = 1) {
   }, [simulatorMode, query.data, liveDevices]);
 
   const devices = simulatorMode ? simulatorDevices : apiDevices;
-  const total = simulatorMode ? devices.length : (query.data?.pagination?.total ?? 0);
+  const total = simulatorMode ? simulatorTotal : (query.data?.pagination?.total ?? 0);
 
   return {
     devices,
