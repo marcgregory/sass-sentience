@@ -326,6 +326,7 @@ export default function SitesPage() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="search"
+            autoComplete="off"
             aria-label="Search sites"
             placeholder="Search sites..."
             value={searchQuery}
