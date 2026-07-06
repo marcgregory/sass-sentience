@@ -77,7 +77,7 @@ function timeAgo(iso: string): string {
   return `${days}d ago`;
 }
 
-// ─── Device Selector Component ────────────────────────────────────────────
+// ─── Sub-components ───────────────────────────────────────────────────────
 
 function DeviceSelector({
   devices,
@@ -107,8 +107,6 @@ function DeviceSelector({
     </div>
   );
 }
-
-// ─── Test Card ────────────────────────────────────────────────────────────
 
 function TestCard({
   test,
@@ -158,8 +156,6 @@ function TestCard({
   );
 }
 
-// ─── Result Row ───────────────────────────────────────────────────────────
-
 function ResultRow({ result }: { result: any }) {
   const StatusIcon = result.status === "passed"
     ? CheckCircle2
@@ -198,7 +194,7 @@ function ResultRow({ result }: { result: any }) {
   );
 }
 
-// ─── Loading Skeleton ─────────────────────────────────────────────────────
+// ─── Loading / Error / Empty States ───────────────────────────────────────
 
 function SkeletonBlock({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded-md bg-muted ${className ?? ""}`} />;
@@ -256,8 +252,6 @@ function LoadingSkeleton() {
   );
 }
 
-// ─── Error Card ───────────────────────────────────────────────────────────
-
 function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div className="space-y-6 animate-fade-in">
@@ -284,20 +278,20 @@ export default function DiagnosticsPage() {
   const { hasPermission } = useAuthStore();
   const canRun = hasPermission("devices", "update");
 
-  // Fetch devices (for the selector and to determine which tests to show)
+  // ── Fetch devices ────────────────────────────────────────────────────
   const {
     devices,
     isLoading: devicesLoading,
     isError: devicesError,
   } = useDevices();
 
-  // Determine selected device type (empty = all device types)
+  // Determine selected device type (for filtering available tests)
   const selectedDevice = selectedDeviceId
     ? devices.find((d: any) => d.id === selectedDeviceId)
     : null;
   const selectedDeviceType = (selectedDevice?.type?.toLowerCase() ?? "") as DeviceType | undefined;
 
-  // Fetch tests — optionally filtered by device type
+  // ── Fetch tests (optionally filtered by device type) ─────────────────
   const {
     data: testsData,
     isLoading: testsLoading,
@@ -305,19 +299,23 @@ export default function DiagnosticsPage() {
     refetch: refetchTests,
   } = useDiagnosticTests(selectedDeviceType);
 
-  // Fetch results
+  // ── Fetch results (cached per-device by TanStack Query automatically) ─
   const {
     data: resultsData,
     isLoading: resultsLoading,
     isError: resultsError,
-  } = useDiagnosticResults(selectedDeviceId ? { deviceId: selectedDeviceId, limit: 10 } : { limit: 10 });
+  } = useDiagnosticResults(
+    selectedDeviceId
+      ? { deviceId: selectedDeviceId, limit: 5 }
+      : { limit: 5 },
+  );
 
   const availableDevices = devices;
   const tests = testsData?.tests ?? [];
   const results = resultsData?.data ?? [];
+  const totalResults = resultsData?.pagination?.total ?? 0;
 
-  // ── Run handler ─────────────────────────────────────────────────────
-
+  // ── Run handler ──────────────────────────────────────────────────────
   async function handleRunTest(testId: string) {
     if (!selectedDeviceId) {
       useNotificationStore.getState().addSimulatedNotification({
@@ -369,38 +367,17 @@ export default function DiagnosticsPage() {
     }
   }
 
-  // ── Loading state ───────────────────────────────────────────────────
-
+  // ── Loading state ────────────────────────────────────────────────────
   if (testsLoading && devicesLoading) {
     return <LoadingSkeleton />;
   }
 
-  // ── Error state (tests) ─────────────────────────────────────────────
-
+  // ── Error state (tests) ──────────────────────────────────────────────
   if (testsError) {
     return <ErrorCard message="Could not load diagnostic tests from the server. Please ensure the API is running." onRetry={() => refetchTests()} />;
   }
 
-  // ── Empty state ─────────────────────────────────────────────────────
-
-  if (!testsLoading && tests.length === 0) {
-    return (
-      <div className="space-y-6 animate-fade-in">
-        <PageHeader
-          title="Device Diagnostics"
-          description="Run and review device diagnostics across your estate"
-        />
-        <EmptyState
-          icon={Stethoscope}
-          title="No diagnostic tests available"
-          description="No diagnostic tests are configured for the selected device type. Tests are defined in the backend and the UI renders them automatically."
-        />
-      </div>
-    );
-  }
-
-  // ── Render ──────────────────────────────────────────────────────────
-
+  // ── Render ───────────────────────────────────────────────────────────
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
@@ -408,7 +385,7 @@ export default function DiagnosticsPage() {
         description="Run and review device diagnostics across your estate"
       />
 
-      {/* Device selector */}
+      {/* ── Device selector ─────────────────────────────────────────── */}
       {devicesError ? (
         <p className="text-sm text-red-500">Failed to load device list.</p>
       ) : (
@@ -419,9 +396,9 @@ export default function DiagnosticsPage() {
         />
       )}
 
-      {/* Diagnostic tools grid — renders dynamically from API */}
+      {/* ── Available tests grid ────────────────────────────────────── */}
       {tests.length > 0 && (
-        <div>
+        <section>
           <h3 className="text-sm font-medium text-muted-foreground mb-3">
             Available Tests
             {selectedDeviceType && (
@@ -438,19 +415,43 @@ export default function DiagnosticsPage() {
               />
             ))}
           </div>
-        </div>
+
+          {/* Prompts for unselected device */}
+          {!selectedDeviceId && canRun && (
+            <div className="mt-4 rounded-lg border border-dashed border-muted-foreground/25 p-4 text-center text-sm text-muted-foreground">
+              <Play className="h-4 w-4 inline-block mr-1" />
+              Select a device above, then click Run on any test to start a diagnostic.
+            </div>
+          )}
+        </section>
       )}
 
-      {/* Recent results */}
+      {/* ── Empty state: no tests at all ─────────────────────────────── */}
+      {!testsLoading && tests.length === 0 && (
+        <EmptyState
+          icon={Stethoscope}
+          title="No diagnostic tests available"
+          description="No diagnostic tests are configured for the selected device type. Tests are defined in the backend and the UI renders them automatically."
+        />
+      )}
+
+      {/* ── Recent results (for the selected device or all devices) ──── */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Stethoscope className="h-4 w-4" />
-            Recent Diagnostics
-          </CardTitle>
-          <CardDescription>
-            Latest diagnostic results {selectedDeviceId ? "for selected device" : "across all devices"}
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Stethoscope className="h-4 w-4" />
+                Recent Diagnostics
+              </CardTitle>
+              <CardDescription>
+                {selectedDeviceId
+                  ? `Last 5 results for ${selectedDevice?.name ?? "this device"}`
+                  : "Last 5 results across all devices"}
+                {totalResults > 0 && ` (${totalResults} total)`}
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {resultsLoading ? (
@@ -461,8 +462,16 @@ export default function DiagnosticsPage() {
             <EmptyState
               icon={Activity}
               title="No diagnostics run yet"
-              description="Select a device and run a diagnostic test to see results here."
+              description={
+                selectedDeviceId
+                  ? `No diagnostics have been run for ${selectedDevice!.name}. Select a test above and click Run.`
+                  : "Select a device and run a diagnostic test to see results here."
+              }
             />
+          ) : resultsError ? (
+            <p className="text-sm text-red-500 text-center py-4">
+              Failed to load diagnostic results.
+            </p>
           ) : (
             <div className="divide-y">
               {results.map((result: any) => (
@@ -472,14 +481,6 @@ export default function DiagnosticsPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* Prompts for unselected device */}
-      {!selectedDeviceId && canRun && (
-        <div className="rounded-lg border border-dashed border-muted-foreground/25 p-4 text-center text-sm text-muted-foreground">
-          <Play className="h-4 w-4 inline-block mr-1" />
-          Select a device above, then click Run on any test to start a diagnostic.
-        </div>
-      )}
     </div>
   );
 }
