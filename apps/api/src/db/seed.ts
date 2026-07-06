@@ -820,7 +820,7 @@ async function seed() {
     const status = testStatuses[i % testStatuses.length];
     const user = allUsers[i % allUsers.length];
     const durationMs = randomBetween(200, 5000);
-    const startedAt = hoursAgo(randomBetween(0, 72));
+    const startedAt = hoursAgo(randomBetween(1, 72));
 
     // Generate plausible details based on test type
     let details: Record<string, unknown> = {};
