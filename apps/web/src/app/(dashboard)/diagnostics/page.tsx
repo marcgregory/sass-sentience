@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -34,6 +34,8 @@ import { useDiagnosticTests, useRunDiagnostic, useDiagnosticResults } from "@/ho
 import { useDevices } from "@/hooks/use-devices";
 import { useAuthStore } from "@/stores/auth-store";
 import { useNotificationStore } from "@/stores/notification-store";
+import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
+import { useLiveDiagnosticStore } from "@/stores/live-diagnostic-store";
 import type { SimulatedNotification } from "@/stores/notification-store";
 import type { DiagnosticTest, DiagnosticTestType, DeviceType } from "@sentience/types";
 
@@ -279,6 +281,15 @@ export default function DiagnosticsPage() {
   const runDiagnosticMutation = useRunDiagnostic();
   const { hasPermission } = useAuthStore();
   const canRun = hasPermission("devices", "update");
+  const simulatorMode = useSimulatorModeStore((s) => s.enabled);
+  const clearSimResults = useLiveDiagnosticStore((s) => s.clearResults);
+
+  // Clear simulated results when simulator mode is toggled off
+  useEffect(() => {
+    if (!simulatorMode) {
+      clearSimResults();
+    }
+  }, [simulatorMode, clearSimResults]);
 
   // ── Fetch devices ────────────────────────────────────────────────────
   const {
