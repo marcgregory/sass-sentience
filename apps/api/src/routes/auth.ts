@@ -3,7 +3,7 @@ import { z } from "zod";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { generateSecret, verify, generateURI } from "otplib";
-import { and, eq, gt, isNull, lt, or, count } from "drizzle-orm";
+import { and, eq, gt, isNull, count } from "drizzle-orm";
 import { db } from "../db";
 import { users, roles, passwordResetTokens } from "../db/schema";
 import { env } from "../config";
@@ -78,11 +78,29 @@ function generateSecureToken(): { raw: string; hash: string } {
 }
 
 /**
- * Hash a plaintext token and compare against the stored hash.
+ * Safely compare a plaintext token against a stored hash.
+ *
+ * Uses constant-time comparison but only AFTER validating that both
+ * inputs have the same length. Node's crypto.timingSafeEqual THROWS
+ * if buffers differ in length, so the length check must come first.
+ *
+ * Returns `false` on any mismatch (length or content) — never throws.
  */
 function verifyTokenHash(token: string, hash: string): boolean {
-  const computedHash = crypto.createHash("sha256").update(token).digest("hex");
-  return crypto.timingSafeEqual(Buffer.from(computedHash), Buffer.from(hash));
+  try {
+    const computedHash = crypto.createHash("sha256").update(token).digest("hex");
+    const a = Buffer.from(computedHash);
+    const b = Buffer.from(hash);
+    // Guard against ERR_CRYPTO_TIMINGSAFEEQUAL_LENGTH that Node throws
+    // when buffers have different lengths. This can happen when the
+    // stored hash is corrupted or the token format doesn't match.
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
+  } catch {
+    // Any error during comparison (invalid encoding, null hash, etc.)
+    // means the token doesn't match.
+    return false;
+  }
 }
 
 // ─── Routes ────────────────────────────────────────────────────────────
@@ -259,7 +277,8 @@ export async function authRoutes(app: FastifyInstance) {
         ),
       );
 
-    // Find matching token via constant-time comparison
+    // Find matching token via constant-time comparison.
+    // verifyTokenHash handles length mismatches safely — never throws.
     const matchingToken = validTokens.find((t) =>
       verifyTokenHash(body.token, t.tokenHash),
     );
@@ -640,7 +659,7 @@ export async function authRoutes(app: FastifyInstance) {
     });
   });
 
-  // ─── Update Profile (PUT /api/users/me) ────────────────────────────
+  // ─── Update Profile (PUT /api/auth/me) ────────────────────────────
 
   app.put("/me", { preHandler: [requireAuth] }, async (request, reply) => {
     const payload = request.user as { sub: string };
