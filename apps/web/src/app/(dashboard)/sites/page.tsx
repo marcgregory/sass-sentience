@@ -122,10 +122,12 @@ function CreateSiteDialog({
             {error}
           </div>
         )}
-        <div className="space-y-4">
+        <form className="space-y-4" autoComplete="off" onSubmit={(e) => e.preventDefault()}>
           <div className="space-y-2">
             <label className="text-sm font-medium">Site Name</label>
             <input
+              name="siteNameInput"
+              autoComplete="off"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
@@ -149,6 +151,8 @@ function CreateSiteDialog({
           <div className="space-y-2">
             <label className="text-sm font-medium">Address</label>
             <input
+              name="siteStreetInput"
+              autoComplete="off"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
@@ -187,7 +191,7 @@ function CreateSiteDialog({
               />
             </div>
           </div>
-        </div>
+        </form>
         <div className="flex justify-end gap-2 mt-6">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button onClick={handleCreate} disabled={!isValid || createMutation.isPending}>

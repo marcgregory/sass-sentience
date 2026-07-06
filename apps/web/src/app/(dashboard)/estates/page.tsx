@@ -147,10 +147,12 @@ function CreateEstateDialog({
             {error}
           </div>
         )}
-        <div className="space-y-4">
+        <form className="space-y-4" autoComplete="off" onSubmit={(e) => e.preventDefault()}>
           <div className="space-y-2">
             <label className="text-sm font-medium">Estate Name</label>
             <input
+              name="estateNameInput"
+              autoComplete="off"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
@@ -161,6 +163,8 @@ function CreateEstateDialog({
           <div className="space-y-2">
             <label className="text-sm font-medium">Address</label>
             <input
+              name="estateStreetInput"
+              autoComplete="off"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
@@ -171,6 +175,8 @@ function CreateEstateDialog({
             <div className="space-y-2">
               <label className="text-sm font-medium">City</label>
               <input
+                name="estateCityInput"
+                autoComplete="off"
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
@@ -180,6 +186,8 @@ function CreateEstateDialog({
             <div className="space-y-2">
               <label className="text-sm font-medium">Region</label>
               <input
+                name="estateRegionInput"
+                autoComplete="off"
                 value={region}
                 onChange={(e) => setRegion(e.target.value)}
                 className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
@@ -190,6 +198,8 @@ function CreateEstateDialog({
           <div className="space-y-2">
             <label className="text-sm font-medium">Country</label>
             <input
+              name="estateCountryInput"
+              autoComplete="off"
               value={country}
               onChange={(e) => setCountry(e.target.value)}
               className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
@@ -202,6 +212,8 @@ function CreateEstateDialog({
               <div className="space-y-2">
                 <label className="text-sm font-medium">Contact Name</label>
                 <input
+                  name="estateContactNameInput"
+                  autoComplete="off"
                   value={contactName}
                   onChange={(e) => setContactName(e.target.value)}
                   className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
@@ -211,6 +223,8 @@ function CreateEstateDialog({
               <div className="space-y-2">
                 <label className="text-sm font-medium">Contact Email</label>
                 <input
+                  name="estateContactEmailInput"
+                  autoComplete="off"
                   type="email"
                   value={contactEmail}
                   onChange={(e) => setContactEmail(e.target.value)}
@@ -222,6 +236,8 @@ function CreateEstateDialog({
             <div className="space-y-2 mt-4">
               <label className="text-sm font-medium">Contact Phone</label>
               <input
+                name="estateContactPhoneInput"
+                autoComplete="off"
                 value={contactPhone}
                 onChange={(e) => setContactPhone(e.target.value)}
                 className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
@@ -244,8 +260,7 @@ function CreateEstateDialog({
               </select>
             </div>
           )}
-        </div>
-        <div className="flex justify-end gap-2 mt-6">
+        </form><div className="flex justify-end gap-2 mt-6">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button onClick={handleCreate} disabled={!isValid || createMutation.isPending}>
             {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
