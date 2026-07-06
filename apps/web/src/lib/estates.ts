@@ -59,6 +59,7 @@ export interface CreateEstatePayload {
   contactName: string;
   contactEmail: string;
   contactPhone: string;
+  customerId?: string;
 }
 
 export interface UpdateEstatePayload {

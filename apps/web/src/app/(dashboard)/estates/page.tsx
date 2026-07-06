@@ -14,6 +14,7 @@ import {
 import { useAuthStore } from "@/stores/auth-store";
 import { hasPermission } from "@/lib/permissions";
 import { useEstates, useCreateEstate, useDeleteEstate } from "@/hooks/use-estates";
+import { useCustomers } from "@/hooks/use-customers";
 import type { CreateEstatePayload } from "@/lib/estates";
 import {
   Plus,
@@ -71,6 +72,9 @@ function CreateEstateDialog({
   onClose: () => void;
 }) {
   const createMutation = useCreateEstate();
+  const { data: customersData } = useCustomers();
+  const customerOptions = customersData?.data ?? [];
+
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
@@ -79,7 +83,11 @@ function CreateEstateDialog({
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [customerId, setCustomerId] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  const currentUser = useAuthStore((s) => s.user);
+  const needsCustomerSelector = currentUser && !currentUser.customerId;
 
   const isValid =
     name.trim() &&
@@ -89,7 +97,8 @@ function CreateEstateDialog({
     country.trim() &&
     contactName.trim() &&
     contactEmail.trim() &&
-    contactPhone.trim();
+    contactPhone.trim() &&
+    (!needsCustomerSelector || customerId);
 
   const resetForm = () => {
     setName("");
@@ -116,6 +125,7 @@ function CreateEstateDialog({
         contactName: contactName.trim(),
         contactEmail: contactEmail.trim(),
         contactPhone: contactPhone.trim(),
+        ...(needsCustomerSelector && customerId ? { customerId } : {}),
       };
       await createMutation.mutateAsync(payload);
       resetForm();
@@ -219,6 +229,21 @@ function CreateEstateDialog({
               />
             </div>
           </div>
+          {needsCustomerSelector && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Customer</label>
+              <select
+                value={customerId}
+                onChange={(e) => setCustomerId(e.target.value)}
+                className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">Select a customer...</option>
+                {customerOptions.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <div className="flex justify-end gap-2 mt-6">
           <Button variant="outline" onClick={onClose}>Cancel</Button>

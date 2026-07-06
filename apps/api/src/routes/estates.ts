@@ -115,12 +115,18 @@ export async function estateRoutes(app: FastifyInstance) {
     const body = createEstateSchema.parse(request.body);
 
     // Admins can optionally specify a customerId; otherwise default to the
-    // admin's own customer association (if any) or a platform-level estate.
+    // admin's own customer association.
     const customerId = body.customerId ?? user.customerId;
+    if (!customerId) {
+      return reply.status(400).send({
+        message: "customerId is required — admin has no customer association. Provide a customerId in the request body.",
+        code: "MISSING_CUSTOMER_ID",
+      });
+    }
 
     const [created] = await db
       .insert(estates)
-      .values({ ...body, customerId: customerId ?? "" })
+      .values({ ...body, customerId })
       .returning();
 
     return reply.status(201).send(created);

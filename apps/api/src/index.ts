@@ -41,6 +41,7 @@ import { notificationRoutes } from "./routes/notifications";
 import { notificationRuleRoutes } from "./routes/notification-rules";
 import { estateRoutes } from "./routes/estates";
 import { siteRoutes } from "./routes/sites";
+import { customerRoutes } from "./routes/customers";
 
 let app: FastifyInstance | undefined;
 
@@ -118,6 +119,7 @@ async function main() {
   await app.register(notificationRuleRoutes, { prefix: "/api/notification-rules" });
   await app.register(estateRoutes, { prefix: "/api/estates" });
   await app.register(siteRoutes, { prefix: "/api/sites" });
+  await app.register(customerRoutes, { prefix: "/api/customers" });
 
   // ─── Socket.IO (shares the same HTTP server) ────────────────────
 

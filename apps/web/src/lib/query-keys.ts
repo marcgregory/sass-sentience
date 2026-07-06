@@ -106,6 +106,11 @@ export const queryKeys = {
     detail: (id: string) => ["apiKeys", "detail", id] as const,
   },
 
+  /** Customers */
+  customers: {
+    all: ["customers"] as const,
+  },
+
   /** Health / system status */
   health: {
     status: ["health", "status"] as const,
