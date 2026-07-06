@@ -12,7 +12,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getDevices, getDevice } from "@/lib/devices";
-import type { DeviceDetailResponse } from "@/lib/devices";
+import type { DeviceDetailResponse, DevicesParams } from "@/lib/devices";
 import { queryKeys } from "@/lib/query-keys";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
 import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
@@ -144,13 +144,15 @@ function mapLiveEntryToRow(
  *   telemetry/status overlaid where available. Simulator-only devices from
  *   the live feed are ignored.
  */
-export function useDevices() {
+export function useDevices(page: number = 1) {
   const simulatorMode = useSimulatorModeStore((s) => s.enabled);
   const liveDevices = useLiveDeviceStore((s) => s.devices);
 
+  const params: DevicesParams = { page, limit: 20 };
+
   const query = useQuery({
-    queryKey: queryKeys.devices.list(),
-    queryFn: () => getDevices(),
+    queryKey: queryKeys.devices.list(undefined, params as unknown as Record<string, unknown>),
+    queryFn: () => getDevices(params),
     // Skip API call in simulator mode — no database data needed
     enabled: !simulatorMode,
   });

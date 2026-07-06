@@ -64,9 +64,12 @@ function formatUptime(seconds: number | null): string {
   if (hours > 0) return `${hours}h ${minutes}m`;
   return `${Math.max(1, minutes)}m`;
 }
+const PAGE_SIZE = 20;
+
 export default function DevicesPage() {
   const router = useRouter();
-  const { devices, total, isLoading, isError, error } = useDevices();
+  const [page, setPage] = useState(1);
+  const { devices, total, isLoading, isError, error } = useDevices(page);
   const isSocketConnected = useLiveDeviceStore((s) => s.isSocketConnected);
   const hasLiveData =
     Object.keys(useLiveDeviceStore.getState().devices).length > 0;
@@ -414,14 +417,30 @@ export default function DevicesPage() {
         <span>
           {activeReasonFilters.length > 0 || searchQuery
             ? `Showing ${filteredDevices.length} of ${devices.length} devices`
-            : `Showing 1-${devices.length} of ${total > 0 ? total.toLocaleString() : devices.length} devices`
+            : total > 0
+              ? `Showing ${Math.min(devices.length, PAGE_SIZE)} of ${total.toLocaleString()} devices (Page ${page})`
+              : `Showing ${devices.length} device${devices.length !== 1 ? "s" : ""}`
           }
         </span>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" disabled>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => {
+              setPage((p) => Math.max(1, p - 1));
+            }}
+          >
             Previous
           </Button>
-          <Button variant="outline" size="sm">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page * PAGE_SIZE >= total}
+            onClick={() => {
+              setPage((p) => p + 1);
+            }}
+          >
             Next
           </Button>
         </div>
