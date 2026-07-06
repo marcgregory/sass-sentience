@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -29,6 +29,8 @@ import {
   Search,
   FileText,
   Loader2,
+  Check,
+  X,
 } from "lucide-react";
 import { useDiagnosticTests, useRunDiagnostic, useDiagnosticResults } from "@/hooks/use-diagnostics";
 import { useDevices } from "@/hooks/use-devices";
@@ -38,6 +40,12 @@ import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 import { useLiveDiagnosticStore } from "@/stores/live-diagnostic-store";
 import type { SimulatedNotification } from "@/stores/notification-store";
 import type { DiagnosticTest, DiagnosticTestType, DeviceType } from "@sentience/types";
+
+// ─── Constants ─────────────────────────────────────────────────────────────
+
+const STEPS = ["Connecting to device...", "Running test...", "Analyzing results..."];
+const STEP_INTERVAL_MS = 1500;
+const COMPLETION_VISIBLE_MS = 3000;
 
 // ─── Icon Map ─────────────────────────────────────────────────────────────
 
@@ -110,41 +118,115 @@ function DeviceSelector({
   );
 }
 
+/**
+ * Completion summary for a single test card.
+ * null means the card should show its idle state.
+ */
+interface CompletedRunInfo {
+  testId: string;
+  status: "passed" | "failed" | "warning";
+  message: string;
+  durationMs: number;
+}
+
 function TestCard({
   test,
   onRun,
   isRunning,
+  runningStep,
+  completedRun,
+  deviceName,
 }: {
   test: DiagnosticTest;
   onRun: () => void;
   isRunning: boolean;
+  runningStep: number;
+  completedRun: CompletedRunInfo | null;
+  deviceName: string | null;
 }) {
   const Icon = testIcons[test.type] ?? defaultIcon;
 
+  // Determine which state to show
+  const showCompleted = completedRun && !isRunning;
+  const showRunning = isRunning;
+
+  const StatusIconComp = completedRun?.status === "passed" ? Check : X;
+  const statusColor =
+    completedRun?.status === "passed"
+      ? "text-emerald-500 bg-emerald-500/10"
+      : completedRun?.status === "warning"
+        ? "text-amber-500 bg-amber-500/10"
+        : "text-red-500 bg-red-500/10";
+
   return (
-    <Card className="hover:border-primary/50 transition-colors">
+    <Card className={`hover:border-primary/50 transition-colors ${showRunning ? "border-primary/50" : ""}`}>
       <CardHeader>
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <Icon className="h-5 w-5 text-primary" />
+          <div className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            {showCompleted ? (
+              <StatusIconComp className={`h-5 w-5 ${statusColor.split(" ")[0]}`} />
+            ) : (
+              <Icon className="h-5 w-5 text-primary" />
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <CardTitle className="text-sm truncate">{test.name}</CardTitle>
-            <CardDescription className="truncate">{test.description}</CardDescription>
+            <CardDescription className="truncate">
+              {showRunning
+                ? STEPS[runningStep]
+                : showCompleted
+                  ? `${completedRun!.message}`
+                  : test.description}
+            </CardDescription>
           </div>
         </div>
       </CardHeader>
+
+      {/* Indeterminate progress bar — visible only while running */}
+      {showRunning && (
+        <CardContent className="pt-0 pb-2">
+          <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+            <div className="h-full w-full animate-progress-indeterminate rounded-full bg-primary" />
+          </div>
+        </CardContent>
+      )}
+
+      {/* Completion message row */}
+      {showCompleted && (
+        <CardContent className="pt-0 pb-2">
+          <p className="text-xs text-muted-foreground animate-fade-in-up">
+            Completed in {formatDuration(completedRun!.durationMs)}
+          </p>
+        </CardContent>
+      )}
+
       <CardFooter className="pt-0">
         <Button
           size="sm"
           className="w-full gap-2"
           onClick={onRun}
           disabled={isRunning}
+          variant={showCompleted && completedRun?.status === "passed" ? "default" : "default"}
         >
-          {isRunning ? (
+          {showRunning ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
               Running...
+            </>
+          ) : showCompleted && completedRun?.status === "passed" ? (
+            <>
+              <Check className="h-4 w-4" />
+              Completed
+            </>
+          ) : showCompleted && completedRun?.status === "failed" ? (
+            <>
+              <X className="h-4 w-4" />
+              Failed
+            </>
+          ) : showCompleted ? (
+            <>
+              <AlertCircle className="h-4 w-4" />
+              Completed
             </>
           ) : (
             <>
@@ -158,7 +240,13 @@ function TestCard({
   );
 }
 
-function ResultRow({ result }: { result: any }) {
+function ResultRow({
+  result,
+  isHighlighted,
+}: {
+  result: any;
+  isHighlighted?: boolean;
+}) {
   const StatusIcon = result.status === "passed"
     ? CheckCircle2
     : result.status === "failed"
@@ -171,7 +259,11 @@ function ResultRow({ result }: { result: any }) {
       : "text-amber-500";
 
   return (
-    <div className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+    <div
+      className={`flex items-center justify-between py-3 first:pt-0 last:pb-0 rounded-md px-2 -mx-2 transition-colors ${
+        isHighlighted ? "animate-highlight-fade" : ""
+      }`}
+    >
       <div className="flex items-center gap-3 min-w-0 flex-1">
         <StatusIcon className={`h-5 w-5 shrink-0 ${iconClass}`} />
         <div className="min-w-0">
@@ -191,6 +283,29 @@ function ResultRow({ result }: { result: any }) {
         <span className="text-xs text-muted-foreground whitespace-nowrap">
           {timeAgo(result.completedAt)}
         </span>
+      </div>
+    </div>
+  );
+}
+
+/** Progress banner shown while a diagnostic is running. */
+function RunningBanner({
+  testName,
+  deviceName,
+}: {
+  testName: string | null;
+  deviceName: string | null;
+}) {
+  if (!testName || !deviceName) return null;
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg border-l-4 border-primary bg-primary/5 px-4 py-3 animate-fade-in">
+      <Loader2 className="h-5 w-5 animate-spin text-primary shrink-0" />
+      <div className="min-w-0">
+        <p className="text-sm font-medium">
+          Running &ldquo;{testName}&rdquo; on <span className="text-primary">{deviceName}</span>...
+        </p>
+        <p className="text-xs text-muted-foreground">This may take a few seconds.</p>
       </div>
     </div>
   );
@@ -278,6 +393,38 @@ export default function DiagnosticsPage() {
   const [runningTestId, setRunningTestId] = useState<string | null>(null);
   const [resultsPage, setResultsPage] = useState(1);
 
+  // ── Progress UX state ─────────────────────────────────────────────
+  const [runningStep, setRunningStep] = useState(0);
+  const [completedRun, setCompletedRun] = useState<CompletedRunInfo | null>(null);
+  const [newResultId, setNewResultId] = useState<string | null>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  // Step cycling effect — advances every STEP_INTERVAL_MS while running
+  useEffect(() => {
+    if (!runningTestId) {
+      setRunningStep(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setRunningStep((prev) => (prev + 1) % STEPS.length);
+    }, STEP_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [runningTestId]);
+
+  // Auto-clear completed state after COMPLETION_VISIBLE_MS
+  useEffect(() => {
+    if (!completedRun) return;
+    const timer = setTimeout(() => setCompletedRun(null), COMPLETION_VISIBLE_MS);
+    return () => clearTimeout(timer);
+  }, [completedRun]);
+
+  // Auto-clear highlight after 2.5s (matches the animation duration)
+  useEffect(() => {
+    if (!newResultId) return;
+    const timer = setTimeout(() => setNewResultId(null), 2500);
+    return () => clearTimeout(timer);
+  }, [newResultId]);
+
   const runDiagnosticMutation = useRunDiagnostic();
   const { hasPermission } = useAuthStore();
   const canRun = hasPermission("devices", "update");
@@ -332,6 +479,12 @@ export default function DiagnosticsPage() {
     if (page >= 1 && page <= totalPages) setResultsPage(page);
   };
 
+  // Lookup helpers for the running test
+  const runningTest = runningTestId
+    ? tests.find((t: DiagnosticTest) => t.id === runningTestId) ?? null
+    : null;
+  const runningDeviceName = selectedDevice?.name ?? null;
+
   // ── Run handler ──────────────────────────────────────────────────────
   async function handleRunTest(testId: string) {
     if (!selectedDeviceId) {
@@ -349,12 +502,31 @@ export default function DiagnosticsPage() {
       return;
     }
 
+    const test = tests.find((t: DiagnosticTest) => t.id === testId);
+    const testName = test?.name ?? "Diagnostic";
+
     setRunningTestId(testId);
+    setCompletedRun(null);
     try {
       const result = await runDiagnosticMutation.mutateAsync({
         testId,
         deviceId: selectedDeviceId,
       });
+
+      // Show completion feedback
+      setCompletedRun({
+        testId,
+        status: result.status,
+        message: result.message,
+        durationMs: result.durationMs,
+      });
+
+      // Mark the new result for highlighting
+      setNewResultId(result.id);
+
+      // Scroll results into view
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
       useNotificationStore.getState().addSimulatedNotification({
         id: `diag-${result.id}`,
         userId: "",
@@ -368,6 +540,12 @@ export default function DiagnosticsPage() {
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Diagnostic failed";
+      setCompletedRun({
+        testId,
+        status: "failed",
+        message,
+        durationMs: 0,
+      });
       useNotificationStore.getState().addSimulatedNotification({
         id: `diag-error-${Date.now()}`,
         userId: "",
@@ -413,6 +591,14 @@ export default function DiagnosticsPage() {
         />
       )}
 
+      {/* ── Running progress banner ─────────────────────────────────── */}
+      {runningTestId && runningTest && (
+        <RunningBanner
+          testName={runningTest.name}
+          deviceName={runningDeviceName}
+        />
+      )}
+
       {/* ── Available tests grid ────────────────────────────────────── */}
       {tests.length > 0 && (
         <section>
@@ -429,6 +615,11 @@ export default function DiagnosticsPage() {
                 test={test}
                 onRun={() => handleRunTest(test.id)}
                 isRunning={runningTestId === test.id}
+                runningStep={runningStep}
+                completedRun={
+                  completedRun?.testId === test.id ? completedRun : null
+                }
+                deviceName={runningDeviceName}
               />
             ))}
           </div>
@@ -453,7 +644,7 @@ export default function DiagnosticsPage() {
       )}
 
       {/* ── Recent results (for the selected device or all devices) ──── */}
-      <Card>
+      <Card ref={resultsRef}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -493,7 +684,11 @@ export default function DiagnosticsPage() {
             <>
               <div className="divide-y">
                 {results.map((result: any) => (
-                  <ResultRow key={result.id} result={result} />
+                  <ResultRow
+                    key={result.id}
+                    result={result}
+                    isHighlighted={result.id === newResultId}
+                  />
                 ))}
               </div>
 

@@ -106,6 +106,10 @@ export function useRunDiagnostic() {
     mutationFn: async (payload: RunDiagnosticRequest) => {
       if (simulatorMode) {
         // Simulator mode: run entirely client-side.
+        // Artificial delay so the progress UI is visible (2-4 seconds).
+        const delay = 2000 + Math.round(Math.random() * 2000);
+        const startedAt = new Date();
+
         // Find which test we're running from local definitions.
         const tests = getSimulatedTestsForDeviceType();
         const test = tests.find((t) => t.id === payload.testId);
@@ -119,8 +123,10 @@ export function useRunDiagnostic() {
           throw new Error("Simulated device not found in live feed");
         }
 
+        // Wait so the user sees the progress indicators
+        await new Promise((r) => setTimeout(r, delay));
+
         // Generate simulated result
-        const startedAt = new Date();
         const simResult = simulateDiagnosticResult(test.type, deviceInfo);
 
         // Build the result object matching DiagnosticResultApiItem shape
@@ -138,8 +144,8 @@ export function useRunDiagnostic() {
           ranBy: "simulator",
           ranByName: "Simulator",
           startedAt: startedAt.toISOString(),
-          completedAt: new Date(startedAt.getTime() + simResult.durationMs).toISOString(),
-          durationMs: simResult.durationMs,
+          completedAt: new Date(startedAt.getTime() + delay).toISOString(),
+          durationMs: delay,
         };
 
         // Store in local state for the results list
