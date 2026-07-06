@@ -102,3 +102,25 @@ export {
   getDiagnosticResult,
 } from "./diagnostics";
 export type { DiagnosticResultApiItem } from "./diagnostics";
+export {
+  forgotPassword,
+  resetPassword,
+  mfaSetup,
+  mfaVerify,
+  mfaDisable,
+  changePassword,
+  updateProfile,
+} from "./auth";
+export type {
+  ForgotPasswordPayload,
+  ResetPasswordPayload,
+  MfaSetupPayload,
+  MfaSetupResponse,
+  MfaVerifyPayload,
+  MfaVerifyResponse,
+  MfaStatusResponse,
+  MfaDisablePayload,
+  ChangePasswordPayload,
+  UpdateProfilePayload,
+  UpdateProfileResponse,
+} from "./auth";

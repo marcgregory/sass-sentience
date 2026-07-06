@@ -9,16 +9,36 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ArrowLeft, Mail, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Mail, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import { useForgotPassword } from "@/hooks/use-auth-account";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  const forgotMutation = useForgotPassword();
+  const [localError, setLocalError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setSent(true);
+    setLocalError(null);
+
+    if (!email.trim()) {
+      setLocalError("Please enter your email address.");
+      return;
+    }
+
+    forgotMutation.mutate(
+      { email: email.trim() },
+      {
+        onSuccess: () => {
+          setSent(true);
+        },
+        onError: (err) => {
+          setLocalError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+        },
+      },
+    );
   };
 
   return (
@@ -61,14 +81,35 @@ export default function ForgotPasswordPage() {
                   type="email"
                   placeholder="name@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setLocalError(null);
+                  }}
+                  className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
                   required
+                  disabled={forgotMutation.isPending}
                 />
               </div>
-              <Button type="submit" className="w-full">
-                <Mail className="h-4 w-4" />
-                Send Reset Link
+
+              {localError && (
+                <div className="flex items-center gap-2 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  <span>{localError}</span>
+                </div>
+              )}
+
+              <Button type="submit" className="w-full" disabled={forgotMutation.isPending}>
+                {forgotMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="h-4 w-4" />
+                    Send Reset Link
+                  </>
+                )}
               </Button>
               <p className="text-center text-sm text-muted-foreground">
                 <Link href="/login" className="text-primary hover:underline">

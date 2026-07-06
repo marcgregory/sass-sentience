@@ -47,9 +47,10 @@ The layer does not apply to this feature (e.g. CSV/PDF export has no database ta
 |---------|----------|---------|----------|-------|-------|-----------|
 | **Authentication** |
 | Login | ✅ | ✅ | ✅ | ⚠️ | Real JWT via `POST /api/auth/login` | v1.0.0 |
-| Forgot Password | 🔴 | 🔴 | 🔴 | 🔴 | Shows success but sends no email | **v1.5.3** |
-| MFA Verification | 🔴 | 🔴 | 🔴 | 🔴 | Any 6-digit code accepted | **v1.5.3** |
-| Password Reset | 🔴 | 🔴 | 🔴 | 🔴 | No token flow exists | **v1.5.3** |
+| Forgot Password | ✅ | ✅ | ✅ | 🔴 | Secure token, email abstraction, no user enumeration | v1.5.3 |
+| MFA Setup/Verify | ✅ | ✅ | ✅ | 🔴 | TOTP via otplib, QR code, login challenge flow | v1.5.3 |
+| Password Reset | ✅ | ✅ | ✅ | 🔴 | Token verification, expiry, single-use, DB transaction | v1.5.3 |
+| Change Password | ✅ | ✅ | ✅ | 🔴 | Current password verification, bcrypt re-hash | v1.5.3 |
 | **Entities** |
 | Estates | ✅ | ✅ | ✅ | 🔴 | Full CRUD via API, create dialog, delete with protection | v1.5.1 |
 | Sites | ✅ | ✅ | ✅ | 🔴 | Full CRUD via API, estate filter, delete with protection | v1.5.1 |
@@ -73,7 +74,7 @@ The layer does not apply to this feature (e.g. CSV/PDF export has no database ta
 | **User Management** |
 | Users CRUD | ✅ | ✅ | ✅ | ⚠️ | List, create, edit, deactivate, pagination | v1.0.0 |
 | Roles & Permissions | ✅ | ✅ | ✅ | ⚠️ | Matrix with inline grant/revoke toggles | v1.0.0 |
-| Profile | ⚠️ | 🔴 | ✅ | 🔴 | Edits not persisted to backend | **v1.5.3** |
+| Profile | ✅ | ✅ | ✅ | 🔴 | Name/email/password/MFA persisted via API | v1.5.3 |
 | **Admin** |
 | API Keys | ✅ | ✅ | ✅ | ✅ | Full lifecycle, masked display | v1.0.0 |
 | Notification Rules | ✅ | ✅ | ✅ | ✅ | Edit, save, role-based preferences | v1.0.0 |
@@ -96,9 +97,9 @@ The layer does not apply to this feature (e.g. CSV/PDF export has no database ta
 
 | Layer | Complete | Partial | Missing | N/A |
 |-------|----------|---------|---------|-----|
-| **Frontend** | 26 | 6 | 0 | 1 |
-| **Backend** | 24 | 2 | 6 | 1 |
-| **Database** | 24 | 0 | 8 | 1 |
+| **Frontend** | 30 | 4 | 0 | 1 |
+| **Backend** | 29 | 2 | 2 | 1 |
+| **Database** | 26 | 0 | 6 | 1 |
 | **Tests** | 4 | 10 | 17 | 1 |
 
 ### Gap Analysis
@@ -106,9 +107,9 @@ The layer does not apply to this feature (e.g. CSV/PDF export has no database ta
 | Pattern | Count | Features |
 |---------|-------|----------|
 | All four layers complete (✅✅✅✅) | 3 | API Keys, Notification Rules, Audit Log |
-| FE+BE+DB complete, tests partial/🔴 | 15 | Login, Device List, Device Detail, Dashboard, Alerts, Events, Reports, Users, Roles, Settings (3), Notifications, **Estates**, **Sites** |
-| FE partial, no backend | 6 | Dashboard Summary, Profile, Platform Health, Admin Overview, Tenant/Notification Settings |
-| Nothing implemented (🔴🔴🔴🔴) | 5 | Forgot Password, MFA, Password Reset, Diagnostics, Schedule Reports |
+| FE+BE+DB complete, tests partial/🔴 | 20 | Login, Device List, Device Detail, Dashboard, Alerts, Events, Reports, Users, Roles, Settings (3), Notifications, **Estates**, **Sites**, **Forgot Password**, **MFA**, **Password Reset**, **Profile**, **Change Password** |
+| FE partial, no backend | 4 | Dashboard Summary, Platform Health, Admin Overview, Tenant/Notification Settings |
+| Nothing implemented (🔴🔴🔴🔴) | 1 | Schedule Reports |
 
 ---
 
@@ -117,7 +118,7 @@ The layer does not apply to this feature (e.g. CSV/PDF export has no database ta
 Milestones are sequenced by product impact and dependency:
 
 1. **v1.5.1 — Core Entity Management** — Estates, Sites ✅ **Complete** (2026-07-06)
-2. **v1.5.2 — Device Diagnostics** (1 feature, nothing implemented)
-3. **v1.5.3 — Account Management** — Forgot Password, MFA, Password Reset, Profile (4 features, 3 with nothing)
-4. **v1.5.4 — Platform Administration** — Dashboard Summary, Platform Health, Admin Overview, Tenant/Notification Settings, Schedule Reports (6 partial features)
-5. **v1.6.0 — Full-Stack E2E Validation** — Blocked by v1.5.1–v1.5.4
+2. **v1.5.2 — Device Diagnostics** ✅ **Complete** (2026-07-06)
+3. **v1.5.3 — Account Management** ✅ **Complete** (2026-07-06) — Forgot Password, MFA, Password Reset, Profile
+4. **v1.5.4 — Platform Administration** ⬜ **Next** — Dashboard Summary, Platform Health, Admin Overview, Tenant/Notification Settings, Schedule Reports
+5. **v1.6.0 — Full-Stack E2E Validation** 🔒 Blocked by v1.5.1–v1.5.4

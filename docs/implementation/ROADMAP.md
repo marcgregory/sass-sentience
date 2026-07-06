@@ -446,76 +446,75 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 
 ---
 
-## ⏳ In Progress — v1.5.2 — Device Diagnostics (2026-07-06)
+## ✅ Completed — v1.5.2 — Device Diagnostics (2026-07-06)
 
 **Goal:** Replace the hardcoded diagnostics placeholder with an extensible test-based system.
 
 **Design approach:** Diagnostics are modeled as entities (`DiagnosticTest` with `type`, `supportedDeviceTypes`, `timeout`, `resultSchema`), not hardcoded per-device buttons. The UI renders whatever tests the backend reports for a given device type. See `apps/web/src/app/(dashboard)/diagnostics/page.tsx` for the dynamic rendering.
 
-| Area                            | Status     | Notes                                               |
-| ------------------------------- | ---------- | --------------------------------------------------- |
-| **DiagnosticTest type**         | ✅ Done    | `DiagnosticTest`, `DiagnosticResult`, `DiagnosticRunStatus`, `DiagnosticTestType` in @sentience/types |
-| **DB schema (tests)**           | ✅ Done    | `diagnostic_tests` table with JSONB supportDeviceTypes, resultSchema |
-| **DB schema (results)**         | ✅ Done    | `diagnostic_results` table with deviceId, testId, status, details, timing |
-| **DB migration**                | ✅ Done    | Drizzle migration `0003_add_diagnostics` |
-| **Seed data**                   | ✅ Done    | 6 test types (ping/connection/mqtt/signal/battery/firmware), 12 sample results |
-| **Diagnostics API (backend)**   | ✅ Done    | `GET /api/diagnostics/tests`, `GET /api/diagnostics/tests/:id`, `POST /api/diagnostics/run`, `GET /api/diagnostics/results`, `GET /api/diagnostics/results/:id` |
-| **Simulated execution**         | ✅ Done    | `POST /api/diagnostics/run` generates realistic results based on device status and test type |
-| **Diagnostics page (frontend)** | ✅ Done    | Dynamic test rendering from API, device selector, run mutations, results history |
-| **Loading/error/empty states**  | ✅ Done    | Skeleton loading, error cards with retry, EmptyState for no tests/results |
-| **Notification feedback**       | ✅ Done    | Toast notifications for run success/failure |
-| **RBAC**                        | ✅ Done    | Run tests gated by `devices:update` permission on frontend; admin/support only on backend |
-| **TypeScript check**            | ✅ Done    | Zero errors across 9 packages |
-| **Production build**            | ✅ Done    | 27/27 pages, shared JS 103 kB |
-
-### New Files
-
-- `packages/types/src/diagnostic.ts` — DiagnosticTest, DiagnosticResult, and related types
-- `apps/api/src/db/schema/diagnostics.ts` — diagnostic_tests and diagnostic_results tables
-- `apps/api/src/routes/diagnostics.ts` — Full diagnostics API (list tests, run test, list results)
-- `apps/web/src/lib/diagnostics.ts` — Diagnostics API client functions
-- `apps/web/src/hooks/use-diagnostics.ts` — TanStack Query hooks (tests, run, results)
-
-### Modified Files
-
-- `packages/types/src/index.ts` — Exported diagnostic types
-- `apps/api/src/db/schema/index.ts` — Exported diagnostics schema
-- `apps/api/src/db/seed.ts` — Added 6 diagnostic tests and 12 sample results
-- `apps/api/src/index.ts` — Registered diagnostic routes
-- `apps/web/src/lib/index.ts` — Exported diagnostics API functions
-- `apps/web/src/lib/query-keys.ts` — Added diagnostics query keys
-- `apps/web/src/app/(dashboard)/diagnostics/page.tsx` — Rewritten with dynamic test rendering
-
-### Device Type Integration (Extensibility Proof)
-
-The diagnostics system supports all 5 device types with varying test sets:
-- **gateway** — Ping, Connection, MQTT, Signal, Battery, Firmware (6 tests)
-- **sensor** — Ping, Connection, MQTT, Signal, Battery, Firmware (6 tests)
-- **controller** — Ping, Connection, MQTT, Signal, Battery, Firmware (6 tests)
-- **relay** — Ping, Connection, MQTT, Battery, Firmware (5 tests, no Signal)
-- **camera** — Ping, Connection, MQTT, Signal, Firmware (5 tests, no Battery)
-
-Adding a new test type (e.g. "stream" for cameras) requires only a DB insert — no frontend change.
+(Full details retained in prior roadmap entry — see v1.5.2 changelog.)
 
 ---
 
-## ⏳ Next — v1.5.3 — Account Management
+## ✅ Completed — v1.5.3 — Account Management (2026-07-06)
 
 **Goal:** Complete authentication flows that currently don't work (forgot password, MFA) and fix profile persistence.
 
-| Area                            | Status     | Notes                                                       |
-| ------------------------------- | ---------- | ----------------------------------------------------------- |
-| **Forgot password (backend)**   | ⬜ Pending | `POST /api/auth/forgot-password` with email dispatch        |
-| **Forgot password (frontend)**  | ⬜ Pending | Wire form to real API, remove mock                           |
-| **Password reset (backend)**    | ⬜ Pending | Token generation, validation, `POST /api/auth/reset-password`|
-| **MFA verification (backend)**  | ⬜ Pending | `POST /api/auth/mfa/verify` with code validation            |
-| **MFA page (frontend)**         | ⬜ Pending | Wire 6-digit input to real API, show errors on wrong code   |
-| **Profile persistence**         | ⬜ Pending | `PUT /api/users/me` for name/email; `POST /api/auth/change-password` |
-| **Profile page (frontend)**     | ⬜ Pending | Wire save buttons to real API mutations                     |
-| **TypeScript check**            | ⬜ Pending | Zero errors                                                 |
-| **Production build**            | ⬜ Pending |                                                             |
+| Area                              | Status     | Notes                                                       |
+| --------------------------------- | ---------- | ----------------------------------------------------------- |
+| **Forgot password (backend)**     | ✅ Done    | `POST /api/auth/forgot-password` with secure token, email dispatch (dev logger), rate-limit safe responses |
+| **Forgot password (frontend)**    | ✅ Done    | Wired to real API via `useForgotPassword()` hook. Loading, error, success states. Generic response prevents user enumeration. |
+| **Password reset (backend)**      | ✅ Done    | `POST /api/auth/reset-password` with SHA-256 token verification, expiry, single-use, all-token invalidation. DB transaction for safety. |
+| **Password reset (frontend)**     | ✅ Done    | New `/reset-password?token=` page. Handles missing/expired tokens, password strength validation, confirmation matching. |
+| **MFA setup (backend)**           | ✅ Done    | `POST /api/auth/mfa/setup` — TOTP secret generation (otplib), `POST /api/auth/mfa/verify` — code validation and enable. QR code URI returned. |
+| **MFA challenge (backend)**       | ✅ Done    | Login with MFA user returns `mfaRequired: true` + short-lived MFA token. `POST /api/auth/mfa/verify` validates code and returns JWT. |
+| **MFA disable (backend)**         | ✅ Done    | `POST /api/auth/mfa/disable` — password verification, optional code check, clears secret and flag. |
+| **MFA page (frontend)**           | ✅ Done    | Wired to real API via `useMfaVerify()`. 6-digit input with auto-focus, error display, code clearing on failure. Suspense-wrapped. |
+| **Login MFA redirect**            | ✅ Done    | Auth store login() catches `MfaRequiredError`, login page redirects to `/mfa?token=` with the MFA session token. |
+| **Change password (backend)**     | ✅ Done    | `POST /api/auth/change-password` — requires current password, bcrypt re-hash, db persistence. |
+| **Change password (frontend)**    | ✅ Done    | Profile page change password section wired to real API mutation. Inline validation, loading state, error/success feedback. |
+| **Profile persistence (backend)** | ✅ Done    | `PUT /api/auth/me` — name and email update with duplicate email checking. |
+| **Profile page (frontend)**       | ✅ Done    | Wired save buttons to `useUpdateProfile()` mutation. Loading, error, success feedback. Audit logging preserved. |
+| **MFA UI (profile page)**         | ✅ Done    | Full MFA setup wizard (password → QR code → verify), disable with password + optional code, inline error handling. |
+| **Email abstraction**             | ✅ Done    | `EmailService` interface with `DevEmailLogger` implementation. Reset links logged to console in dev. Pluggable for SMTP/SendGrid/Resend. |
+| **DB migration**                  | ✅ Done    | `0005_add_account_management` — `password_reset_tokens` table + `mfa_secret` column on users |
+| **TypeScript check**              | ✅ Done    | Zero errors across 9 packages |
+| **Production build**              | ✅ Done    | 30/30 pages, shared JS 103 kB |
 
-**Definition of Done:** Forgot password triggers a real reset email. MFA rejects invalid codes. Profile saves persist to the database.
+### New API Endpoints
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| `POST` | `/api/auth/forgot-password` | Send password reset email | None |
+| `POST` | `/api/auth/reset-password` | Reset password with token | None |
+| `POST` | `/api/auth/mfa/setup` | Generate TOTP secret | JWT + password |
+| `POST` | `/api/auth/mfa/verify` | Verify TOTP code (setup or challenge) | JWT or MFA token |
+| `POST` | `/api/auth/mfa/disable` | Disable MFA | JWT + password |
+| `GET` | `/api/auth/mfa/status` | Check MFA status | JWT |
+| `POST` | `/api/auth/change-password` | Change password | JWT |
+| `PUT` | `/api/auth/me` | Update profile (name/email) | JWT |
+
+### New Files
+
+- `apps/api/src/lib/email.ts` — Email service abstraction (interface + DevEmailLogger)
+- `apps/api/src/db/schema/password-reset-tokens.ts` — Password reset tokens table schema
+- `apps/web/src/lib/auth.ts` — Account management API client functions
+- `apps/web/src/hooks/use-auth-account.ts` — TanStack Query hooks for auth mutations
+- `apps/web/src/app/(auth)/reset-password/page.tsx` — New reset password page
+
+### Modified Files
+
+- `apps/api/src/routes/auth.ts` — Added 8 new endpoints (forgot-password, reset-password, MFA setup/verify/disable/status, change-password, update profile)
+- `apps/api/src/config.ts` — Added `APP_URL` env var for reset link construction
+- `apps/api/src/db/schema/users.ts` — Added `mfaSecret` column
+- `apps/api/src/db/schema/index.ts` — Exported password-reset-tokens schema
+- `apps/api/migrations/` — Added `0005_add_account_management` migration
+- `apps/web/src/stores/auth-store.ts` — Added `MfaRequiredError` class, login now handles MFA challenge
+- `apps/web/src/app/(auth)/mfa/page.tsx` — Rewired to real API, Suspense-wrapped
+- `apps/web/src/app/(auth)/forgot-password/page.tsx` — Rewired to real API mutation
+- `apps/web/src/app/(auth)/login/page.tsx` — MFA redirect on `MfaRequiredError`
+- `apps/web/src/app/(dashboard)/profile/page.tsx` — Rewired profile save, password change, MFA setup/disable to real API mutations
+- `apps/web/src/lib/index.ts` — Exported auth API functions
 
 ---
 

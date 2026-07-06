@@ -71,6 +71,41 @@ The Functional Readiness Audit identified Estates and Sites as using hardcoded d
 
 ---
 
+## v1.5.3 — 2026-07-06
+
+### Account Management
+
+The Functional Readiness Audit identified Forgot Password, MFA, and Profile persistence as non-functional. This milestone implements the complete account lifecycle as a unified set of authentication flows.
+
+**Design principle:** Implement the entire account lifecycle together rather than disconnected endpoints. Email delivery is abstracted behind an interface so providers (SMTP, Resend, SendGrid) can be swapped later without touching business logic.
+
+**Added**
+
+- **`POST /api/auth/forgot-password`** — Validates email, generates secure SHA-256 token with 1-hour expiry, stores hashed token in `password_reset_tokens` table, sends reset link via `EmailService` (logs to console in dev). Always returns generic success response (no user enumeration).
+- **`POST /api/auth/reset-password`** — Validates token with constant-time comparison, checks expiry + single-use, hashes new password with bcrypt (cost 12), marks token used, invalidates all other tokens for the user. All within a DB transaction.
+- **`POST /api/auth/mfa/setup`** — Generates TOTP secret via `otplib`, returns `otpauth://` URI and raw secret. Requires password verification.
+- **`POST /api/auth/mfa/verify`** — Handles both MFA setup (JWT auth + enable flag) and login challenge (short-lived MFA token → full JWT). Verifies 6-digit TOTP code. Issues real JWT on challenge success.
+- **`POST /api/auth/mfa/disable`** — Requires password verification, optional code check. Clears secret and disables MFA.
+- **`GET /api/auth/mfa/status`** — Returns `mfaEnabled` and `mfaSetupComplete` booleans.
+- **`POST /api/auth/change-password`** — Requires current password verification, bcrypt re-hash with cost 12, persists to DB.
+- **`PUT /api/auth/me`** — Updates name/email with duplicate email checking (409 on conflict).
+- **`EmailService` abstraction** — Interface with `DevEmailLogger` implementation (logs to console). Pluggable SMTP/Resend/SendGrid providers.
+- **DB migration `0005_add_account_management`** — `password_reset_tokens` table (user_id, token_hash, expires_at, used_at) with indexes, and `mfa_secret` column on users table.
+- **Frontend: Forgot Password page** — Wired to `useForgotPassword()` mutation. Loading spinner, inline validation, error display, success state. Generic response matches backend security requirement.
+- **Frontend: Reset Password page** — New `/reset-password?token=` page. Handles missing/expired token state, password strength (min 8), confirmation matching, success redirect. Suspense-wrapped.
+- **Frontend: MFA page** — Wired to `useMfaVerify()` mutation. 6-digit input with auto-focus/auto-tab, error display clears code inputs, Suspense-wrapped.
+- **Frontend: MFA login flow** — Auth store `login()` now detects `mfaRequired` response and throws `MfaRequiredError`. Login page catches it and redirects to `/mfa?token=`. MFA page verifies code against short-lived token, receives full JWT on success.
+- **Frontend: Profile page** — Rewired profile save to `useUpdateProfile()` mutation. Change password wired to `useChangePassword()` mutation. Full MFA setup wizard (password → QR code → verify → enable) and disable flow with inline error handling. Audit logging preserved.
+
+**New files created:** 5 (`apps/api/src/lib/email.ts`, `apps/api/src/db/schema/password-reset-tokens.ts`, `apps/web/src/lib/auth.ts`, `apps/web/src/hooks/use-auth-account.ts`, `apps/web/src/app/(auth)/reset-password/page.tsx`)
+
+**Build**
+
+- pnpm lint: ✅ Zero errors across 9 packages
+- pnpm build: ✅ 30/30 pages, shared JS 103 kB
+
+---
+
 ## v1.5.2 — 2026-07-06
 
 ### Extensible Device Diagnostics

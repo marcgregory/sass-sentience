@@ -51,7 +51,7 @@ Only one sprint may be active at a time. See `docs/implementation/BUILD_PLAN.md`
 
 **v1.5.x — Product Completion** (2026-07-06)
 
-The platform is functionally complete for core domains (devices, telemetry, alerts, events, reports, users, roles) but has remaining functional gaps in business entities (estates, sites), diagnostics, authentication flows, and platform administration. These are being closed before full-stack E2E validation.
+The platform is functionally complete for core domains (devices, telemetry, alerts, events, reports, users, roles) and most secondary domains (estates, sites, diagnostics, authentication flows). The remaining gap is platform administration (dashboard API, health, settings wiring) before full-stack E2E validation.
 
 See `docs/implementation/ROADMAP.md` for milestone tracking.
 
@@ -59,8 +59,8 @@ See `docs/implementation/ROADMAP.md` for milestone tracking.
 |-----------|-------|--------|
 | **v1.5.0** | Playwright UI Regression Suite | ✅ Delivered |
 | **v1.5.1** | Core Entity Management (Estates, Sites CRUD) | ✅ Delivered |
-| **v1.5.2** | Device Diagnostics | ⏳ Next |
-| **v1.5.3** | Account Management (Forgot Password, MFA, Profile) | ⏳ Next |
+| **v1.5.2** | Device Diagnostics | ✅ Delivered |
+| **v1.5.3** | Account Management (Forgot Password, MFA, Profile) | ✅ Delivered |
 | **v1.5.4** | Platform Administration (Dashboard, Health, Settings) | ⏳ Next |
 | **v1.6.0** | Full-Stack End-to-End Validation | ⏳ Blocked |
 

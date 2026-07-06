@@ -2,7 +2,7 @@
 
 > **Engineering execution.** Details each sprint's goal, scope, tasks, and definition of done.
 > Product backlog (what/why) lives in `ROADMAP.md`.
-> Last updated: 2026-07-03 (Phase 2 accepted, Phase 3 delivered)
+> Last updated: 2026-07-06 (v1.5.3 delivered)
 
 ---
 ## Sprint 8: v1.0 RC1 — Backend API + PostgreSQL

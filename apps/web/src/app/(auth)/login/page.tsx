@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/stores/auth-store";
+import { useAuthStore, MfaRequiredError } from "@/stores/auth-store";
 import { GuestOnly } from "@/components/shared/guest-only";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,8 +45,16 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login(email, password);
-    router.push("/dashboard");
+    try {
+      await login(email, password);
+      router.push("/dashboard");
+    } catch (err) {
+      if (err instanceof MfaRequiredError) {
+        router.push(`/mfa?token=${err.mfaToken}`);
+        return;
+      }
+      // Error is already handled by the auth store
+    }
   };
 
   const handleQuickLogin = (role: UserRole) => {

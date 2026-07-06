@@ -5,6 +5,26 @@ import { hasPermission, type Resource, type Action } from "@/lib/permissions";
 import { useAuditStore } from "./audit-store";
 import { post } from "@/lib/api-client";
 
+/**
+ * Thrown by the auth store login() when MFA is required.
+ * The login page catches this and redirects to the MFA page.
+ */
+export class MfaRequiredError extends Error {
+  constructor(
+    public readonly mfaToken: string,
+    public readonly partialUser: {
+      id: string;
+      email: string;
+      name: string;
+      role: string;
+      mfaEnabled: boolean;
+    },
+  ) {
+    super("MFA verification required");
+    this.name = "MfaRequiredError";
+  }
+}
+
 const DEMO_LOGIN_ENABLED =
   process.env.NODE_ENV !== "production" &&
   process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === "true";
@@ -103,8 +123,10 @@ export const useAuthStore = create<AuthState>()(
       login: async (email: string, password: string) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await post<{
-            token: string;
+          interface LoginResponse {
+            token?: string;
+            mfaRequired?: boolean;
+            mfaToken?: string;
             user: {
               id: string;
               email: string;
@@ -114,7 +136,16 @@ export const useAuthStore = create<AuthState>()(
               mfaEnabled: boolean;
               avatar?: string;
             };
-          }>("/auth/login", { email, password });
+          }
+
+          const response = await post<LoginResponse>("/auth/login", { email, password });
+
+          // Handle MFA challenge
+          if (response.mfaRequired && response.mfaToken) {
+            set({ isLoading: false });
+            // Throw a special MFA error that the login page can catch
+            throw new MfaRequiredError(response.mfaToken, response.user);
+          }
 
           const user: User = {
             id: response.user.id,
@@ -146,6 +177,11 @@ export const useAuthStore = create<AuthState>()(
             ipAddress: "192.168.1.100",
           });
         } catch (err) {
+          // MfaRequiredError should not set error state — it's a redirect signal
+          if (err instanceof MfaRequiredError) {
+            set({ isLoading: false });
+            throw err; // re-throw so the login page can catch it
+          }
           const message =
             err instanceof Error ? err.message : "Login failed. Please check your credentials.";
           set({ error: message, isLoading: false });

@@ -1,20 +1,98 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import bcrypt from "bcrypt";
+import crypto from "crypto";
+import { generateSecret, verify, generateURI } from "otplib";
+import { and, eq, gt, isNull, lt, or, count } from "drizzle-orm";
 import { db } from "../db";
-import { users, roles } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { users, roles, passwordResetTokens } from "../db/schema";
+import { env } from "../config";
+import { requireAuth } from "../middleware/auth";
+import { getEmailService } from "../lib/email";
+
+// ─── Schemas ───────────────────────────────────────────────────────────
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+const mfaSetupSchema = z.object({
+  password: z.string().min(1),
+});
+
+const mfaVerifySchema = z.object({
+  code: z.string().length(6),
+});
+
+const mfaDisableSchema = z.object({
+  password: z.string().min(1),
+  code: z.string().length(6).optional(),
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8, "New password must be at least 8 characters"),
+});
+
+const updateProfileSchema = z.object({
+  name: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+});
+
+// ─── Shared User Columns ───────────────────────────────────────────────
+
+const userColumns = {
+  id: users.id,
+  email: users.email,
+  name: users.name,
+  isActive: users.isActive,
+  mfaEnabled: users.mfaEnabled,
+  avatar: users.avatar,
+  lastLogin: users.lastLogin,
+  createdAt: users.createdAt,
+  roleName: roles.name,
+};
+
+// ─── Helpers ───────────────────────────────────────────────────────────
+
+const PASSWORD_RESET_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Generate a secure random token and return both the raw (unhashed) value
+ * and a SHA-256 hash for storage.
+ */
+function generateSecureToken(): { raw: string; hash: string } {
+  const raw = crypto.randomBytes(32).toString("hex");
+  const hash = crypto.createHash("sha256").update(raw).digest("hex");
+  return { raw, hash };
+}
+
+/**
+ * Hash a plaintext token and compare against the stored hash.
+ */
+function verifyTokenHash(token: string, hash: string): boolean {
+  const computedHash = crypto.createHash("sha256").update(token).digest("hex");
+  return crypto.timingSafeEqual(Buffer.from(computedHash), Buffer.from(hash));
+}
+
+// ─── Routes ────────────────────────────────────────────────────────────
+
 export async function authRoutes(app: FastifyInstance) {
+  // ─── Login ──────────────────────────────────────────────────────────
+
   app.post("/login", async (request, reply) => {
     const body = loginSchema.parse(request.body);
 
-    // Find user by email, joining with roles table to get role name
     const [result] = await db
       .select({
         id: users.id,
@@ -23,6 +101,7 @@ export async function authRoutes(app: FastifyInstance) {
         passwordHash: users.passwordHash,
         isActive: users.isActive,
         mfaEnabled: users.mfaEnabled,
+        mfaSecret: users.mfaSecret,
         avatar: users.avatar,
         customerId: users.customerId,
         lastLogin: users.lastLogin,
@@ -42,7 +121,6 @@ export async function authRoutes(app: FastifyInstance) {
       });
     }
 
-    // Verify password with bcrypt (cost factor 12)
     const passwordValid = await bcrypt.compare(body.password, result.passwordHash);
     if (!passwordValid) {
       return reply.status(401).send({
@@ -58,8 +136,33 @@ export async function authRoutes(app: FastifyInstance) {
       });
     }
 
-    // Generate JWT — embed role name (not UUID) so frontend can use it directly
-    // Embed customerId so downstream middleware can scope queries per tenant
+    // If MFA is enabled, return a partial token and signal MFA required
+    if (result.mfaEnabled) {
+      // Store a short-lived MFA session token so we know who's verifying
+      const mfaToken = app.jwt.sign(
+        { sub: result.id, mfa: true },
+        { expiresIn: "5m" },
+      );
+
+      return reply.send({
+        mfaRequired: true,
+        mfaToken,
+        user: {
+          id: result.id,
+          email: result.email,
+          name: result.name,
+          role: result.roleName,
+          mfaEnabled: true,
+        },
+      });
+    }
+
+    // Update last login
+    await db
+      .update(users)
+      .set({ lastLogin: new Date() })
+      .where(eq(users.id, result.id));
+
     const token = app.jwt.sign({
       sub: result.id,
       email: result.email,
@@ -82,9 +185,137 @@ export async function authRoutes(app: FastifyInstance) {
     });
   });
 
+  // ─── Forgot Password ────────────────────────────────────────────────
+
+  app.post("/forgot-password", async (request, reply) => {
+    const body = forgotPasswordSchema.parse(request.body);
+
+    // Always return a generic success response to prevent user enumeration
+    const genericResponse = {
+      message:
+        "If an account with that email exists, a password reset link has been sent.",
+    };
+
+    const [user] = await db
+      .select({ id: users.id, email: users.email, name: users.name })
+      .from(users)
+      .where(eq(users.email, body.email))
+      .limit(1);
+
+    if (!user) {
+      return reply.send(genericResponse);
+    }
+
+    // Invalidate any existing unused tokens for this user
+    await db
+      .update(passwordResetTokens)
+      .set({ usedAt: new Date() })
+      .where(
+        and(
+          eq(passwordResetTokens.userId, user.id),
+          isNull(passwordResetTokens.usedAt),
+          gt(passwordResetTokens.expiresAt, new Date()),
+        ),
+      );
+
+    // Generate a secure token
+    const { raw: token, hash } = generateSecureToken();
+
+    await db.insert(passwordResetTokens).values({
+      userId: user.id,
+      tokenHash: hash,
+      expiresAt: new Date(Date.now() + PASSWORD_RESET_EXPIRY_MS),
+    });
+
+    // Construct the reset URL
+    const resetUrl = `${env.APP_URL}/reset-password?token=${token}`;
+
+    // Send the email (logs to console in dev)
+    const emailService = getEmailService();
+    await emailService.sendPasswordReset({
+      to: user.email,
+      resetUrl,
+      name: user.name,
+    });
+
+    return reply.send(genericResponse);
+  });
+
+  // ─── Reset Password ─────────────────────────────────────────────────
+
+  app.post("/reset-password", async (request, reply) => {
+    const body = resetPasswordSchema.parse(request.body);
+
+    // Find all valid (non-expired, unused) tokens — we'll iterate to
+    // find the one whose hash matches, since hashing is fast and tokens
+    // should be rare.
+    const validTokens = await db
+      .select()
+      .from(passwordResetTokens)
+      .where(
+        and(
+          isNull(passwordResetTokens.usedAt),
+          gt(passwordResetTokens.expiresAt, new Date()),
+        ),
+      );
+
+    // Find matching token via constant-time comparison
+    const matchingToken = validTokens.find((t) =>
+      verifyTokenHash(body.token, t.tokenHash),
+    );
+
+    if (!matchingToken) {
+      return reply.status(400).send({
+        message: "Invalid or expired reset token",
+        code: "INVALID_TOKEN",
+      });
+    }
+
+    // Hash the new password
+    const passwordHash = await bcrypt.hash(body.password, 12);
+
+    // Update password and mark token as used (in a transaction for safety)
+    await db.transaction(async (tx) => {
+      // Update user password
+      await tx
+        .update(users)
+        .set({ passwordHash, updatedAt: new Date() })
+        .where(eq(users.id, matchingToken.userId));
+
+      // Mark token as used
+      await tx
+        .update(passwordResetTokens)
+        .set({ usedAt: new Date() })
+        .where(eq(passwordResetTokens.id, matchingToken.id));
+
+      // Invalidate all other unused tokens for this user
+      await tx
+        .update(passwordResetTokens)
+        .set({ usedAt: new Date() })
+        .where(
+          and(
+            eq(passwordResetTokens.userId, matchingToken.userId),
+            isNull(passwordResetTokens.usedAt),
+            gt(passwordResetTokens.expiresAt, new Date()),
+          ),
+        );
+    });
+
+    return reply.send({
+      message: "Password has been reset successfully.",
+    });
+  });
+
+  // ─── Get Current User (already exists) ──────────────────────────────
+
   app.get("/me", async (request, reply) => {
     await request.jwtVerify();
-    const payload = request.user as { sub: string; email: string; role: string; name: string };
+    const payload = request.user as {
+      sub: string;
+      email: string;
+      role: string;
+      name: string;
+    };
 
     const [result] = await db
       .select({
@@ -117,6 +348,350 @@ export async function authRoutes(app: FastifyInstance) {
       avatar: result.avatar,
       lastLogin: result.lastLogin,
       createdAt: result.createdAt,
+    });
+  });
+
+  // ─── MFA: Setup (generate and return secret) ────────────────────────
+
+  app.post("/mfa/setup", { preHandler: [requireAuth] }, async (request, reply) => {
+    const payload = request.user as { sub: string };
+    const body = mfaSetupSchema.parse(request.body);
+
+    const [user] = await db
+      .select({ id: users.id, passwordHash: users.passwordHash, mfaEnabled: users.mfaEnabled })
+      .from(users)
+      .where(eq(users.id, payload.sub))
+      .limit(1);
+
+    if (!user) {
+      return reply.status(404).send({ message: "User not found", code: "NOT_FOUND" });
+    }
+
+    // Verify password before allowing MFA setup
+    const valid = await bcrypt.compare(body.password, user.passwordHash);
+    if (!valid) {
+      return reply.status(403).send({ message: "Invalid password", code: "INVALID_PASSWORD" });
+    }
+
+    // Generate a TOTP secret
+    const secret = generateSecret();
+    const otpauth = generateURI({
+      issuer: "Sentience IoT",
+      label: user.id,
+      secret,
+    });
+
+    // Store the secret (but don't enable MFA until verified)
+    await db
+      .update(users)
+      .set({ mfaSecret: secret, updatedAt: new Date() })
+      .where(eq(users.id, user.id));
+
+    return reply.send({
+      secret,
+      otpauth,
+      message: "Scan the QR code with your authenticator app, then verify with a code.",
+    });
+  });
+
+  // ─── MFA: Verify & Enable ───────────────────────────────────────────
+
+  app.post("/mfa/verify", async (request, reply) => {
+    const body = mfaVerifySchema.parse(request.body);
+
+    // Check if this is an MFA-challenge login flow (has mfaToken) or a
+    // normal setup flow (JWT auth).
+    const reqBody = request.body as Record<string, unknown>;
+    const mfaToken = reqBody.mfaToken as string | undefined;
+
+    let userId: string;
+
+    if (mfaToken) {
+      // MFA challenge flow — verify the short-lived MFA token
+      try {
+        const payload = app.jwt.verify(mfaToken) as { sub: string; mfa: boolean };
+        if (!payload.mfa) {
+          return reply.status(401).send({ message: "Invalid MFA token", code: "INVALID_TOKEN" });
+        }
+        userId = payload.sub;
+      } catch {
+        return reply.status(401).send({ message: "MFA session expired", code: "MFA_SESSION_EXPIRED" });
+      }
+    } else {
+      // Setup flow — user must be authenticated
+      try {
+        await request.jwtVerify();
+        const payload = request.user as { sub: string };
+        userId = payload.sub;
+      } catch {
+        return reply.status(401).send({ message: "Unauthorized", code: "UNAUTHORIZED" });
+      }
+    }
+
+    const [user] = await db
+      .select({
+        id: users.id,
+        mfaSecret: users.mfaSecret,
+        mfaEnabled: users.mfaEnabled,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user) {
+      return reply.status(404).send({ message: "User not found", code: "NOT_FOUND" });
+    }
+
+    if (!user.mfaSecret && !mfaToken) {
+      return reply.status(400).send({
+        message: "MFA not set up. Call POST /api/auth/mfa/setup first.",
+        code: "MFA_NOT_SETUP",
+      });
+    }
+
+    // For challenge flow, the secret is already set. For setup flow, verify code against stored secret.
+    const secret = user.mfaSecret ?? "";
+    if (!secret) {
+      return reply.status(400).send({
+        message: "MFA not configured. Please set up MFA first.",
+        code: "MFA_NOT_CONFIGURED",
+      });
+    }
+
+    // Verify the TOTP code
+    const { valid: isValid } = await verify({ token: body.code, secret });
+
+    if (!isValid) {
+      return reply.status(400).send({
+        message: "Invalid verification code",
+        code: "INVALID_MFA_CODE",
+      });
+    }
+
+    if (mfaToken) {
+      // This is a login challenge — issue the real JWT
+      const [userData] = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          isActive: users.isActive,
+          mfaEnabled: users.mfaEnabled,
+          avatar: users.avatar,
+          customerId: users.customerId,
+          roleName: roles.name,
+        })
+        .from(users)
+        .innerJoin(roles, eq(users.roleId, roles.id))
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (!userData) {
+        return reply.status(404).send({ message: "User not found", code: "NOT_FOUND" });
+      }
+
+      // Update last login
+      await db
+        .update(users)
+        .set({ lastLogin: new Date() })
+        .where(eq(users.id, userId));
+
+      const token = app.jwt.sign({
+        sub: userData.id,
+        email: userData.email,
+        role: userData.roleName,
+        name: userData.name,
+        customerId: userData.customerId,
+      });
+
+      return reply.send({
+        token,
+        user: {
+          id: userData.id,
+          email: userData.email,
+          name: userData.name,
+          role: userData.roleName,
+          isActive: userData.isActive,
+          mfaEnabled: userData.mfaEnabled,
+          avatar: userData.avatar,
+        },
+      });
+    }
+
+    // Setup flow — enable MFA
+    await db
+      .update(users)
+      .set({ mfaEnabled: true, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+
+    return reply.send({
+      message: "MFA has been enabled successfully.",
+      mfaEnabled: true,
+    });
+  });
+
+  // ─── MFA: Disable ───────────────────────────────────────────────────
+
+  app.post("/mfa/disable", { preHandler: [requireAuth] }, async (request, reply) => {
+    const payload = request.user as { sub: string };
+    const body = mfaDisableSchema.parse(request.body);
+
+    const [user] = await db
+      .select({ id: users.id, passwordHash: users.passwordHash, mfaSecret: users.mfaSecret })
+      .from(users)
+      .where(eq(users.id, payload.sub))
+      .limit(1);
+
+    if (!user) {
+      return reply.status(404).send({ message: "User not found", code: "NOT_FOUND" });
+    }
+
+    const valid = await bcrypt.compare(body.password, user.passwordHash);
+    if (!valid) {
+      return reply.status(403).send({ message: "Invalid password", code: "INVALID_PASSWORD" });
+    }
+
+    // If a code is provided, verify it
+    if (body.code && user.mfaSecret) {
+      const { valid: isValid } = await verify({ token: body.code, secret: user.mfaSecret });
+      if (!isValid) {
+        return reply.status(400).send({
+          message: "Invalid verification code",
+          code: "INVALID_MFA_CODE",
+        });
+      }
+    }
+
+    await db
+      .update(users)
+      .set({
+        mfaSecret: null,
+        mfaEnabled: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, user.id));
+
+    return reply.send({
+      message: "MFA has been disabled.",
+      mfaEnabled: false,
+    });
+  });
+
+  // ─── MFA: Status ────────────────────────────────────────────────────
+
+  app.get("/mfa/status", { preHandler: [requireAuth] }, async (request, reply) => {
+    const payload = request.user as { sub: string };
+
+    const [user] = await db
+      .select({
+        mfaEnabled: users.mfaEnabled,
+        hasSecret: users.mfaSecret,
+      })
+      .from(users)
+      .where(eq(users.id, payload.sub))
+      .limit(1);
+
+    if (!user) {
+      return reply.status(404).send({ message: "User not found", code: "NOT_FOUND" });
+    }
+
+    return reply.send({
+      mfaEnabled: user.mfaEnabled,
+      mfaSetupComplete: !!user.hasSecret,
+    });
+  });
+
+  // ─── Change Password ────────────────────────────────────────────────
+
+  app.post("/change-password", { preHandler: [requireAuth] }, async (request, reply) => {
+    const payload = request.user as { sub: string };
+    const body = changePasswordSchema.parse(request.body);
+
+    const [user] = await db
+      .select({ id: users.id, passwordHash: users.passwordHash })
+      .from(users)
+      .where(eq(users.id, payload.sub))
+      .limit(1);
+
+    if (!user) {
+      return reply.status(404).send({ message: "User not found", code: "NOT_FOUND" });
+    }
+
+    const valid = await bcrypt.compare(body.currentPassword, user.passwordHash);
+    if (!valid) {
+      return reply.status(403).send({
+        message: "Current password is incorrect",
+        code: "INVALID_PASSWORD",
+      });
+    }
+
+    const newHash = await bcrypt.hash(body.newPassword, 12);
+
+    await db
+      .update(users)
+      .set({ passwordHash: newHash, updatedAt: new Date() })
+      .where(eq(users.id, user.id));
+
+    // Optionally invalidate other sessions by changing the JWT secret
+    // This is left as a configurable option — for now, sessions remain valid.
+
+    return reply.send({
+      message: "Password changed successfully.",
+    });
+  });
+
+  // ─── Update Profile (PUT /api/users/me) ────────────────────────────
+
+  app.put("/me", { preHandler: [requireAuth] }, async (request, reply) => {
+    const payload = request.user as { sub: string };
+    const body = updateProfileSchema.parse(request.body);
+
+    // If changing email, check for duplicates
+    if (body.email) {
+      const [existing] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.email, body.email), eq(users.isActive, true)))
+        .limit(1);
+
+      if (existing && existing.id !== payload.sub) {
+        return reply.status(409).send({
+          message: "Email is already in use",
+          code: "EMAIL_CONFLICT",
+        });
+      }
+    }
+
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (body.name !== undefined) updateData.name = body.name;
+    if (body.email !== undefined) updateData.email = body.email;
+
+    if (Object.keys(updateData).length <= 1) {
+      return reply.send({ message: "No changes to apply." });
+    }
+
+    await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, payload.sub));
+
+    const [updated] = await db
+      .select(userColumns)
+      .from(users)
+      .innerJoin(roles, eq(users.roleId, roles.id))
+      .where(eq(users.id, payload.sub))
+      .limit(1);
+
+    return reply.send({
+      id: updated.id,
+      email: updated.email,
+      name: updated.name,
+      role: updated.roleName,
+      isActive: updated.isActive,
+      mfaEnabled: updated.mfaEnabled,
+      avatar: updated.avatar,
+      lastLogin: updated.lastLogin,
+      createdAt: updated.createdAt,
     });
   });
 }

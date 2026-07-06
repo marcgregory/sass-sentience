@@ -1,0 +1,60 @@
+{
+  "id": "0005_add_account_management",
+  "prevId": "0004_fancy_captain_flint",
+  "version": "7",
+  "dialect": "pg",
+  "tables": {
+    "users": {
+      "columns": {
+        "id": { "name": "id", "type": "uuid", "primaryKey": true, "notNull": true, "default": "gen_random_uuid()" },
+        "email": { "name": "email", "type": "text", "notNull": true },
+        "password_hash": { "name": "password_hash", "type": "text", "notNull": true },
+        "name": { "name": "name", "type": "text", "notNull": true },
+        "avatar": { "name": "avatar", "type": "text" },
+        "role_id": { "name": "role_id", "type": "uuid", "notNull": true },
+        "is_active": { "name": "is_active", "type": "boolean", "notNull": true, "default": true },
+        "mfa_enabled": { "name": "mfa_enabled", "type": "boolean", "notNull": true, "default": false },
+        "mfa_secret": { "name": "mfa_secret", "type": "text" },
+        "customer_id": { "name": "customer_id", "type": "uuid" },
+        "last_login": { "name": "last_login", "type": "timestamp with time zone" },
+        "created_at": { "name": "created_at", "type": "timestamp with time zone", "notNull": true, "default": "now()" },
+        "updated_at": { "name": "updated_at", "type": "timestamp with time zone", "notNull": true, "default": "now()" }
+      },
+      "indexes": {
+        "users_email_idx": { "name": "users_email_idx", "columns": ["email"], "isUnique": true },
+        "users_role_idx": { "name": "users_role_idx", "columns": ["role_id"] }
+      },
+      "foreignKeys": {
+        "users_role_id_fkey": { "name": "users_role_id_fkey", "columns": ["role_id"], "references": { "table": "roles", "columns": ["id"] } },
+        "users_customer_id_fkey": { "name": "users_customer_id_fkey", "columns": ["customer_id"], "references": { "table": "customers", "columns": ["id"] } }
+      },
+      "uniqueConstraints": {
+        "users_email_unique": { "name": "users_email_unique", "columns": ["email"] }
+      }
+    },
+    "password_reset_tokens": {
+      "columns": {
+        "id": { "name": "id", "type": "uuid", "primaryKey": true, "notNull": true, "default": "gen_random_uuid()" },
+        "user_id": { "name": "user_id", "type": "uuid", "notNull": true },
+        "token_hash": { "name": "token_hash", "type": "text", "notNull": true },
+        "expires_at": { "name": "expires_at", "type": "timestamp with time zone", "notNull": true },
+        "used_at": { "name": "used_at", "type": "timestamp with time zone" },
+        "created_at": { "name": "created_at", "type": "timestamp with time zone", "notNull": true, "default": "now()" }
+      },
+      "indexes": {
+        "password_reset_tokens_user_idx": { "name": "password_reset_tokens_user_idx", "columns": ["user_id"] },
+        "password_reset_tokens_expires_idx": { "name": "password_reset_tokens_expires_idx", "columns": ["expires_at"] }
+      },
+      "foreignKeys": {
+        "password_reset_tokens_user_id_fkey": { "name": "password_reset_tokens_user_id_fkey", "columns": ["user_id"], "references": { "table": "users", "columns": ["id"] } }
+      }
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

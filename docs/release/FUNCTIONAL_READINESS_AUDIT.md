@@ -10,7 +10,7 @@
 |-----------|--------|-------|
 | v1.5.1 — Core Entity Management | ✅ Complete | Estates + Sites CRUD (2026-07-06) |
 | v1.5.2 — Device Diagnostics | ✅ Complete | Replace placeholder tools (2026-07-06) |
-| v1.5.3 — Account Management | ⬜ Not Started | Forgot Password, MFA, Profile persistence |
+| v1.5.3 — Account Management | ✅ Complete | Forgot Password, MFA, Profile persistence (2026-07-06) |
 | v1.5.4 — Platform Administration | ⬜ Not Started | Dashboard API, Health, Settings wiring |
 | v1.6.0 — Full-Stack E2E Validation | 🔒 Blocked | Blocked by v1.5.1–v1.5.4 |
 
@@ -42,31 +42,33 @@ Each page is classified into one of five statuses:
 
 **Verdict:** Production Ready
 
-### 🔴 Forgot Password `/forgot-password`
+### ✅ Forgot Password `/forgot-password` (v1.5.3)
 
 | Check | Result |
 |-------|--------|
-| Real API integration | ❌ **No API call** — sets local `sent = true` state, does nothing |
-| Backend endpoint | ❌ No `POST /api/auth/forgot-password` hook exists |
-| Action performs anything | ❌ Email is not sent |
+| Real API integration | ✅ `useForgotPassword()` → `POST /api/auth/forgot-password` |
+| Backend endpoint | ✅ Secure token generation, hashing, expiry, email dispatch (dev logger) |
+| Generic response | ✅ Same message regardless of whether email exists (no user enumeration) |
+| Loading/error states | ✅ Loading spinner, inline validation, error display |
+| Success state | ✅ Shows success message matching non-enumeration pattern |
 | Dark mode | ✅ |
 | Responsive | ✅ |
 
-**Issue:** Submitting the form shows "Check your email" but no email is sent. This is a pure frontend mock.
-**Fix:** Implement `useForgotPassword()` hook → `POST /api/auth/forgot-password`, wire to form.
+**Verdict:** Production Ready
 
-### 🔴 MFA `/mfa`
+### ✅ MFA `/mfa` (v1.5.3)
 
 | Check | Result |
 |-------|--------|
-| Real API integration | ❌ **No API call** — directly redirects to `/dashboard` on submit |
-| Code verification | ❌ 6-digit input exists but is never validated |
-| Backend endpoint | ❌ No MFA verification hook exists |
+| Real API integration | ✅ `useMfaVerify()` → `POST /api/auth/mfa/verify` |
+| Code verification | ✅ TOTP 6-digit verification via `otplib`, rejects invalid codes, clears inputs on error |
+| Login challenge flow | ✅ Short-lived MFA token, returns real JWT on success |
+| Setup flow | ✅ `POST /api/auth/mfa/setup` generates TOTP secret, verify enables MFA |
+| Loading/error states | ✅ Loading spinner, inline error display |
 | Dark mode | ✅ |
 | Responsive | ✅ |
 
-**Issue:** Submitting any 6-digit code immediately redirects to dashboard. No verification happens.
-**Fix:** Wire to `POST /api/auth/mfa/verify`, show error on wrong code.
+**Verdict:** Production Ready
 
 ---
 
@@ -409,26 +411,22 @@ Each page is classified into one of five statuses:
 
 ## Utility Pages
 
-### ⚡ Profile `/profile`
+### ✅ Profile `/profile` (v1.5.3)
 
 | Check | Result |
 |-------|--------|
 | Personal info | ✅ Can edit name/email |
-| Persistence | ❌ **Local only** — updates Zustand store but makes no API call |
-| Password change | ❌ **Frontend only** — resets fields locally, logs audit entry, no API mutation |
-| MFA buttons | ❌ Decorative — "Enable MFA" buttons do nothing |
-| Notification preferences | ❌ Decorative — toggles are local state, no API persistence |
-| Audit logging | ✅ Creates audit entries for changes |
+| Persistence | ✅ `useUpdateProfile()` → `PUT /api/auth/me` with duplicate email checking (409 conflict) |
+| Password change | ✅ `useChangePassword()` → `POST /api/auth/change-password` with current password verification |
+| MFA setup | ✅ Full wizard: password → TOTP secret → QR code → verify → enable |
+| MFA disable | ✅ Disable with password verification + optional code |
+| Notification preferences | ⚠️ Visual-only toggles (tracked as future work — needs notification preferences API) |
+| Audit logging | ✅ Creates audit entries for profile and password changes |
+| Loading/error/success | ✅ Mutation loading states, error display, success confirmation |
 | Dark mode | ✅ |
 | Responsive | ✅ |
 
-**Issues:**
-1. Name and email updates only modify the Zustand store, never call API
-2. Password change clears fields and logs audit entry, but never sends old/new password to any endpoint
-3. "Enable MFA" buttons have no onClick handlers
-4. Notification preference toggles are visual-only
-
-**Fix:** Create `useUpdateProfile()` mutation → `PUT /api/users/me`, wire password change to `POST /api/auth/change-password`.
+**Verdict:** Production Ready (notification prefs remain UX-only, documented as remaining debt)
 
 ### ⚡ Unauthorized `/unauthorized`
 
@@ -446,19 +444,19 @@ Redirects to `/login`. No issues.
 
 | Status | Count | Pages |
 |--------|-------|-------|
-| ✅ Production Ready | 17 | Login, Devices, Device Detail, Alerts, Events, Reports, Diagnostics, API Keys, Notification Rules, Audit Log, Users, Roles, Notifications, Estates, Sites, Unauthorized, Root |
-| ⚡ Partially Functional | 4 | Dashboard, Settings, Admin, Profile, Platform Health |
+| ✅ Production Ready | 20 | Login, Devices, Device Detail, Alerts, Events, Reports, Diagnostics, API Keys, Notification Rules, Audit Log, Users, Roles, Notifications, Estates, Sites, Unauthorized, Root, **Forgot Password**, **MFA**, **Profile** |
+| ⚡ Partially Functional | 3 | Dashboard, Settings, Admin, Platform Health |
 | 🟡 Mock Data | 0 | None |
 | 🔴 Placeholder | 2 | Forgot Password, MFA |
 
-### Priority-Ordered Fix List
+### Priority-Ordered Fix List (Updated v1.5.3)
 
 | Priority | Page | Issue | Est. Effort |
 |----------|------|-------|------------|
 | **P0** | Dashboard | No API endpoint for production dashboard data — falls back to mock values without simulator | 1-2 days |
-| **P0** | Forgot Password | Form submits but sends no email | 0.5 day |
-| **P0** | MFA | Any 6-digit code logs you in without verification | 0.5 day |
-| **P1** | Profile | Name/email/password changes are local-only, never persisted | 0.5 day |
+| ~~**P0**~~ | ~~Forgot Password~~ | ~~Form submits but sends no email~~ | ~~0.5 day~~ ✅ **Done v1.5.3** |
+| ~~**P0**~~ | ~~MFA~~ | ~~Any 6-digit code logs you in without verification~~ | ~~0.5 day~~ ✅ **Done v1.5.3** |
+| ~~**P1**~~ | ~~Profile~~ | ~~Name/email/password changes are local-only, never persisted~~ | ~~0.5 day~~ ✅ **Done v1.5.3** |
 | **P1** | Settings (Tenant tab) | All tenant/org fields are UI-only, never saved | 0.5 day |
 | **P1** | Settings (Notifications tab) | Channel toggles are visual-only | 0.25 day |
 | **P2** | Platform Health | 4 of 5 services have hardcoded health status with placeholder metrics | 1-2 days |
@@ -467,22 +465,22 @@ Redirects to `/login`. No issues.
 | **P3** | Alerts | "Previous" pagination button is permanently disabled | 0.25 day |
 | **P3** | Dashboard | Wire pagination properly in devices table | 0.25 day |
 
-### Effort Summary
+### Effort Summary (Updated v1.5.3)
 
 | Category | Est. Effort |
 |----------|------------|
-| 🔴 Critical (P0) — blocks production use | 2–3 days |
-| 🟡 High (P1) — functional gaps | 1.25 days |
+| 🔴 Critical (P0) — blocks production use | 1–2 days (was 2–3) |
+| 🟡 High (P1) — functional gaps | 0.75 days (was 1.25) |
 | 🟢 Medium (P2) — polish gaps | 2.5–4.5 days |
 | 🔵 Low (P3) — minor bugs | 0.5 days |
-| **Total** | **6.25–9.25 days** |
+| **Total** | **4.75–7.75 days (was 6.25–9.25)** |
 
-### Gating Verdict
+### Gating Verdict (Updated v1.5.3)
 
-The application is **not production-ready in its current state** due to:
+The application has **three remaining blockers** before v1.6.0 E2E validation:
 
-1. **Core auth flows incomplete** (Forgot Password, MFA verification)
-2. **Dashboard provides no real value without simulator mode**
-3. **Four key user actions don't persist** (Profile updates, Tenant settings, Notification preferences, Backup config)
+1. ~~**Core auth flows incomplete** (Forgot Password, MFA verification)~~ ✅ **Fixed v1.5.3**
+2. **Dashboard provides no real value without simulator mode** — no API summary endpoint
+3. **Three key user actions don't persist** (Tenant settings, Notification preferences, Backup config)
 
-These must be addressed before comprehensive E2E testing or v1.6.0 can begin.
+Page status improvements: 3 pages moved from 🔴/⚡ → ✅ (Forgot Password, MFA, Profile).
