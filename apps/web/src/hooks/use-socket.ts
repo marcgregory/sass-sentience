@@ -20,6 +20,20 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
 import { useLiveAlertStore } from "@/stores/live-alert-store";
 import {
+  simulatorStarted,
+  simulatorStopped,
+  deviceConnected,
+  deviceDisconnected,
+  telemetryUpdated,
+  alertCreated,
+  notificationGenerated,
+  diagnosticExecuted,
+  mqttMessageReceived,
+  firmwareCheckPerformed,
+  eventCreated,
+} from "@/lib/simulated-audit-logs";
+import { useAuditStore } from "@/stores/audit-store";
+import {
   connectSocket,
   disconnectSocket,
   getSocket,
@@ -143,6 +157,15 @@ export function useSocket(options: UseSocketOptions = {}): void {
 
     const liveTelemetryHandler = (payload: DeviceTelemetryEvent) => {
       useLiveDeviceStore.getState().upsertDeviceTelemetry(payload);
+
+      // Simulated telemetry updates generate audit entries to keep the
+      // audit log alive during demos — one per telemetry batch per device.
+      // We key by deviceId so frequent updates don't flood the log.
+      if (payload.estateId === "sim" || payload.deviceId.startsWith("sim-")) {
+        useAuditStore.getState().addSimulatedEntry(
+          telemetryUpdated(payload.deviceName ?? payload.deviceId, payload.deviceId),
+        );
+      }
     };
     socket.on("device:telemetry", liveTelemetryHandler);
     handlers.push(() => {
@@ -151,6 +174,20 @@ export function useSocket(options: UseSocketOptions = {}): void {
 
     const liveStatusHandler = (payload: DeviceStatusEvent) => {
       useLiveDeviceStore.getState().upsertDeviceStatus(payload);
+
+      // Simulated device status changes generate audit entries
+      if (payload.estateId === "sim") {
+        const deviceName = payload.deviceName ?? payload.deviceId;
+        if (payload.status === "online") {
+          useAuditStore.getState().addSimulatedEntry(
+            deviceConnected(deviceName, payload.deviceId),
+          );
+        } else if (payload.status === "offline") {
+          useAuditStore.getState().addSimulatedEntry(
+            deviceDisconnected(deviceName, payload.deviceId),
+          );
+        }
+      }
     };
     socket.on("device:status", liveStatusHandler);
     handlers.push(() => {
@@ -172,6 +209,13 @@ export function useSocket(options: UseSocketOptions = {}): void {
         title: payload.title,
         timestamp: payload.timestamp,
       });
+
+      // Simulated events generate audit entries
+      if (payload.estateId === "sim") {
+        useAuditStore.getState().addSimulatedEntry(
+          eventCreated(payload.title, payload.deviceName),
+        );
+      }
     };
     socket.on("event:new", liveEventHandler);
     handlers.push(() => {
@@ -192,6 +236,11 @@ export function useSocket(options: UseSocketOptions = {}): void {
       // them. We mirror the conversion here so the notification store
       // receives a matching simulated notification object.
       if (payload.isSimulated) {
+        // Generate simulated audit entry for the alert
+        useAuditStore.getState().addSimulatedEntry(
+          alertCreated(payload.title, payload.alertId),
+        );
+
         import("@/stores/notification-store").then(({ useNotificationStore }) => {
           const priorityMap: Record<string, "critical" | "high" | "normal" | "low"> = {
             critical: "critical",
@@ -266,6 +315,11 @@ export function useSocket(options: UseSocketOptions = {}): void {
             createdAt: payload.timestamp,
             isSimulated: true,
           });
+
+          // Also generate a simulated audit entry
+          useAuditStore.getState().addSimulatedEntry(
+            notificationGenerated(payload.title),
+          );
         } else {
           // Real notifications: just bump the unread count.
           // The actual data arrives via TanStack Query after invalidation.
@@ -295,6 +349,9 @@ export function useSocket(options: UseSocketOptions = {}): void {
       import("@/stores/notification-store").then(({ useNotificationStore }) => {
         useNotificationStore.getState().clearSimulatedNotifications();
       });
+      // Generate a "Simulator Stopped" audit entry and clear simulated audit entries
+      useAuditStore.getState().addSimulatedEntry(simulatorStopped());
+      useAuditStore.getState().clearSimulatedEntries();
     };
     socket.on("simulator:reset", simulatorResetHandler);
     handlers.push(() => {

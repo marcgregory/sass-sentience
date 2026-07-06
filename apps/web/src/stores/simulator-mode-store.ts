@@ -33,22 +33,43 @@ export const useSimulatorModeStore = create<SimulatorModeState>()(
       toggle: () => {
         const next = !get().enabled;
         set({ enabled: next });
-        // When simulator mode is turned off, clear simulated notifications
-        // from the in-memory store so the badge count doesn't show stale data.
-        if (!next) {
+        if (next) {
+          // Generate a "Simulator Started" audit entry
+          import("@/stores/audit-store").then(({ useAuditStore }) => {
+            import("@/lib/simulated-audit-logs").then(({ simulatorStarted }) => {
+              useAuditStore.getState().addSimulatedEntry(simulatorStarted());
+            });
+          });
+        } else {
+          // When simulator mode is turned off, clear simulated notifications
+          // from the in-memory store so the badge count doesn't show stale data.
           import("@/stores/notification-store").then(({ useNotificationStore }) => {
             useNotificationStore.getState().clearSimulatedNotifications();
+          });
+          // Also clear simulated audit entries
+          import("@/stores/audit-store").then(({ useAuditStore }) => {
+            useAuditStore.getState().clearSimulatedEntries();
           });
         }
       },
       enable: () => {
         set({ enabled: true });
+        // Generate a "Simulator Started" audit entry
+        import("@/stores/audit-store").then(({ useAuditStore }) => {
+          import("@/lib/simulated-audit-logs").then(({ simulatorStarted }) => {
+            useAuditStore.getState().addSimulatedEntry(simulatorStarted());
+          });
+        });
       },
       disable: () => {
         set({ enabled: false });
         // Clear simulated notifications when simulator mode is disabled
         import("@/stores/notification-store").then(({ useNotificationStore }) => {
           useNotificationStore.getState().clearSimulatedNotifications();
+        });
+        // Also clear simulated audit entries
+        import("@/stores/audit-store").then(({ useAuditStore }) => {
+          useAuditStore.getState().clearSimulatedEntries();
         });
       },
     }),

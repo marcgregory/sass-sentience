@@ -24,6 +24,8 @@ import { getSimulatedTestsForDeviceType, simulateDiagnosticResult } from "@/lib/
 import { useLiveDiagnosticStore } from "@/stores/live-diagnostic-store";
 import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
+import { useAuditStore } from "@/stores/audit-store";
+import { diagnosticExecuted } from "@/lib/simulated-audit-logs";
 import type { RunDiagnosticRequest, DiagnosticResult, DiagnosticTest } from "@sentience/types";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -150,6 +152,16 @@ export function useRunDiagnostic() {
 
         // Store in local state for the results list
         addSimResult(result);
+
+        // Generate a simulated audit entry for this diagnostic run
+        useAuditStore.getState().addSimulatedEntry(
+          diagnosticExecuted(
+            test.name,
+            simResult.status === "passed" ? "Passed" : simResult.status === "warning" ? "Warning" : "Failed",
+            deviceInfo.deviceName,
+          ),
+        );
+
         return result;
       }
 

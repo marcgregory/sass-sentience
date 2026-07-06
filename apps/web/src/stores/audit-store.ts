@@ -13,11 +13,17 @@ export interface AuditEntry {
   details?: Record<string, unknown>;
   ipAddress?: string;
   createdAt: string;
+  /** Simulated entries are generated client-side during Simulator Mode and never persisted. */
+  isSimulated?: boolean;
 }
 
 interface AuditState {
   entries: AuditEntry[];
   addEntry: (entry: Omit<AuditEntry, "id" | "createdAt">) => void;
+  /** Add a simulated audit entry (client-side, never persisted to the database). */
+  addSimulatedEntry: (entry: AuditEntry) => void;
+  /** Clear all simulated audit entries from the store. */
+  clearSimulatedEntries: () => void;
   clear: () => void;
 }
 
@@ -40,6 +46,16 @@ export const useAuditStore = create<AuditState>()((set) => ({
         },
         ...state.entries,
       ],
+    })),
+
+  addSimulatedEntry: (entry) =>
+    set((state) => ({
+      entries: [entry, ...state.entries],
+    })),
+
+  clearSimulatedEntries: () =>
+    set((state) => ({
+      entries: state.entries.filter((e) => !e.isSimulated),
     })),
 
   clear: () => set({ entries: [] }),

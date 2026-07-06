@@ -23,6 +23,8 @@ export interface AuditLogApiItem {
   ipAddress?: string;
   userAgent?: string;
   createdAt: string;
+  /** Simulated entries are generated client-side during Simulator Mode. */
+  isSimulated?: boolean;
 }
 
 export interface AuditLogListResponse {
