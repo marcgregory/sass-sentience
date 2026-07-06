@@ -271,8 +271,10 @@ function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void 
 // ─── Main Page ────────────────────────────────────────────────────────────
 
 export default function DiagnosticsPage() {
+  const RESULTS_PER_PAGE = 5;
   const [selectedDeviceId, setSelectedDeviceId] = useState("");
   const [runningTestId, setRunningTestId] = useState<string | null>(null);
+  const [resultsPage, setResultsPage] = useState(1);
 
   const runDiagnosticMutation = useRunDiagnostic();
   const { hasPermission } = useAuthStore();
@@ -306,14 +308,18 @@ export default function DiagnosticsPage() {
     isError: resultsError,
   } = useDiagnosticResults(
     selectedDeviceId
-      ? { deviceId: selectedDeviceId, limit: 5 }
-      : { limit: 5 },
+      ? { deviceId: selectedDeviceId, limit: RESULTS_PER_PAGE, page: resultsPage }
+      : { limit: RESULTS_PER_PAGE, page: resultsPage },
   );
 
   const availableDevices = devices;
   const tests = testsData?.tests ?? [];
   const results = resultsData?.data ?? [];
   const totalResults = resultsData?.pagination?.total ?? 0;
+  const totalPages = resultsData?.pagination?.totalPages ?? 1;
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages) setResultsPage(page);
+  };
 
   // ── Run handler ──────────────────────────────────────────────────────
   async function handleRunTest(testId: string) {
@@ -392,7 +398,7 @@ export default function DiagnosticsPage() {
         <DeviceSelector
           devices={availableDevices}
           selected={selectedDeviceId}
-          onChange={setSelectedDeviceId}
+          onChange={(id) => { setSelectedDeviceId(id); setResultsPage(1); }}
         />
       )}
 
@@ -473,11 +479,40 @@ export default function DiagnosticsPage() {
               Failed to load diagnostic results.
             </p>
           ) : (
-            <div className="divide-y">
-              {results.map((result: any) => (
-                <ResultRow key={result.id} result={result} />
-              ))}
-            </div>
+            <>
+              <div className="divide-y">
+                {results.map((result: any) => (
+                  <ResultRow key={result.id} result={result} />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-4 border-t mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Page {resultsPage} of {totalPages}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => goToPage(resultsPage - 1)}
+                      disabled={resultsPage <= 1}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => goToPage(resultsPage + 1)}
+                      disabled={resultsPage >= totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
