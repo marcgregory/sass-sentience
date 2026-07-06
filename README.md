@@ -2,7 +2,9 @@
 
 A full-stack IoT device management platform with real-time telemetry, alerting, role-based access control, and multi-tenant customer isolation.
 
-> **Status:** v1.0.0 GA — Production release
+> **Status:** v1.5.x — Product Completion (closing functional gaps before full-stack E2E)
+> **Coverage tracker:** [`docs/implementation/API_COVERAGE.md`](docs/implementation/API_COVERAGE.md)
+> **Functional audit:** [`docs/release/FUNCTIONAL_READINESS_AUDIT.md`](docs/release/FUNCTIONAL_READINESS_AUDIT.md)
 
 ---
 

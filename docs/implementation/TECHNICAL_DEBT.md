@@ -1,7 +1,7 @@
 # Technical Debt
 
 > Items intentionally deferred or known to need cleanup.
-> Last updated: 2026-07-05 (v1.1.1 — removed resolved CORS/rate-limit/ARIA debt)
+> Last updated: 2026-07-06 (v1.5.1 — added functional gaps from readiness audit, updated outdated mock-data entries)
 
 ---
 
@@ -14,6 +14,7 @@
 - [Security](#security)
 - [Testing](#testing)
 - [Infrastructure](#infrastructure)
+- [Functional Gaps (Audit Findings)](#functional-gaps-audit-findings)
 
 ---
 
@@ -33,19 +34,17 @@ The Diagnostics tab on `/devices/[id]` returns pseudo-random pass/fail/warning r
 
 **Resolution:** Backend support needed.
 
-### Device detail mock data is page-embedded
-`MOCK_FIRMWARE`, `MOCK_CONFIG`, `MOCK_IO`, and `getMockDiagnostics()`/`getMockEvents()` are defined directly in `apps/web/src/app/(dashboard)/devices/[id]/page.tsx`.
+### Device detail I/O, diagnostics, and config mock data removed
+The device detail page (`/devices/[id]`) now loads firmware, I/O, diagnostics, and config from the API. The old `MOCK_FIRMWARE`, `MOCK_CONFIG`, `MOCK_IO`, `getMockDiagnostics()`/`getMockEvents()` have been removed — page uses real `apiDevice` fields.
 
-**Impact:** Harder to reuse mock data across pages. Page file is large (600+ lines).
+**Resolution:** Resolved in RC2 frontend integration.
 
-**Resolution:** Extract to `apps/web/src/hooks/use-device-detail-data.ts` during future backend integration.
+### 3 pages still use mock data (Estates, Sites, Diagnostics)
+Estates (`/estates`), Sites (`/sites`), and Diagnostics (`/diagnostics`) use hardcoded data arrays. No backend API endpoints exist for these domains yet. See `docs/release/FUNCTIONAL_READINESS_AUDIT.md`.
 
-### 4 pages still use partial mock data
-API Keys (`/admin/api-keys`), Notification Rules (`/admin/notification-rules`), Notifications (header dropdown + page), and device detail fallback tabs use hardcoded mock data.
+**Impact:** These pages do not reflect real system state. No CRUD operations possible on estates or sites.
 
-**Impact:** These pages don't reflect real system state. Admin operations on API keys and notification rules are not persisted.
-
-**Resolution:** Add backend API endpoints and TanStack Query hooks for these domains.
+**Resolution:** Planned as v1.5.1 (Estates + Sites) and v1.5.2 (Diagnostics).
 
 ---
 
@@ -197,3 +196,72 @@ Reserved for shared UI components but currently unused. All UI components live i
 **Impact:** Package exists but serves no purpose. CI runs lint on it.
 
 **Resolution:** Either populate it or remove it.
+
+---
+
+## Functional Gaps (Audit Findings)
+
+The Functional Readiness Audit (`docs/release/FUNCTIONAL_READINESS_AUDIT.md`) identified the following user-facing gaps. These are tracked as roadmap milestones v1.5.1–v1.5.4.
+
+### Estates and Sites use hardcoded data
+`/estates` and `/sites` pages define data as hardcoded arrays. No backend API endpoints exist. Add Estate/Site buttons have no onClick handlers.
+
+**Impact:** Users cannot create, view, or manage estates or sites. All data is static.
+
+**Resolution:** v1.5.1 — Create `GET/POST/PATCH/DELETE /api/estates` and `/api/sites` endpoints. Wire frontend pages with `useEstates()`/`useSites()` hooks.
+
+### Diagnostics page is entirely placeholders
+All 6 diagnostic tools (Ping, Connection, MQTT, Signal, Battery, Firmware) are decorative cards. Run buttons do nothing. Recent diagnostics list is hardcoded. No loading/error states.
+
+**Impact:** Users see diagnostic tools that don't function. The page is misleading.
+
+**Resolution:** v1.5.2 — Create backend diagnostics endpoints. Wire Run buttons to real API mutations. Store and display results.
+
+### Forgot Password sends no email
+The form submits, sets `sent = true`, and shows "Check your email" — but no email is dispatched. No backend endpoint exists.
+
+**Impact:** Users with forgotten passwords cannot reset them.
+
+**Resolution:** v1.5.3 — Implement `POST /api/auth/forgot-password` with token generation + email dispatch.
+
+### MFA page accepts any 6-digit code
+The 6-digit code input collects digits but the form immediately redirects to `/dashboard` on submit. No verification occurs.
+
+**Impact:** MFA provides no security — any 6 digits grants access.
+
+**Resolution:** v1.5.3 — Wire to `POST /api/auth/mfa/verify` with code validation.
+
+### Profile changes are not persisted
+Name/email updates only modify the Zustand store. Password change clears fields and logs an audit entry but never calls the API.
+
+**Impact:** Profile edits are lost on page refresh.
+
+**Resolution:** v1.5.3 — Create `PUT /api/users/me` and `POST /api/auth/change-password` endpoints.
+
+### Dashboard falls back to mock data without simulator
+With simulator OFF, `useDashboardData()` returns `MOCK_KPIS`, `MOCK_HEALTH`, `MOCK_BATTERY`, etc. There is no API endpoint for production dashboard data.
+
+**Impact:** In production, the dashboard shows fictional numbers unless the simulator is running.
+
+**Resolution:** v1.5.4 — Create `GET /api/dashboard/summary` endpoint.
+
+### Platform Health: 4 of 5 services are hardcoded
+Bridge, MQTT, Database, and Simulator service cards use hardcoded "healthy" status with placeholder metrics ("—"). Only the API service polls a real health endpoint.
+
+**Impact:** The health page looks green but doesn't reflect actual service status.
+
+**Resolution:** v1.5.4 — Add health endpoints for bridge, MQTT, simulator, and database.
+
+### Settings: Tenant and Notifications tabs are UI-only
+Tenant fields (org name, brand color, support phone, address) and Notification channel toggles are local state only — "Save Changes" does not persist them. No API keys exist for these settings.
+
+**Impact:** Users can edit fields but changes are lost on refresh.
+
+**Resolution:** v1.5.4 — Add API setting keys for tenant and notification channel data.
+
+### Admin overview stats are hardcoded
+Active Users (4), System Uptime (14d 6h), Pending Alerts (3), and Platform Version (v0.13.0) are hardcoded strings.
+
+**Impact:** Stats become stale and misleading over time.
+
+**Resolution:** v1.5.4 — Fetch counts from API endpoints.

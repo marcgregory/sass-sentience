@@ -397,30 +397,119 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 
 ---
 
-## 🔮 Future (Infrastructure & Polish)
+## ✅ Completed — v1.5.0 — Playwright UI Regression Suite (2026-07-05)
 
-- Notifications — connect dropdown + full page to Socket.IO feed
-- Playwright UI Regression Suite (API Mocked) — ✅ Done in v1.5.0
-- Deployment pipeline — CI/CD
-- Advanced scaling — Kubernetes, Redis, multi-region
+| Area                          | Status      | Notes                                                         |
+| ----------------------------- | ----------- | ------------------------------------------------------------- |
+| **UI component tests**        | ✅ Done     | Estates, Sites, Devices, Alerts, Events, Reports, Diagnostics |
+| **Auth flows**                | ✅ Done     | Login, Forgot Password, MFA, Role switching                   |
+| **Admin pages**               | ✅ Done     | Users, Roles, API Keys, Notification Rules, Platform Health   |
+| **Navigation**                | ✅ Done     | Sidebar, header, breadcrumbs, role-based filtering            |
+| **TypeScript check**          | ✅ Passed   | Zero errors                                                   |
+| **Production build**          | ✅ Passed   | 28/28 pages, shared JS 102 kB                                 |
 
 ---
 
-## ⏳ In Progress — v1.6.0 — Full-Stack End-to-End Validation
+## ⏳ Next — v1.5.1 — Complete Core Entity Management
+
+**Goal:** Remove remaining mock business entities. The Functional Readiness Audit (`docs/release/FUNCTIONAL_READINESS_AUDIT.md`) identified Estates and Sites as running entirely on hardcoded data.
+
+| Area                       | Status     | Notes                                            |
+| -------------------------- | ---------- | ------------------------------------------------ |
+| **Estates CRUD (backend)** | ⬜ Pending | `GET/POST/PATCH/DELETE /api/estates` endpoints   |
+| **Estates page (frontend)**| ⬜ Pending | Replace hardcoded array with `useEstates()` hook |
+| **Sites CRUD (backend)**   | ⬜ Pending | `GET/POST/PATCH/DELETE /api/sites` endpoints     |
+| **Sites page (frontend)**  | ⬜ Pending | Replace hardcoded array with `useSites()` hook   |
+| **Estate/site relations**  | ⬜ Pending | Cascade filtering, site count on estate cards    |
+| **Customer isolation**     | ⬜ Pending | Customers see only their own estates/sites       |
+| **Search/filter**          | ⬜ Pending | Server-side search and filter for both pages     |
+| **Loading/error/empty**    | ⬜ Pending | All three states on both pages                   |
+| **TypeScript check**       | ⬜ Pending | Zero errors                                      |
+| **Production build**       | ⬜ Pending |                                                  |
+
+**Definition of Done:** Estates and Sites pages load from the API with full CRUD. No hardcoded data remains on either page.
+
+---
+
+## ⏳ Next — v1.5.2 — Device Diagnostics
+
+**Goal:** Replace the hardcoded diagnostics placeholder with real API-backed functionality.
+
+| Area                            | Status     | Notes                                               |
+| ------------------------------- | ---------- | --------------------------------------------------- |
+| **Diagnostics API (backend)**   | ⬜ Pending | `GET /api/diagnostics`, `POST /api/diagnostics/run` |
+| **Diagnostics page (frontend)** | ⬜ Pending | Replace all hardcoded data with API calls           |
+| **Run diagnostic action**       | ⬜ Pending | Wire Run buttons to real API mutations              |
+| **Store diagnostic results**    | ⬜ Pending | Persist results in PostgreSQL                       |
+| **Diagnostic history**          | ⬜ Pending | View past results across devices                    |
+| **Device health integration**   | ⬜ Pending | Show latest diagnostic status on device detail      |
+| **Loading/error/empty states**  | ⬜ Pending | All three states on the diagnostics page            |
+| **TypeScript check**            | ⬜ Pending | Zero errors                                         |
+| **Production build**            | ⬜ Pending |                                                     |
+
+**Definition of Done:** All 6 diagnostic tools functional with real API. Run buttons execute backend diagnostics. Results persist and display.
+
+---
+
+## ⏳ Next — v1.5.3 — Account Management
+
+**Goal:** Complete authentication flows that currently don't work (forgot password, MFA) and fix profile persistence.
+
+| Area                            | Status     | Notes                                                       |
+| ------------------------------- | ---------- | ----------------------------------------------------------- |
+| **Forgot password (backend)**   | ⬜ Pending | `POST /api/auth/forgot-password` with email dispatch        |
+| **Forgot password (frontend)**  | ⬜ Pending | Wire form to real API, remove mock                           |
+| **Password reset (backend)**    | ⬜ Pending | Token generation, validation, `POST /api/auth/reset-password`|
+| **MFA verification (backend)**  | ⬜ Pending | `POST /api/auth/mfa/verify` with code validation            |
+| **MFA page (frontend)**         | ⬜ Pending | Wire 6-digit input to real API, show errors on wrong code   |
+| **Profile persistence**         | ⬜ Pending | `PUT /api/users/me` for name/email; `POST /api/auth/change-password` |
+| **Profile page (frontend)**     | ⬜ Pending | Wire save buttons to real API mutations                     |
+| **TypeScript check**            | ⬜ Pending | Zero errors                                                 |
+| **Production build**            | ⬜ Pending |                                                             |
+
+**Definition of Done:** Forgot password triggers a real reset email. MFA rejects invalid codes. Profile saves persist to the database.
+
+---
+
+## ⏳ Next — v1.5.4 — Platform Administration
+
+**Goal:** Fill remaining feature gaps in dashboard, admin overview, platform health, and settings persistence.
+
+| Area                                | Status     | Notes                                                   |
+| ----------------------------------- | ---------- | ------------------------------------------------------- |
+| **Dashboard summary API**           | ⬜ Pending | `GET /api/dashboard/summary` for production dashboard   |
+| **Dashboard page (frontend)**       | ⬜ Pending | Use API endpoint when simulator is OFF                  |
+| **Admin overview stats**            | ⬜ Pending | Replace hardcoded users/uptime/alerts with real data    |
+| **Platform Health service status**  | ⬜ Pending | Replace 4 static services with real health endpoints    |
+| **Settings: Tenant tab**            | ⬜ Pending | Persist tenant fields to API                            |
+| **Settings: Notification channels** | ⬜ Pending | Persist channel toggles to API                          |
+| **Profile notification prefs**      | ⬜ Pending | Wire toggle switches to API                             |
+| **Reports: Schedule placeholder**   | ⬜ Pending | Wire or formally document as future                     |
+| **Reports: Recent exports**         | ⬜ Pending | Replace hardcoded entries with API query                |
+| **TypeScript check**                | ⬜ Pending | Zero errors                                             |
+| **Production build**                | ⬜ Pending |                                                         |
+
+**Definition of Done:** Dashboard shows real data without simulator. All settings persist. Platform Health reflects actual service status.
+
+---
+
+## ⏳ Next — v1.6.0 — Full-Stack End-to-End Validation
+
+*Blocked by v1.5.1–v1.5.4 completion.*
 
 | Area                          | Status     | Notes                                             |
 | ----------------------------- | ---------- | ------------------------------------------------- |
-| **Real backend**              | ⬜ Pending | Validate against the running Fastify API          |
-| **PostgreSQL**                | ⬜ Pending | Verify data persistence and query correctness     |
-| **MQTT broker**               | ⬜ Pending | Validate telemetry ingestion through Mosquitto    |
-| **Realtime WebSocket**        | ⬜ Pending | End-to-end Socket.IO event flow                   |
-| **Authentication middleware** | ⬜ Pending | Login → JWT → protected route round-trip          |
-| **Customer isolation**        | ⬜ Pending | Verify customer A cannot see customer B data      |
-| **Notification pipeline**     | ⬜ Pending | Simulator → MQTT → Bridge → DB → notification:new |
-| **API Keys**                  | ⬜ Pending | Create → authenticate → revoke lifecycle          |
-| **Reports**                   | ⬜ Pending | Generate reports from real persisted data         |
-| **Notification Rules**        | ⬜ Pending | Rule persistence and enforcement                  |
-| **Device lifecycle**          | ⬜ Pending | Register → telemetry → decommission               |
+| **Real backend**              | ⬜ Blocked | Validate against the running Fastify API          |
+| **PostgreSQL**                | ⬜ Blocked | Verify data persistence and query correctness     |
+| **MQTT broker**               | ⬜ Blocked | Validate telemetry ingestion through Mosquitto    |
+| **Realtime WebSocket**        | ⬜ Blocked | End-to-end Socket.IO event flow                   |
+| **Authentication middleware** | ⬜ Blocked | Login → JWT → protected route round-trip          |
+| **Customer isolation**        | ⬜ Blocked | Verify customer A cannot see customer B data      |
+| **Notification pipeline**     | ⬜ Blocked | Simulator → MQTT → Bridge → DB → notification:new |
+| **API Keys**                  | ⬜ Blocked | Create → authenticate → revoke lifecycle          |
+| **Reports**                   | ⬜ Blocked | Generate reports from real persisted data         |
+| **Notification Rules**        | ⬜ Blocked | Rule persistence and enforcement                  |
+| **Device lifecycle**          | ⬜ Blocked | Register → telemetry → decommission               |
 
 **Success Criteria**
 
@@ -432,3 +521,10 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 - No mocked API routes used in any test
 
 See `docs/implementation/TESTING_STRATEGY.md` for the full testing layer breakdown.
+
+---
+
+## 🔮 Future (Infrastructure & Polish)
+
+- Deployment pipeline — CI/CD
+- Advanced scaling — Kubernetes, Redis, multi-region

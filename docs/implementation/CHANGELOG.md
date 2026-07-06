@@ -35,6 +35,37 @@ All notable changes to the Sentience IoT Platform.
 
 ---
 
+## v1.5.1 — 2026-07-06 (Planned)
+
+### Roadmap Reprioritization
+
+**Changed**
+
+- **Roadmap updated** — v1.6.0 (Full-Stack E2E) is now blocked by four new functional milestones. Rationale: E2E tests would confirm missing features, not test real ones.
+
+**Added**
+
+- **v1.5.1 — Complete Core Entity Management** — Estates and Sites CRUD, removing all hardcoded business entity mock data.
+- **v1.5.2 — Device Diagnostics** — Backend diagnostics API, real Run actions, diagnostic history.
+- **v1.5.3 — Account Management** — Forgot password, MFA verification, profile persistence.
+- **v1.5.4 — Platform Administration** — Dashboard summary API, admin stats, Platform Health, settings wiring.
+
+**Documented**
+
+- `docs/release/FUNCTIONAL_READINESS_AUDIT.md` — Full audit of all 24 routes. 14 production-ready, 4 partially functional, 3 mock-data, 2 placeholder.
+
+**Known Issues**
+
+- Dashboard falls back to mock data when simulator is not running
+- Estates and Sites pages use hardcoded data — no backend API
+- Forgot Password shows success without sending email
+- MFA page accepts any 6-digit code
+- Profile changes are not persisted to the backend
+- Settings: Tenant and Notification tabs are UI-only
+- Platform Health: 4 of 5 services have hardcoded status
+
+---
+
 ## v1.4.0 — 2026-07-05
 
 ### Replace Mock Data With Real Backend

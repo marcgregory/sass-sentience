@@ -39,6 +39,7 @@ From this point onward:
 2. **Do not add new infrastructure** unless it is strictly required by the current sprint's user stories.
 3. **Prefer completing vertical slices** over expanding the platform horizontally. A working device detail page with real telemetry is worth more than three stub pages.
 4. **Every sprint should result in a demo.** If a stakeholder can't see the change, it may not be the right change.
+5. **Close functional gaps before adding tests or infrastructure.** The Functional Readiness Audit (`docs/release/FUNCTIONAL_READINESS_AUDIT.md`) identified pages that still use mock data, placeholders, or non-functional buttons. These must be addressed before full-stack E2E validation.
 
 ## Sprint Discipline
 
@@ -48,19 +49,22 @@ Only one sprint may be active at a time. See `docs/implementation/BUILD_PLAN.md`
 
 ## Current Phase
 
-**v1.0.0 — General Availability** ✅ Released 2026-07-05
+**v1.5.x — Product Completion** (2026-07-06)
 
-All 7 sprints, 6 RC3 phases, RC4 stabilization, and RC5 notification pipeline delivered. See `docs/implementation/RELEASE_PLAN.md` for the full release decision.
+The platform is functionally complete for core domains (devices, telemetry, alerts, events, reports, users, roles) but has remaining functional gaps in business entities (estates, sites), diagnostics, authentication flows, and platform administration. These are being closed before full-stack E2E validation.
 
-| Phase | Focus | Status |
-|-------|-------|--------|
-| **Sprints 1-7** | All product sprints | ✅ Delivered |
-| **RC3 Phases 1-6** | Application Audit through Release Readiness | ✅ Delivered |
-| **RC4** | Simulator lifecycle, live notifications, security, a11y | ✅ Delivered |
-| **RC5** | Bridge listener, notification pipeline, estate UUID fix | ✅ Delivered |
-| **v1.0.0 GA** | Production release tag | ✅ Released |
+See `docs/implementation/ROADMAP.md` for milestone tracking.
 
-### Key Achievements
+| Milestone | Focus | Status |
+|-----------|-------|--------|
+| **v1.5.0** | Playwright UI Regression Suite | ✅ Delivered |
+| **v1.5.1** | Core Entity Management (Estates, Sites CRUD) | ⏳ Next |
+| **v1.5.2** | Device Diagnostics | ⏳ Next |
+| **v1.5.3** | Account Management (Forgot Password, MFA, Profile) | ⏳ Next |
+| **v1.5.4** | Platform Administration (Dashboard, Health, Settings) | ⏳ Next |
+| **v1.6.0** | Full-Stack End-to-End Validation | ⏳ Blocked |
+
+### Key Achievements (v1.0 through v1.5.0)
 
 - **Real authentication** — Frontend login calls `POST /api/auth/login`, receives JWT, stores in Zustand (persisted). `api-client.ts` injects `Authorization: Bearer <token>`.
 - **Socket.IO authentication** — JWT verified during handshake, reconnects on login/logout.
@@ -72,6 +76,7 @@ All 7 sprints, 6 RC3 phases, RC4 stabilization, and RC5 notification pipeline de
 - **Unread count sync** — Bell badge and notifications page return consistent unread counts in a single API round-trip.
 - **Performance** — Dashboard JS 123 kB, shared JS 102 kB.
 - **Security** — 18 issues triaged, 8 fixed, 10 documented as debt.
+- **Playwright test suite** — 38 tests across 7 spec files covering auth, RBAC, notifications, API keys, notification rules, reports, audit log.
 
 ---
 
