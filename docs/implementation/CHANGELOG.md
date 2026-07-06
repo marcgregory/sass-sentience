@@ -35,34 +35,39 @@ All notable changes to the Sentience IoT Platform.
 
 ---
 
-## v1.5.1 — 2026-07-06 (Planned)
+## v1.5.1 — 2026-07-06
 
-### Roadmap Reprioritization
+### Core Entity Management — Estates & Sites
 
-**Changed**
-
-- **Roadmap updated** — v1.6.0 (Full-Stack E2E) is now blocked by four new functional milestones. Rationale: E2E tests would confirm missing features, not test real ones.
+The Functional Readiness Audit identified Estates and Sites as using hardcoded data. This milestone replaces both with real backend APIs.
 
 **Added**
 
-- **v1.5.1 — Complete Core Entity Management** — Estates and Sites CRUD, removing all hardcoded business entity mock data.
-- **v1.5.2 — Device Diagnostics** — Backend diagnostics API, real Run actions, diagnostic history.
-- **v1.5.3 — Account Management** — Forgot password, MFA verification, profile persistence.
-- **v1.5.4 — Platform Administration** — Dashboard summary API, admin stats, Platform Health, settings wiring.
+- **`GET /api/estates`** — Paginated estate list with search (name, address, region, city), sorting, and customer data isolation.
+- **`GET /api/estates/:id`** — Single estate detail with customer scope check.
+- **`POST /api/estates`** — Create estate with full Zod validation (admin only).
+- **`PATCH /api/estates/:id`** — Update estate fields (admin only).
+- **`DELETE /api/estates/:id`** — Delete estate with 409 protection if sites exist (admin only).
+- **`GET /api/sites`** — Paginated site list with estate filter, search, sorting, customer isolation, estate name join.
+- **`GET /api/sites/:id`** — Single site detail with estate name and customer scope check.
+- **`POST /api/sites`** — Create site with automatic parent estate `siteCount` update (admin only).
+- **`PATCH /api/sites/:id`** — Update site fields (admin only).
+- **`DELETE /api/sites/:id`** — Delete site with device protection and estate `siteCount` sync (admin only).
+- **Frontend: Estates page** — Rewritten. Uses `useEstates()` hook. Search input. Loading skeletons, error state with retry, EmptyState. "Add Estate" dialog with 7-field form. Delete confirmation dialog with 409 error handling. Admin-gated actions.
+- **Frontend: Sites page** — Rewritten. Uses `useSites()` hook. Estate filter dropdown, search input. Loading skeletons, error state with retry, EmptyState. "Add Site" dialog with estate selector and building/floor/room counts. Delete confirmation dialog. Admin-gated actions.
 
-**Documented**
+**Files created:** 6 (`apps/api/src/routes/estates.ts`, `sites.ts`, `apps/web/src/lib/estates.ts`, `sites.ts`, `hooks/use-estates.ts`, `use-sites.ts`)
 
-- `docs/release/FUNCTIONAL_READINESS_AUDIT.md` — Full audit of all 24 routes. 14 production-ready, 4 partially functional, 3 mock-data, 2 placeholder.
+**Build**
 
-**Known Issues**
+- pnpm lint: ✅ Zero errors across 9 packages
+- pnpm build: ✅ 30/30 pages, shared JS 103 kB
 
-- Dashboard falls back to mock data when simulator is not running
-- Estates and Sites pages use hardcoded data — no backend API
-- Forgot Password shows success without sending email
-- MFA page accepts any 6-digit code
-- Profile changes are not persisted to the backend
-- Settings: Tenant and Notification tabs are UI-only
-- Platform Health: 4 of 5 services have hardcoded status
+### Updated Documents
+
+- `FUNCTIONAL_READINESS_AUDIT.md` — Updated milestone status table (v1.5.1 → Complete)
+- `API_COVERAGE.md` — Estates/Sites updated to ✅✅✅ across all layers
+- `TECHNICAL_DEBT.md` — Removed Estates/Sites from mock data debt list
 
 ---
 

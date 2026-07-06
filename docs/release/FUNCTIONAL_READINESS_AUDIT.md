@@ -8,7 +8,7 @@
 
 | Milestone | Status | Notes |
 |-----------|--------|-------|
-| v1.5.1 — Core Entity Management | ⬜ Not Started | Estates + Sites CRUD |
+| v1.5.1 — Core Entity Management | ✅ Complete | Estates + Sites CRUD (2026-07-06) |
 | v1.5.2 — Device Diagnostics | ⬜ Not Started | Replace placeholder tools |
 | v1.5.3 — Account Management | ⬜ Not Started | Forgot Password, MFA, Profile persistence |
 | v1.5.4 — Platform Administration | ⬜ Not Started | Dashboard API, Health, Settings wiring |

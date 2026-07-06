@@ -39,12 +39,12 @@ The device detail page (`/devices/[id]`) now loads firmware, I/O, diagnostics, a
 
 **Resolution:** Resolved in RC2 frontend integration.
 
-### 3 pages still use mock data (Estates, Sites, Diagnostics)
-Estates (`/estates`), Sites (`/sites`), and Diagnostics (`/diagnostics`) use hardcoded data arrays. No backend API endpoints exist for these domains yet. See `docs/release/FUNCTIONAL_READINESS_AUDIT.md`.
+### 1 page still uses mock data (Diagnostics)
+Estates (`/estates`) and Sites (`/sites`) were resolved in v1.5.1. Diagnostics (`/diagnostics`) still uses hardcoded data. See `docs/release/FUNCTIONAL_READINESS_AUDIT.md`.
 
-**Impact:** These pages do not reflect real system state. No CRUD operations possible on estates or sites.
+**Impact:** The diagnostics page does not reflect real device health.
 
-**Resolution:** Planned as v1.5.1 (Estates + Sites) and v1.5.2 (Diagnostics).
+**Resolution:** Planned as v1.5.2.
 
 ---
 
@@ -201,14 +201,7 @@ Reserved for shared UI components but currently unused. All UI components live i
 
 ## Functional Gaps (Audit Findings)
 
-The Functional Readiness Audit (`docs/release/FUNCTIONAL_READINESS_AUDIT.md`) identified the following user-facing gaps. These are tracked as roadmap milestones v1.5.1–v1.5.4.
-
-### Estates and Sites use hardcoded data
-`/estates` and `/sites` pages define data as hardcoded arrays. No backend API endpoints exist. Add Estate/Site buttons have no onClick handlers.
-
-**Impact:** Users cannot create, view, or manage estates or sites. All data is static.
-
-**Resolution:** v1.5.1 — Create `GET/POST/PATCH/DELETE /api/estates` and `/api/sites` endpoints. Wire frontend pages with `useEstates()`/`useSites()` hooks.
+The Functional Readiness Audit (`docs/release/FUNCTIONAL_READINESS_AUDIT.md`) identified the following user-facing gaps. These are tracked as roadmap milestones v1.5.2–v1.5.4.
 
 ### Diagnostics page is entirely placeholders
 All 6 diagnostic tools (Ping, Connection, MQTT, Signal, Battery, Firmware) are decorative cards. Run buttons do nothing. Recent diagnostics list is hardcoded. No loading/error states.

@@ -58,7 +58,7 @@ See `docs/implementation/ROADMAP.md` for milestone tracking.
 | Milestone | Focus | Status |
 |-----------|-------|--------|
 | **v1.5.0** | Playwright UI Regression Suite | ✅ Delivered |
-| **v1.5.1** | Core Entity Management (Estates, Sites CRUD) | ⏳ Next |
+| **v1.5.1** | Core Entity Management (Estates, Sites CRUD) | ✅ Delivered |
 | **v1.5.2** | Device Diagnostics | ⏳ Next |
 | **v1.5.3** | Account Management (Forgot Password, MFA, Profile) | ⏳ Next |
 | **v1.5.4** | Platform Administration (Dashboard, Health, Settings) | ⏳ Next |

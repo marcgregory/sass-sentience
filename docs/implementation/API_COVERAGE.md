@@ -51,8 +51,8 @@ The layer does not apply to this feature (e.g. CSV/PDF export has no database ta
 | MFA Verification | 🔴 | 🔴 | 🔴 | 🔴 | Any 6-digit code accepted | **v1.5.3** |
 | Password Reset | 🔴 | 🔴 | 🔴 | 🔴 | No token flow exists | **v1.5.3** |
 | **Entities** |
-| Estates | ⚠️ | 🔴 | 🔴 | 🔴 | Hardcoded array on page, no API | **v1.5.1** |
-| Sites | ⚠️ | 🔴 | 🔴 | 🔴 | Hardcoded array on page, no API | **v1.5.1** |
+| Estates | ✅ | ✅ | ✅ | 🔴 | Full CRUD via API, create dialog, delete with protection | v1.5.1 |
+| Sites | ✅ | ✅ | ✅ | 🔴 | Full CRUD via API, estate filter, delete with protection | v1.5.1 |
 | **Devices** |
 | Device List | ✅ | ✅ | ✅ | ⚠️ | Full CRUD, search, filters, pagination | v1.0.0 |
 | Device Detail | ✅ | ✅ | ✅ | 🔴 | 6 tabs, firmware, I/O, config from API | v1.0.0 |
@@ -96,9 +96,9 @@ The layer does not apply to this feature (e.g. CSV/PDF export has no database ta
 
 | Layer | Complete | Partial | Missing | N/A |
 |-------|----------|---------|---------|-----|
-| **Frontend** | 24 | 6 | 2 | 1 |
-| **Backend** | 22 | 2 | 8 | 1 |
-| **Database** | 22 | 0 | 10 | 1 |
+| **Frontend** | 26 | 6 | 0 | 1 |
+| **Backend** | 24 | 2 | 6 | 1 |
+| **Database** | 24 | 0 | 8 | 1 |
 | **Tests** | 4 | 10 | 17 | 1 |
 
 ### Gap Analysis
@@ -106,8 +106,8 @@ The layer does not apply to this feature (e.g. CSV/PDF export has no database ta
 | Pattern | Count | Features |
 |---------|-------|----------|
 | All four layers complete (✅✅✅✅) | 3 | API Keys, Notification Rules, Audit Log |
-| FE+BE+DB complete, tests partial/🔴 | 13 | Login, Device List, Device Detail, Dashboard, Alerts, Events, Reports, Users, Roles, Settings (3), Notifications |
-| FE partial, no backend | 8 | Estates, Sites, Dashboard Summary, Profile, Platform Health, Admin Overview, Tenant Settings, Notification Channels |
+| FE+BE+DB complete, tests partial/🔴 | 15 | Login, Device List, Device Detail, Dashboard, Alerts, Events, Reports, Users, Roles, Settings (3), Notifications, **Estates**, **Sites** |
+| FE partial, no backend | 6 | Dashboard Summary, Profile, Platform Health, Admin Overview, Tenant/Notification Settings |
 | Nothing implemented (🔴🔴🔴🔴) | 5 | Forgot Password, MFA, Password Reset, Diagnostics, Schedule Reports |
 
 ---
@@ -116,7 +116,7 @@ The layer does not apply to this feature (e.g. CSV/PDF export has no database ta
 
 Milestones are sequenced by product impact and dependency:
 
-1. **v1.5.1 — Core Entity Management** — Estates, Sites (2 features, frontend partial, no backend)
+1. **v1.5.1 — Core Entity Management** — Estates, Sites ✅ **Complete** (2026-07-06)
 2. **v1.5.2 — Device Diagnostics** (1 feature, nothing implemented)
 3. **v1.5.3 — Account Management** — Forgot Password, MFA, Password Reset, Profile (4 features, 3 with nothing)
 4. **v1.5.4 — Platform Administration** — Dashboard Summary, Platform Health, Admin Overview, Tenant/Notification Settings, Schedule Reports (6 partial features)

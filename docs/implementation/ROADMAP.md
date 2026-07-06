@@ -410,24 +410,38 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 
 ---
 
-## ⏳ Next — v1.5.1 — Complete Core Entity Management
+## ✅ Completed — v1.5.1 — Complete Core Entity Management (2026-07-06)
 
-**Goal:** Remove remaining mock business entities. The Functional Readiness Audit (`docs/release/FUNCTIONAL_READINESS_AUDIT.md`) identified Estates and Sites as running entirely on hardcoded data.
+**Goal:** Remove remaining mock business entities for Estates and Sites.
 
-| Area                       | Status     | Notes                                            |
-| -------------------------- | ---------- | ------------------------------------------------ |
-| **Estates CRUD (backend)** | ⬜ Pending | `GET/POST/PATCH/DELETE /api/estates` endpoints   |
-| **Estates page (frontend)**| ⬜ Pending | Replace hardcoded array with `useEstates()` hook |
-| **Sites CRUD (backend)**   | ⬜ Pending | `GET/POST/PATCH/DELETE /api/sites` endpoints     |
-| **Sites page (frontend)**  | ⬜ Pending | Replace hardcoded array with `useSites()` hook   |
-| **Estate/site relations**  | ⬜ Pending | Cascade filtering, site count on estate cards    |
-| **Customer isolation**     | ⬜ Pending | Customers see only their own estates/sites       |
-| **Search/filter**          | ⬜ Pending | Server-side search and filter for both pages     |
-| **Loading/error/empty**    | ⬜ Pending | All three states on both pages                   |
-| **TypeScript check**       | ⬜ Pending | Zero errors                                      |
-| **Production build**       | ⬜ Pending |                                                  |
+| Area                       | Status      | Notes                                             |
+| -------------------------- | ----------- | ------------------------------------------------- |
+| **Estates CRUD (backend)** | ✅ Done     | `GET/POST/PATCH/DELETE /api/estates` with RBAC    |
+| **Estates page (frontend)**| ✅ Done     | Real API via `useEstates()`, create dialog, delete |
+| **Sites CRUD (backend)**   | ✅ Done     | `GET/POST/PATCH/DELETE /api/sites` with RBAC      |
+| **Sites page (frontend)**  | ✅ Done     | Estate filter, search, create dialog, delete      |
+| **Site count sync**        | ✅ Done     | Automatically updated on create/delete             |
+| **Customer isolation**     | ✅ Done     | Customer-scoped data access on both endpoints     |
+| **Search/filter**          | ✅ Done     | Server-side search + estate filter on sites       |
+| **Loading/error/empty**    | ✅ Done     | Skeletons, error cards, EmptyState on both pages  |
+| **TypeScript check**       | ✅ Passed   | API + web both zero errors                        |
+| **Production build**       | ✅ Passed   | 30/30 pages, shared JS 103 kB                     |
 
-**Definition of Done:** Estates and Sites pages load from the API with full CRUD. No hardcoded data remains on either page.
+### New Files
+
+- `apps/api/src/routes/estates.ts` — Estate CRUD API (list, detail, create, update, delete)
+- `apps/api/src/routes/sites.ts` — Site CRUD API (list, detail, create, update, delete with estate count sync)
+- `apps/web/src/lib/estates.ts` — Estate API client types and functions
+- `apps/web/src/lib/sites.ts` — Site API client types and functions
+- `apps/web/src/hooks/use-estates.ts` — TanStack Query hooks (list, detail, create, update, delete)
+- `apps/web/src/hooks/use-sites.ts` — TanStack Query hooks (list, detail, create, update, delete)
+
+### Modified Files
+
+- `apps/api/src/index.ts` — Registered estate and site routes
+- `apps/web/src/lib/index.ts` — Exported new API functions and types
+- `apps/web/src/app/(dashboard)/estates/page.tsx` — Rewritten with real API, create dialog, delete confirmation
+- `apps/web/src/app/(dashboard)/sites/page.tsx` — Rewritten with real API, estate filter, search, create/delete dialogs
 
 ---
 

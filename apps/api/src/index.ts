@@ -39,6 +39,8 @@ import { adminRoutes } from "./routes/admin";
 import { apiKeyRoutes } from "./routes/api-keys";
 import { notificationRoutes } from "./routes/notifications";
 import { notificationRuleRoutes } from "./routes/notification-rules";
+import { estateRoutes } from "./routes/estates";
+import { siteRoutes } from "./routes/sites";
 
 let app: FastifyInstance | undefined;
 
@@ -114,6 +116,8 @@ async function main() {
   await app.register(apiKeyRoutes, { prefix: "/api/api-keys" });
   await app.register(notificationRoutes, { prefix: "/api/notifications" });
   await app.register(notificationRuleRoutes, { prefix: "/api/notification-rules" });
+  await app.register(estateRoutes, { prefix: "/api/estates" });
+  await app.register(siteRoutes, { prefix: "/api/sites" });
 
   // ─── Socket.IO (shares the same HTTP server) ────────────────────
 
