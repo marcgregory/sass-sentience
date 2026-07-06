@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, Suspense } from "react";
+import { useState, useCallback, useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +18,13 @@ import { Loader2 as Spinner } from "lucide-react";
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get("token");
+
+  // Always read token fresh from URL — never cache it in a ref or state.
+  // The `searchParams` object is stable within a route segment, but URL
+  // edits before submit must use the current URL value, not a closure
+  // captured at render time. Using a ref avoids the stale-URL bug.
+  const tokenRef = useRef<string | null>(null);
+  tokenRef.current = searchParams.get("token");
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -28,12 +34,23 @@ function ResetPasswordForm() {
 
   const resetMutation = useResetPassword();
 
+  // Reset form state when the URL token actually changes (back/forward nav)
+  useEffect(() => {
+    setSuccess(false);
+    setLocalError(null);
+  }, [searchParams.get("token")]);
+
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
       setLocalError(null);
 
-      if (!token) {
+      // Read token from ref at SUBMIT TIME — not from a closure captured
+      // during render. This ensures URL-bar edits made without pressing
+      // Enter (which don't cause a React re-render) are picked up.
+      const currentToken = tokenRef.current;
+
+      if (!currentToken) {
         setLocalError("Invalid or missing reset token.");
         return;
       }
@@ -49,7 +66,7 @@ function ResetPasswordForm() {
       }
 
       resetMutation.mutate(
-        { token, password },
+        { token: currentToken, password },
         {
           onSuccess: () => {
             setSuccess(true);
@@ -62,10 +79,11 @@ function ResetPasswordForm() {
         },
       );
     },
-    [token, password, confirmPassword, resetMutation],
+    [password, confirmPassword, resetMutation],
   );
 
   // No token in URL
+  const token = searchParams.get("token");
   if (!token && !success) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4 dark:from-slate-950 dark:to-slate-900">
