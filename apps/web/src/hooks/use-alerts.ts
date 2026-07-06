@@ -28,6 +28,8 @@ export interface AlertDisplayRow {
   severity: "critical" | "warning" | "info";
   status: "open" | "acknowledged" | "resolved";
   category: string;
+  /** True when this alert originated from the MQTT simulator and is not persisted in the database. */
+  isSimulated?: boolean;
   deviceId?: string;
   deviceName?: string;
   serial?: string;
@@ -87,6 +89,7 @@ function mapLiveAlertToRow(e: LiveAlertEntry): AlertDisplayRow {
     severity: e.severity,
     status: e.status,
     category: e.category,
+    isSimulated: e.isSimulated,
     deviceId: e.deviceId,
     deviceName: e.deviceName,
     serial: e.serial,
@@ -216,15 +219,28 @@ export function useAlert(id: string) {
 
 /**
  * Acknowledge an alert — sets status to "acknowledged".
- * Updates both the backend API and the live Zustand store for instant UI feedback.
+ *
+ * For **simulated alerts** (isSimulated === true), the update is applied
+ * only to the local Zustand store — no API call is made, because
+ * simulated alerts don't exist in the database.
+ *
+ * For **real alerts**, the mutation calls PATCH /api/alerts/:id
+ * with optimistic updates via the live store.
  */
 export function useAcknowledgeAlert() {
   const queryClient = useQueryClient();
   const storeAck = useLiveAlertStore((s) => s.acknowledgeAlert);
 
   return useMutation({
-    mutationFn: ({ id, by }: { id: string; by?: string }) =>
-      updateAlert(id, { status: "acknowledged", acknowledgedBy: by }),
+    mutationFn: ({ id, by, isSimulated }: { id: string; by?: string; isSimulated?: boolean }) => {
+      // Simulated alerts: update local store only — no API call
+      if (isSimulated) {
+        storeAck(id, by);
+        // Return a resolved promise so TanStack Query doesn't wait on an API call
+        return Promise.resolve({ id, simulated: true } as any);
+      }
+      return updateAlert(id, { status: "acknowledged", acknowledgedBy: by });
+    },
     onMutate: async ({ id, by }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.alerts.all });
@@ -251,15 +267,27 @@ export function useAcknowledgeAlert() {
 
 /**
  * Resolve an alert — sets status to "resolved".
- * Updates both the backend API and the live Zustand store for instant UI feedback.
+ *
+ * For **simulated alerts** (isSimulated === true), the update is applied
+ * only to the local Zustand store — no API call is made, because
+ * simulated alerts don't exist in the database.
+ *
+ * For **real alerts**, the mutation calls PATCH /api/alerts/:id
+ * with optimistic updates via the live store.
  */
 export function useResolveAlert() {
   const queryClient = useQueryClient();
   const storeResolve = useLiveAlertStore((s) => s.resolveAlert);
 
   return useMutation({
-    mutationFn: ({ id, by, resolution }: { id: string; by?: string; resolution?: string }) =>
-      updateAlert(id, { status: "resolved", resolvedBy: by, resolution }),
+    mutationFn: ({ id, by, resolution, isSimulated }: { id: string; by?: string; resolution?: string; isSimulated?: boolean }) => {
+      // Simulated alerts: update local store only — no API call
+      if (isSimulated) {
+        storeResolve(id, by, resolution);
+        return Promise.resolve({ id, simulated: true } as any);
+      }
+      return updateAlert(id, { status: "resolved", resolvedBy: by, resolution });
+    },
     onMutate: async ({ id, by, resolution }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.alerts.all });

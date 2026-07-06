@@ -12,6 +12,7 @@
  *   sentience/devices/{deviceId}/events      →  event:new
  */
 
+import crypto from "node:crypto";
 import type { DeviceStatusValue } from "./socket-server";
 
 // ─── Incoming MQTT Payload (flat, from simulator) ──────────────────
@@ -312,7 +313,7 @@ export function toAlertEvent(
   };
 
   return {
-    alertId: `alert-${deviceId}-${eventType}-${Date.now()}`,
+    alertId: crypto.randomUUID(),
     title: titles[eventType] ?? `${deviceName}: ${eventType}`,
     description: descriptions[eventType] ?? `Event: ${eventType} for ${deviceName}.`,
     severity,

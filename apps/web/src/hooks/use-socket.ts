@@ -228,7 +228,10 @@ export function useSocket(options: UseSocketOptions = {}): void {
     // instant UI rendering of alerts without TanStack Query refetch.
 
     const alertCreatedHandler = (payload: AlertEvent) => {
-      useLiveAlertStore.getState().addAlert(payload);
+      useLiveAlertStore.getState().addAlert({
+        ...payload,
+        isSimulated: payload.isSimulated,
+      });
 
       // Simulated alerts must also appear as in-memory notifications on
       // the /notifications page. Since simulated alerts skip DB persistence,

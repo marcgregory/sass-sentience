@@ -171,6 +171,12 @@ function AlertDetailSheet({
               <span className={cn("inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold", statusBgStyles[alert.status])}>
                 {alert.status}
               </span>
+              {alert.isSimulated && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  <Cpu className="h-3 w-3" />
+                  Simulated
+                </Badge>
+              )}
             </div>
           </div>
 
@@ -535,6 +541,12 @@ export default function AlertsPage() {
                     <span className="text-xs text-muted-foreground capitalize">
                       {alert.category.replace(/_/g, " ")}
                     </span>
+                    {alert.isSimulated && (
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 flex items-center gap-1">
+                        <Cpu className="h-2.5 w-2.5" />
+                        Simulated
+                      </Badge>
+                    )}
                   </div>
                   <p className="font-medium truncate">{alert.title}</p>
                   <p className="text-sm text-muted-foreground mt-0.5">
@@ -549,7 +561,7 @@ export default function AlertsPage() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => acknowledgeMutation.mutate({ id: alert.id })}
+                      onClick={() => acknowledgeMutation.mutate({ id: alert.id, isSimulated: alert.isSimulated })}
                       title="Acknowledge"
                     >
                       <CheckCircle className="h-4 w-4" />
@@ -560,7 +572,7 @@ export default function AlertsPage() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => resolveMutation.mutate({ id: alert.id })}
+                      onClick={() => resolveMutation.mutate({ id: alert.id, isSimulated: alert.isSimulated })}
                       title="Resolve"
                     >
                       <XCircle className="h-4 w-4" />
@@ -584,10 +596,10 @@ export default function AlertsPage() {
           canManageAlerts={canManageAlerts}
           onClose={() => setSelectedAlertId(null)}
           onAcknowledge={(id) => {
-            acknowledgeMutation.mutate({ id });
+            acknowledgeMutation.mutate({ id, isSimulated: selectedAlert?.isSimulated });
           }}
           onResolve={(id) => {
-            resolveMutation.mutate({ id });
+            resolveMutation.mutate({ id, isSimulated: selectedAlert?.isSimulated });
           }}
         />
       )}

@@ -22,6 +22,8 @@ export interface LiveAlertEntry {
   severity: AlertSeverity;
   status: AlertStatus;
   category: AlertCategory;
+  /** True when this alert originated from the MQTT simulator and is not persisted in the database. */
+  isSimulated?: boolean;
   deviceId?: string;
   deviceName?: string;
   serial?: string;
@@ -83,6 +85,7 @@ interface LiveAlertState {
     estateId?: string;
     estateName?: string;
     timestamp: string;
+    isSimulated?: boolean;
   }) => void;
 
   updateAlertStatus: (
@@ -146,6 +149,7 @@ export const useLiveAlertStore = create<LiveAlertState>()((set) => ({
         severity,
         status: "open",
         category,
+        isSimulated: payload.isSimulated,
         deviceId: payload.deviceId,
         deviceName: payload.deviceName,
         serial: payload.serial,
