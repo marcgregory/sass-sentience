@@ -116,13 +116,6 @@ export async function diagnosticRoutes(app: FastifyInstance) {
 
     const conditions: SQL[] = [eq(diagnosticTests.enabled, true)];
 
-    if (query.deviceType) {
-      // Filter tests that support this device type
-      conditions.push(
-        z.string().parse(query.deviceType) as unknown as SQL,
-      );
-    }
-
     const tests = await db
       .select()
       .from(diagnosticTests)
