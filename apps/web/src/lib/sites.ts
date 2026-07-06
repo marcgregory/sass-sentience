@@ -83,14 +83,14 @@ export async function getSite(
 export async function createSite(
   payload: CreateSitePayload,
 ): Promise<SiteApiItem> {
-  return post<SiteApiItem>("/sites", { body: JSON.stringify(payload) });
+  return post<SiteApiItem>("/sites", payload);
 }
 
 export async function updateSite(
   id: string,
   payload: UpdateSitePayload,
 ): Promise<SiteApiItem> {
-  return patch<SiteApiItem>(`/sites/${id}`, { body: JSON.stringify(payload) });
+  return patch<SiteApiItem>(`/sites/${id}`, payload);
 }
 
 export async function deleteSite(

@@ -91,14 +91,14 @@ export async function getEstate(
 export async function createEstate(
   payload: CreateEstatePayload,
 ): Promise<EstateApiItem> {
-  return post<EstateApiItem>("/estates", { body: JSON.stringify(payload) });
+  return post<EstateApiItem>("/estates", payload);
 }
 
 export async function updateEstate(
   id: string,
   payload: UpdateEstatePayload,
 ): Promise<EstateApiItem> {
-  return patch<EstateApiItem>(`/estates/${id}`, { body: JSON.stringify(payload) });
+  return patch<EstateApiItem>(`/estates/${id}`, payload);
 }
 
 export async function deleteEstate(

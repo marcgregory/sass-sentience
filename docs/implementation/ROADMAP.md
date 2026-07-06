@@ -423,14 +423,15 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 | **Site count sync**        | ✅ Done     | Automatically updated on create/delete             |
 | **Customer isolation**     | ✅ Done     | Customer-scoped data access on both endpoints     |
 | **Search/filter**          | ✅ Done     | Server-side search + estate filter on sites       |
+| **Referential integrity**  | ✅ Done     | 409 with count-based message on estate/site delete |
 | **Loading/error/empty**    | ✅ Done     | Skeletons, error cards, EmptyState on both pages  |
 | **TypeScript check**       | ✅ Passed   | API + web both zero errors                        |
 | **Production build**       | ✅ Passed   | 30/30 pages, shared JS 103 kB                     |
 
 ### New Files
 
-- `apps/api/src/routes/estates.ts` — Estate CRUD API (list, detail, create, update, delete)
-- `apps/api/src/routes/sites.ts` — Site CRUD API (list, detail, create, update, delete with estate count sync)
+- `apps/api/src/routes/estates.ts` — Estate CRUD API (list, detail, create, update, delete with 409 for sites)
+- `apps/api/src/routes/sites.ts` — Site CRUD API (list, detail, create, update, delete with 409 for devices)
 - `apps/web/src/lib/estates.ts` — Estate API client types and functions
 - `apps/web/src/lib/sites.ts` — Site API client types and functions
 - `apps/web/src/hooks/use-estates.ts` — TanStack Query hooks (list, detail, create, update, delete)
@@ -440,20 +441,23 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 
 - `apps/api/src/index.ts` — Registered estate and site routes
 - `apps/web/src/lib/index.ts` — Exported new API functions and types
-- `apps/web/src/app/(dashboard)/estates/page.tsx` — Rewritten with real API, create dialog, delete confirmation
-- `apps/web/src/app/(dashboard)/sites/page.tsx` — Rewritten with real API, estate filter, search, create/delete dialogs
+- `apps/web/src/app/(dashboard)/estates/page.tsx` — Rewritten with real API, create dialog, delete confirmation with error display
+- `apps/web/src/app/(dashboard)/sites/page.tsx` — Rewritten with real API, estate filter, search, create/delete dialogs with error display
 
 ---
 
-## ⏳ Next — v1.5.2 — Device Diagnostics
+## ⏳ In Progress — v1.5.2 — Device Diagnostics
 
-**Goal:** Replace the hardcoded diagnostics placeholder with real API-backed functionality.
+**Goal:** Replace the hardcoded diagnostics placeholder with an extensible test-based system.
+
+**Design approach:** Diagnostics are modeled as entities (`DiagnosticTest` with `type`, `supportedDeviceTypes`, `timeout`, `resultSchema`), not hardcoded per-device buttons. The UI renders whatever tests the backend reports for a given device type. See `docs/adr/diagnostics-extensible-design.md`.
 
 | Area                            | Status     | Notes                                               |
 | ------------------------------- | ---------- | --------------------------------------------------- |
-| **Diagnostics API (backend)**   | ⬜ Pending | `GET /api/diagnostics`, `POST /api/diagnostics/run` |
-| **Diagnostics page (frontend)** | ⬜ Pending | Replace all hardcoded data with API calls           |
-| **Run diagnostic action**       | ⬜ Pending | Wire Run buttons to real API mutations              |
+| **DiagnosticTest type**         | ⬜ Pending | `DiagnosticTest`, `DiagnosticResult` in @sentience/types |
+| **Diagnostics API (backend)**   | ⬜ Pending | `GET /api/diagnostics` (list), `POST /api/diagnostics/run` |
+| **Diagnostics page (frontend)** | ⬜ Pending | Dynamic test rendering from API response            |
+| **Run diagnostic mutation**     | ⬜ Pending | Wire Run buttons to real API mutations              |
 | **Store diagnostic results**    | ⬜ Pending | Persist results in PostgreSQL                       |
 | **Diagnostic history**          | ⬜ Pending | View past results across devices                    |
 | **Device health integration**   | ⬜ Pending | Show latest diagnostic status on device detail      |
@@ -461,7 +465,7 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 | **TypeScript check**            | ⬜ Pending | Zero errors                                         |
 | **Production build**            | ⬜ Pending |                                                     |
 
-**Definition of Done:** All 6 diagnostic tools functional with real API. Run buttons execute backend diagnostics. Results persist and display.
+**Definition of Done:** Diagnostics are test-entity driven, not hardcoded. Run buttons execute backend diagnostics. Results persist and display. Any device type can expose its own set of tests without frontend changes.
 
 ---
 
