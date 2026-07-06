@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "diag_tests_name_idx" ON "diagnostic_tests" USING btree ("name");

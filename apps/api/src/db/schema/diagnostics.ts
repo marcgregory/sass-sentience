@@ -8,6 +8,7 @@ import {
   jsonb,
   timestamp,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { devices } from "./devices";
 
@@ -57,6 +58,7 @@ export const diagnosticTests = pgTable(
   (table) => ({
     typeIdx: index("diag_tests_type_idx").on(table.type),
     enabledIdx: index("diag_tests_enabled_idx").on(table.enabled),
+    nameIdx: uniqueIndex("diag_tests_name_idx").on(table.name),
   }),
 );
 
