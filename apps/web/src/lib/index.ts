@@ -94,3 +94,11 @@ export type {
 } from "./sites";
 export { getCustomers } from "./customers";
 export type { CustomerApiItem, CustomerListResponse } from "./customers";
+export {
+  getDiagnosticTests,
+  getDiagnosticTest,
+  runDiagnostic,
+  getDiagnosticResults,
+  getDiagnosticResult,
+} from "./diagnostics";
+export type { DiagnosticResultApiItem } from "./diagnostics";

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -7,105 +8,478 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Stethoscope, Play, CheckCircle2, XCircle, AlertCircle, Monitor, Activity } from "lucide-react";
+import {
+  Stethoscope,
+  Play,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Monitor,
+  Wifi,
+  Radio,
+  Battery,
+  Cpu,
+  Cable,
+  Activity,
+  Search,
+  FileText,
+  Loader2,
+} from "lucide-react";
+import { useDiagnosticTests, useRunDiagnostic, useDiagnosticResults } from "@/hooks/use-diagnostics";
+import { useDevices } from "@/hooks/use-devices";
+import { useAuthStore } from "@/stores/auth-store";
+import { useNotificationStore } from "@/stores/notification-store";
+import type { SimulatedNotification } from "@/stores/notification-store";
+import type { DiagnosticTest, DiagnosticTestType, DeviceType } from "@sentience/types";
 
-const recentDiagnostics = [
-  { id: "DG-001", device: "Gate Controller A3", type: "Ping", status: "passed", time: "5 min ago", ranBy: "System" },
-  { id: "DG-002", device: "Gateway 4", type: "Connection", status: "passed", time: "15 min ago", ranBy: "Installer: John" },
-  { id: "DG-003", device: "Sensor B7", type: "MQTT", status: "passed", time: "22 min ago", ranBy: "System" },
-  { id: "DG-004", device: "Access Controller A1", type: "Ping", status: "failed", time: "1 hr ago", ranBy: "Support: Sarah" },
-  { id: "DG-005", device: "Camera NW-12", type: "Signal", status: "warning", time: "2 hr ago", ranBy: "System" },
-];
+// ─── Icon Map ─────────────────────────────────────────────────────────────
+
+const testIcons: Record<DiagnosticTestType, typeof Monitor> = {
+  ping: Monitor,
+  connection: Cable,
+  mqtt: Radio,
+  signal: Wifi,
+  battery: Battery,
+  firmware: Cpu,
+  cellular: Radio,
+  gps: Monitor,
+  stream: Activity,
+  lens: Monitor,
+  sd_card: FileText,
+  relay_coil: Cable,
+};
+
+const defaultIcon = Monitor;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  const minutes = Math.floor(ms / 60000);
+  const seconds = Math.round((ms % 60000) / 1000);
+  return `${minutes}m ${seconds}s`;
+}
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hr ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+// ─── Device Selector Component ────────────────────────────────────────────
+
+function DeviceSelector({
+  devices,
+  selected,
+  onChange,
+}: {
+  devices: { id: string; name: string; type: string }[];
+  selected: string;
+  onChange: (id: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+      <select
+        className="flex h-9 w-full max-w-xs rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        value={selected}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label="Select device"
+      >
+        <option value="">All devices</option>
+        {devices.map((d) => (
+          <option key={d.id} value={d.id}>
+            {d.name} ({d.type})
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+// ─── Test Card ────────────────────────────────────────────────────────────
+
+function TestCard({
+  test,
+  onRun,
+  isRunning,
+}: {
+  test: DiagnosticTest;
+  onRun: () => void;
+  isRunning: boolean;
+}) {
+  const Icon = testIcons[test.type] ?? defaultIcon;
+
+  return (
+    <Card className="hover:border-primary/50 transition-colors">
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            <Icon className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <CardTitle className="text-sm truncate">{test.name}</CardTitle>
+            <CardDescription className="truncate">{test.description}</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardFooter className="pt-0">
+        <Button
+          size="sm"
+          className="w-full gap-2"
+          onClick={onRun}
+          disabled={isRunning}
+        >
+          {isRunning ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Running...
+            </>
+          ) : (
+            <>
+              <Play className="h-4 w-4" />
+              Run Diagnostic
+            </>
+          )}
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+}
+
+// ─── Result Row ───────────────────────────────────────────────────────────
+
+function ResultRow({ result }: { result: any }) {
+  const StatusIcon = result.status === "passed"
+    ? CheckCircle2
+    : result.status === "failed"
+      ? XCircle
+      : AlertCircle;
+  const iconClass = result.status === "passed"
+    ? "text-emerald-500"
+    : result.status === "failed"
+      ? "text-red-500"
+      : "text-amber-500";
+
+  return (
+    <div className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <StatusIcon className={`h-5 w-5 shrink-0 ${iconClass}`} />
+        <div className="min-w-0">
+          <p className="text-sm font-medium truncate">{result.deviceName}</p>
+          <p className="text-xs text-muted-foreground">
+            {result.testName} · {result.message}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 shrink-0 ml-4">
+        <Badge
+          variant={result.status === "passed" ? "online" : result.status === "failed" ? "fault" : "warning"}
+          className="capitalize"
+        >
+          {result.status}
+        </Badge>
+        <span className="text-xs text-muted-foreground whitespace-nowrap">
+          {timeAgo(result.completedAt)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Loading Skeleton ─────────────────────────────────────────────────────
+
+function SkeletonBlock({ className }: { className?: string }) {
+  return <div className={`animate-pulse rounded-md bg-muted ${className ?? ""}`} />;
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <SkeletonBlock className="h-6 w-48" />
+          <SkeletonBlock className="h-4 w-72" />
+        </div>
+        <SkeletonBlock className="h-9 w-36" />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Card key={i}>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <SkeletonBlock className="h-10 w-10 rounded-lg" />
+                <div className="flex-1 space-y-2">
+                  <SkeletonBlock className="h-4 w-24" />
+                  <SkeletonBlock className="h-3 w-40" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <SkeletonBlock className="h-9 w-full" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <Card>
+        <CardHeader>
+          <SkeletonBlock className="h-5 w-40" />
+          <SkeletonBlock className="h-4 w-60" />
+        </CardHeader>
+        <CardContent>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center justify-between py-3">
+              <div className="flex items-center gap-3">
+                <SkeletonBlock className="h-5 w-5 rounded-full" />
+                <div className="space-y-1">
+                  <SkeletonBlock className="h-4 w-32" />
+                  <SkeletonBlock className="h-3 w-48" />
+                </div>
+              </div>
+              <SkeletonBlock className="h-5 w-16" />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Error Card ───────────────────────────────────────────────────────────
+
+function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <PageHeader title="Device Diagnostics" description="Run and review device diagnostics across your estate" />
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <XCircle className="h-12 w-12 text-red-500 mb-4" />
+          <p className="text-lg font-medium mb-2">Failed to load diagnostics</p>
+          <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">{message}</p>
+          <Button onClick={onRetry} variant="outline">Try Again</Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────
 
 export default function DiagnosticsPage() {
+  const [selectedDeviceId, setSelectedDeviceId] = useState("");
+  const [runningTestId, setRunningTestId] = useState<string | null>(null);
+
+  const runDiagnosticMutation = useRunDiagnostic();
+  const { hasPermission } = useAuthStore();
+  const canRun = hasPermission("devices", "update");
+
+  // Fetch devices (for the selector and to determine which tests to show)
+  const {
+    devices,
+    isLoading: devicesLoading,
+    isError: devicesError,
+  } = useDevices();
+
+  // Determine selected device type (empty = all device types)
+  const selectedDevice = selectedDeviceId
+    ? devices.find((d: any) => d.id === selectedDeviceId)
+    : null;
+  const selectedDeviceType = (selectedDevice?.type?.toLowerCase() ?? "") as DeviceType | undefined;
+
+  // Fetch tests — optionally filtered by device type
+  const {
+    data: testsData,
+    isLoading: testsLoading,
+    isError: testsError,
+    refetch: refetchTests,
+  } = useDiagnosticTests(selectedDeviceType);
+
+  // Fetch results
+  const {
+    data: resultsData,
+    isLoading: resultsLoading,
+    isError: resultsError,
+  } = useDiagnosticResults(selectedDeviceId ? { deviceId: selectedDeviceId, limit: 10 } : { limit: 10 });
+
+  const availableDevices = devices;
+  const tests = testsData?.tests ?? [];
+  const results = resultsData?.data ?? [];
+
+  // ── Run handler ─────────────────────────────────────────────────────
+
+  async function handleRunTest(testId: string) {
+    if (!selectedDeviceId) {
+      useNotificationStore.getState().addSimulatedNotification({
+        id: "no-device-selected",
+        userId: "",
+        title: "Select a device",
+        message: "Please select a device before running a diagnostic.",
+        priority: "normal",
+        category: "system",
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        isSimulated: true,
+      });
+      return;
+    }
+
+    setRunningTestId(testId);
+    try {
+      const result = await runDiagnosticMutation.mutateAsync({
+        testId,
+        deviceId: selectedDeviceId,
+      });
+      useNotificationStore.getState().addSimulatedNotification({
+        id: `diag-${result.id}`,
+        userId: "",
+        title: `${result.testName} ${result.status}`,
+        message: result.message,
+        priority: result.status === "failed" ? "high" : "normal",
+        category: "system",
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        isSimulated: true,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Diagnostic failed";
+      useNotificationStore.getState().addSimulatedNotification({
+        id: `diag-error-${Date.now()}`,
+        userId: "",
+        title: "Diagnostic Error",
+        message,
+        priority: "high",
+        category: "alert",
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        isSimulated: true,
+      });
+    } finally {
+      setRunningTestId(null);
+    }
+  }
+
+  // ── Loading state ───────────────────────────────────────────────────
+
+  if (testsLoading && devicesLoading) {
+    return <LoadingSkeleton />;
+  }
+
+  // ── Error state (tests) ─────────────────────────────────────────────
+
+  if (testsError) {
+    return <ErrorCard message="Could not load diagnostic tests from the server. Please ensure the API is running." onRetry={() => refetchTests()} />;
+  }
+
+  // ── Empty state ─────────────────────────────────────────────────────
+
+  if (!testsLoading && tests.length === 0) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <PageHeader
+          title="Device Diagnostics"
+          description="Run and review device diagnostics across your estate"
+        />
+        <EmptyState
+          icon={Stethoscope}
+          title="No diagnostic tests available"
+          description="No diagnostic tests are configured for the selected device type. Tests are defined in the backend and the UI renders them automatically."
+        />
+      </div>
+    );
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Device Diagnostics"
         description="Run and review device diagnostics across your estate"
-        actions={
-          <Button>
-            <Play className="h-4 w-4" />
-            Run Diagnostic
-          </Button>
-        }
       />
 
-      {/* Diagnostic tools grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {[
-          { name: "Ping Test", desc: "ICMP connectivity check", icon: Monitor },
-          { name: "Connection Test", desc: "End-to-end connection verification", icon: Monitor },
-          { name: "MQTT Status", desc: "MQTT broker connection status", icon: Monitor },
-          { name: "Signal Test", desc: "Wireless signal strength analysis", icon: Monitor },
-          { name: "Battery Test", desc: "Battery health and charge cycle", icon: Monitor },
-          { name: "Firmware Check", desc: "Current vs latest firmware version", icon: Monitor },
-        ].map((tool) => (
-          <Card key={tool.name} className="hover:border-primary/50 transition-colors cursor-pointer">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                  <tool.icon className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <CardTitle className="text-sm">{tool.name}</CardTitle>
-                  <CardDescription>{tool.desc}</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-          </Card>
-        ))}
-      </div>
+      {/* Device selector */}
+      {devicesError ? (
+        <p className="text-sm text-red-500">Failed to load device list.</p>
+      ) : (
+        <DeviceSelector
+          devices={availableDevices}
+          selected={selectedDeviceId}
+          onChange={setSelectedDeviceId}
+        />
+      )}
 
-      {/* Recent diagnostics */}
+      {/* Diagnostic tools grid — renders dynamically from API */}
+      {tests.length > 0 && (
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground mb-3">
+            Available Tests
+            {selectedDeviceType && (
+              <span className="ml-1">for {selectedDeviceType} devices</span>
+            )}
+          </h3>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {tests.map((test: DiagnosticTest) => (
+              <TestCard
+                key={test.id}
+                test={test}
+                onRun={() => handleRunTest(test.id)}
+                isRunning={runningTestId === test.id}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent results */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Stethoscope className="h-4 w-4" />
             Recent Diagnostics
           </CardTitle>
-          <CardDescription>Latest diagnostic results across all devices</CardDescription>
+          <CardDescription>
+            Latest diagnostic results {selectedDeviceId ? "for selected device" : "across all devices"}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {recentDiagnostics.length === 0 ? (
+          {resultsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : results.length === 0 ? (
             <EmptyState
               icon={Activity}
               title="No diagnostics run yet"
-              description="Diagnostic results will appear here after the first test is run."
-              action={{ label: "Run Diagnostic", onClick: () => {} }}
+              description="Select a device and run a diagnostic test to see results here."
             />
           ) : (
-          <div className="divide-y">
-            {recentDiagnostics.map((d) => (
-              <div key={d.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                <div className="flex items-center gap-3">
-                  {d.status === "passed" ? (
-                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                  ) : d.status === "failed" ? (
-                    <XCircle className="h-5 w-5 text-red-500" />
-                  ) : (
-                    <AlertCircle className="h-5 w-5 text-amber-500" />
-                  )}
-                  <div>
-                    <p className="text-sm font-medium">{d.device}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {d.type} · Ran by {d.ranBy} · {d.time}
-                    </p>
-                  </div>
-                </div>
-                <Badge variant={d.status === "passed" ? "online" : d.status === "failed" ? "fault" : "warning"}>
-                  {d.status}
-                </Badge>
-              </div>
-            ))}
-          </div>
+            <div className="divide-y">
+              {results.map((result: any) => (
+                <ResultRow key={result.id} result={result} />
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Prompts for unselected device */}
+      {!selectedDeviceId && canRun && (
+        <div className="rounded-lg border border-dashed border-muted-foreground/25 p-4 text-center text-sm text-muted-foreground">
+          <Play className="h-4 w-4 inline-block mr-1" />
+          Select a device above, then click Run on any test to start a diagnostic.
+        </div>
+      )}
     </div>
   );
 }

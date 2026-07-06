@@ -9,7 +9,7 @@
 | Milestone | Status | Notes |
 |-----------|--------|-------|
 | v1.5.1 — Core Entity Management | ✅ Complete | Estates + Sites CRUD (2026-07-06) |
-| v1.5.2 — Device Diagnostics | ⬜ Not Started | Replace placeholder tools |
+| v1.5.2 — Device Diagnostics | ✅ Complete | Replace placeholder tools (2026-07-06) |
 | v1.5.3 — Account Management | ⬜ Not Started | Forgot Password, MFA, Profile persistence |
 | v1.5.4 — Platform Administration | ⬜ Not Started | Dashboard API, Health, Settings wiring |
 | v1.6.0 — Full-Stack E2E Validation | 🔒 Blocked | Blocked by v1.5.1–v1.5.4 |
@@ -133,42 +133,36 @@ Each page is classified into one of five statuses:
 
 **Verdict:** Production Ready (with minor UX gaps)
 
-### 🟡 Estates `/estates`
+### ✅ Estates `/estates` (v1.5.1)
 
 | Check | Result |
 |-------|--------|
-| Real API | ❌ **Hardcoded array** of 5 estates |
-| CRUD | ❌ "Add Estate" button has no onClick handler |
-| TanStack Query | ❌ No `useEstates()` hook exists |
-| Detail drawer | ❌ No click-through to estate detail |
+| Real API | ✅ `useEstates()` → TanStack Query → `GET /api/estates` with search, pagination |
+| CRUD | ✅ Create dialog (7 fields), delete with 409 error display |
+| TanStack Query | ✅ `useEstates()`, `useEstate()`, `useCreateEstate()`, `useUpdateEstate()`, `useDeleteEstate()` |
+| Search | ✅ Server-side search (name, address, region, city) |
+| Loading/Error/Empty | ✅ Skeletons, error card with retry, EmptyState |
+| RBAC | ✅ Create/update/delete gated to admin |
 | Dark mode | ✅ |
 | Responsive | ✅ |
 
-**Issues:**
-1. `const estates = [...]` — all data is hardcoded
-2. "Add Estate" button is decorative (`onClick` not even wired)
-3. Estate cards show "Alerts" count as `Math.floor(devices * 0.03)` — arbitrary calculation
-4. No loading/error/empty states
+**Verdict:** Production Ready
 
-**Fix:** Create `useEstates()` hook + `GET /api/estates`, wire to page.
-
-### 🟡 Sites `/sites`
+### ✅ Sites `/sites` (v1.5.1)
 
 | Check | Result |
 |-------|--------|
-| Real API | ❌ **Hardcoded array** of 5 sites |
-| CRUD | ❌ "Add Site" button has no onClick handler |
-| TanStack Query | ❌ No `useSites()` hook exists |
-| Detail navigation | ❌ Cards are not clickable (no router.push) |
+| Real API | ✅ `useSites()` → TanStack Query → `GET /api/sites` with estate filter, search |
+| CRUD | ✅ Create dialog (estate selector, building/floor/room counts), delete with 409 |
+| TanStack Query | ✅ `useSites()`, `useSite()`, `useCreateSite()`, `useUpdateSite()`, `useDeleteSite()` |
+| Filters | ✅ Estate filter dropdown + text search |
+| Loading/Error/Empty | ✅ Skeletons, error card with retry, EmptyState |
+| RBAC | ✅ Create/update/delete gated to admin |
+| Site count sync | ✅ Automatically updated on create/delete |
 | Dark mode | ✅ |
 | Responsive | ✅ |
 
-**Issues:**
-1. All data is hardcoded
-2. "Add Site" button is decorative
-3. No loading/error/empty states
-
-**Fix:** Create `useSites()` hook + `GET /api/sites`, wire to page.
+**Verdict:** Production Ready
 
 ### ✅ Alerts `/alerts`
 
@@ -226,25 +220,22 @@ Each page is classified into one of five statuses:
 
 **Verdict:** Production Ready (with documented placeholders for Scheduling and Recent Exports)
 
-### 🟡 Diagnostics `/diagnostics`
+### ✅ Diagnostics `/diagnostics` (v1.5.2)
 
 | Check | Result |
 |-------|--------|
-| Real API | ❌ **All data is hardcoded** |
-| Diagnostic tools | ❌ 6 tool cards with "Run Diagnostic" button — button has no handler |
-| Recent diagnostics | ❌ Hardcoded `recentDiagnostics` array |
-| Backend endpoint | ❌ No diagnostic API hooks exist |
-| Loading/Error/Empty | ❌ None |
+| Real API | ✅ `useDiagnosticTests()` + `useDiagnosticResults()` + `useRunDiagnostic()` via TanStack Query |
+| Diagnostic tools | ✅ Dynamically rendered from `GET /api/diagnostics/tests`, filtered by device type |
+| Run diagnostic | ✅ `POST /api/diagnostics/run` with loading spinner and notification feedback |
+| Recent diagnostics | ✅ Real results from `GET /api/diagnostics/results`, paginated |
+| Loading/Error/Empty | ✅ Skeleton loading, error card with retry, EmptyState for no tests/results |
+| RBAC | ✅ Run buttons gated by `devices:update` permission; backend requires admin/support |
+| Device selector | ✅ Dropdown filters tests by selected device type |
+| Notification feedback | ✅ Toast on success/failure of diagnostic run |
 | Dark mode | ✅ |
 | Responsive | ✅ |
 
-**Issues:**
-1. All 6 diagnostic tool cards (Ping, Connection, MQTT, Signal, Battery, Firmware) are decorative
-2. "Run Diagnostic" button does nothing
-3. Recent diagnostics list is completely hardcoded
-4. No loading/error states
-
-**Fix:** Create `useDiagnostics()` hook + `GET /api/diagnostics`, wire run actions to `POST /api/diagnostics/run`.
+**Verdict:** Production Ready
 
 ---
 
@@ -455,9 +446,9 @@ Redirects to `/login`. No issues.
 
 | Status | Count | Pages |
 |--------|-------|-------|
-| ✅ Production Ready | 14 | Login, Devices, Device Detail, Alerts, Events, Reports, API Keys, Notification Rules, Audit Log, Users, Roles, Notifications, Unauthorized, Root |
+| ✅ Production Ready | 17 | Login, Devices, Device Detail, Alerts, Events, Reports, Diagnostics, API Keys, Notification Rules, Audit Log, Users, Roles, Notifications, Estates, Sites, Unauthorized, Root |
 | ⚡ Partially Functional | 4 | Dashboard, Settings, Admin, Profile, Platform Health |
-| 🟡 Mock Data | 3 | Estates, Sites, Diagnostics |
+| 🟡 Mock Data | 0 | None |
 | 🔴 Placeholder | 2 | Forgot Password, MFA |
 
 ### Priority-Ordered Fix List
@@ -465,11 +456,8 @@ Redirects to `/login`. No issues.
 | Priority | Page | Issue | Est. Effort |
 |----------|------|-------|------------|
 | **P0** | Dashboard | No API endpoint for production dashboard data — falls back to mock values without simulator | 1-2 days |
-| **P0** | Estates | All mock data, no CRUD, Add button is decorative | 1-2 days |
-| **P0** | Sites | All mock data, no CRUD, Add button is decorative | 1-2 days |
 | **P0** | Forgot Password | Form submits but sends no email | 0.5 day |
 | **P0** | MFA | Any 6-digit code logs you in without verification | 0.5 day |
-| **P1** | Diagnostics | All data is hardcoded, Run buttons do nothing | 1-2 days |
 | **P1** | Profile | Name/email/password changes are local-only, never persisted | 0.5 day |
 | **P1** | Settings (Tenant tab) | All tenant/org fields are UI-only, never saved | 0.5 day |
 | **P1** | Settings (Notifications tab) | Channel toggles are visual-only | 0.25 day |
@@ -477,26 +465,24 @@ Redirects to `/login`. No issues.
 | **P2** | Admin Page | Overview stats (users, uptime, alerts) are hardcoded | 0.5 day |
 | **P2** | Reports | "Schedule Report" is coming-soon, recent exports are mock | 1-2 days |
 | **P3** | Alerts | "Previous" pagination button is permanently disabled | 0.25 day |
-| **P3** | Diagnostics | Missing loading/error states | 0.25 day |
 | **P3** | Dashboard | Wire pagination properly in devices table | 0.25 day |
 
 ### Effort Summary
 
 | Category | Est. Effort |
 |----------|------------|
-| 🔴 Critical (P0) — blocks production use | 3.5–5.5 days |
-| 🟡 High (P1) — functional gaps | 1.5–2.75 days |
+| 🔴 Critical (P0) — blocks production use | 2–3 days |
+| 🟡 High (P1) — functional gaps | 1.25 days |
 | 🟢 Medium (P2) — polish gaps | 2.5–4.5 days |
-| 🔵 Low (P3) — minor bugs | 0.75 days |
-| **Total** | **8.25–13.5 days** |
+| 🔵 Low (P3) — minor bugs | 0.5 days |
+| **Total** | **6.25–9.25 days** |
 
 ### Gating Verdict
 
 The application is **not production-ready in its current state** due to:
 
-1. **Three pages running entirely on mock data** (Estates, Sites, Diagnostics)
-2. **Core auth flows incomplete** (Forgot Password, MFA verification)
-3. **Dashboard provides no real value without simulator mode**
-4. **Four key user actions don't persist** (Profile updates, Tenant settings, Notification preferences, Backup config)
+1. **Core auth flows incomplete** (Forgot Password, MFA verification)
+2. **Dashboard provides no real value without simulator mode**
+3. **Four key user actions don't persist** (Profile updates, Tenant settings, Notification preferences, Backup config)
 
 These must be addressed before comprehensive E2E testing or v1.6.0 can begin.

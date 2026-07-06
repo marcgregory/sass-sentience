@@ -13,3 +13,4 @@ export * from "./api-keys";
 export * from "./settings";
 export * from "./notifications";
 export * from "./notification-rules";
+export * from "./diagnostics";

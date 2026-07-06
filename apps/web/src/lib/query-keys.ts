@@ -115,4 +115,13 @@ export const queryKeys = {
   health: {
     status: ["health", "status"] as const,
   },
+
+  /** Diagnostics */
+  diagnostics: {
+    all: ["diagnostics"] as const,
+    tests: (deviceType?: string) => ["diagnostics", "tests", deviceType] as const,
+    testDetail: (id: string) => ["diagnostics", "tests", id] as const,
+    results: (params?: Record<string, unknown>) => ["diagnostics", "results", params] as const,
+    resultDetail: (id: string) => ["diagnostics", "results", id] as const,
+  },
 } as const;

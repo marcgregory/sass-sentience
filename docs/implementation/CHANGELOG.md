@@ -71,6 +71,46 @@ The Functional Readiness Audit identified Estates and Sites as using hardcoded d
 
 ---
 
+## v1.5.2 — 2026-07-06
+
+### Extensible Device Diagnostics
+
+The Functional Readiness Audit identified Diagnostics as using hardcoded data. This milestone replaces the placeholder page with a test-entity-driven system where the UI renders whatever tests the backend reports for a given device type.
+
+**Design principle:** Diagnostics are modeled as entities (`DiagnosticTest` with `type`, `supportedDeviceTypes`, `timeout`, `resultSchema`), not hardcoded per-device buttons. Adding new device types or tests requires no frontend changes.
+
+**Added**
+
+- **`@sentience/types`: Diagnostic types** — `DiagnosticTest`, `DiagnosticResult`, `DiagnosticRunStatus`, `DiagnosticTestType` with 12 possible test types including extensible ones like `cellular`, `gps`, `stream`, `lens`, `sd_card`, `relay_coil`.
+- **DB: `diagnostic_tests` table** — Stores test definitions with JSONB `supportedDeviceTypes` and `resultSchema` for extensible/future validation.
+- **DB: `diagnostic_results` table** — Stores test run outcomes with device ID, test ID, status, structured details JSON, timing, and executor.
+- **Seed data: 6 test types** — Ping Test, Connection Test, MQTT Status, Signal Test, Battery Test, Firmware Check — mapped across all 5 device types with per-type compatibilities.
+- **Seed data: 12 sample results** — Realistic result payloads across pass/warning/fail statuses with plausible metrics.
+- **`GET /api/diagnostics/tests`** — List available tests, optionally filtered by device type for dynamic UI rendering.
+- **`GET /api/diagnostics/tests/:id`** — Single test detail.
+- **`POST /api/diagnostics/run`** — Execute a diagnostic test on a device. Runs validation (test exists, device exists, test supports device type), simulates realistic execution, persists result, and returns the outcome. Gated to admin/support roles.
+- **`GET /api/diagnostics/results`** — Paginated result list with device/test/status filters.
+- **`GET /api/diagnostics/results/:id`** — Single result detail with joined test and device metadata.
+- **Frontend: Dynamic diagnostic test cards** — The page renders whatever tests the backend returns. Each test card shows name, icon, description, and a "Run Diagnostic" button.
+- **Frontend: Device selector** — Dropdown to pick a device. Tests filter automatically based on the selected device's type.
+- **Frontend: Run diagnostic mutation** — Calls `POST /api/diagnostics/run`, shows loading spinner on the specific card, displays toast on completion.
+- **Frontend: Recent diagnostics history** — Latest results table grouped by device, with status badges and relative timestamps.
+- **Frontend: Loading skeleton** — 6-card skeleton grid + result skeleton while fetching.
+- **Frontend: Error state** — Error card with retry button if test loading fails.
+- **Frontend: Empty state** — Informational empty state when no tests are available for a device type.
+- **Simulated diagnostic execution** — Realistic result generation based on device status, battery level, signal strength, with plausible latency/duration values.
+- **RBAC enforcement** — Frontend gates Run buttons by `devices:update` permission; backend requires admin or support role.
+- **Drizzle migration** — `0003_add_diagnostics` with both new tables and indexes.
+
+**Files created:** 5 (`packages/types/src/diagnostic.ts`, `apps/api/src/db/schema/diagnostics.ts`, `apps/api/src/routes/diagnostics.ts`, `apps/web/src/lib/diagnostics.ts`, `apps/web/src/hooks/use-diagnostics.ts`)
+
+**Build**
+
+- pnpm lint: ✅ Zero errors across 9 packages
+- pnpm build: ✅ 27/27 pages, shared JS 103 kB, diagnostics page 137 kB
+
+---
+
 ## v1.4.0 — 2026-07-05
 
 ### Replace Mock Data With Real Backend

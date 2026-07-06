@@ -39,12 +39,8 @@ The device detail page (`/devices/[id]`) now loads firmware, I/O, diagnostics, a
 
 **Resolution:** Resolved in RC2 frontend integration.
 
-### 1 page still uses mock data (Diagnostics)
-Estates (`/estates`) and Sites (`/sites`) were resolved in v1.5.1. Diagnostics (`/diagnostics`) still uses hardcoded data. See `docs/release/FUNCTIONAL_READINESS_AUDIT.md`.
-
-**Impact:** The diagnostics page does not reflect real device health.
-
-**Resolution:** Planned as v1.5.2.
+### Diagnostics were previously mock data (resolved v1.5.2)
+The diagnostics page was rewritten in v1.5.2 with a test-entity-driven backend API. See `docs/implementation/ROADMAP.md` for the v1.5.2 milestone.
 
 ---
 

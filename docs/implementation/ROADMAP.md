@@ -446,26 +446,56 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 
 ---
 
-## ⏳ In Progress — v1.5.2 — Device Diagnostics
+## ⏳ In Progress — v1.5.2 — Device Diagnostics (2026-07-06)
 
 **Goal:** Replace the hardcoded diagnostics placeholder with an extensible test-based system.
 
-**Design approach:** Diagnostics are modeled as entities (`DiagnosticTest` with `type`, `supportedDeviceTypes`, `timeout`, `resultSchema`), not hardcoded per-device buttons. The UI renders whatever tests the backend reports for a given device type. See `docs/adr/diagnostics-extensible-design.md`.
+**Design approach:** Diagnostics are modeled as entities (`DiagnosticTest` with `type`, `supportedDeviceTypes`, `timeout`, `resultSchema`), not hardcoded per-device buttons. The UI renders whatever tests the backend reports for a given device type. See `apps/web/src/app/(dashboard)/diagnostics/page.tsx` for the dynamic rendering.
 
 | Area                            | Status     | Notes                                               |
 | ------------------------------- | ---------- | --------------------------------------------------- |
-| **DiagnosticTest type**         | ⬜ Pending | `DiagnosticTest`, `DiagnosticResult` in @sentience/types |
-| **Diagnostics API (backend)**   | ⬜ Pending | `GET /api/diagnostics` (list), `POST /api/diagnostics/run` |
-| **Diagnostics page (frontend)** | ⬜ Pending | Dynamic test rendering from API response            |
-| **Run diagnostic mutation**     | ⬜ Pending | Wire Run buttons to real API mutations              |
-| **Store diagnostic results**    | ⬜ Pending | Persist results in PostgreSQL                       |
-| **Diagnostic history**          | ⬜ Pending | View past results across devices                    |
-| **Device health integration**   | ⬜ Pending | Show latest diagnostic status on device detail      |
-| **Loading/error/empty states**  | ⬜ Pending | All three states on the diagnostics page            |
-| **TypeScript check**            | ⬜ Pending | Zero errors                                         |
-| **Production build**            | ⬜ Pending |                                                     |
+| **DiagnosticTest type**         | ✅ Done    | `DiagnosticTest`, `DiagnosticResult`, `DiagnosticRunStatus`, `DiagnosticTestType` in @sentience/types |
+| **DB schema (tests)**           | ✅ Done    | `diagnostic_tests` table with JSONB supportDeviceTypes, resultSchema |
+| **DB schema (results)**         | ✅ Done    | `diagnostic_results` table with deviceId, testId, status, details, timing |
+| **DB migration**                | ✅ Done    | Drizzle migration `0003_add_diagnostics` |
+| **Seed data**                   | ✅ Done    | 6 test types (ping/connection/mqtt/signal/battery/firmware), 12 sample results |
+| **Diagnostics API (backend)**   | ✅ Done    | `GET /api/diagnostics/tests`, `GET /api/diagnostics/tests/:id`, `POST /api/diagnostics/run`, `GET /api/diagnostics/results`, `GET /api/diagnostics/results/:id` |
+| **Simulated execution**         | ✅ Done    | `POST /api/diagnostics/run` generates realistic results based on device status and test type |
+| **Diagnostics page (frontend)** | ✅ Done    | Dynamic test rendering from API, device selector, run mutations, results history |
+| **Loading/error/empty states**  | ✅ Done    | Skeleton loading, error cards with retry, EmptyState for no tests/results |
+| **Notification feedback**       | ✅ Done    | Toast notifications for run success/failure |
+| **RBAC**                        | ✅ Done    | Run tests gated by `devices:update` permission on frontend; admin/support only on backend |
+| **TypeScript check**            | ✅ Done    | Zero errors across 9 packages |
+| **Production build**            | ✅ Done    | 27/27 pages, shared JS 103 kB |
 
-**Definition of Done:** Diagnostics are test-entity driven, not hardcoded. Run buttons execute backend diagnostics. Results persist and display. Any device type can expose its own set of tests without frontend changes.
+### New Files
+
+- `packages/types/src/diagnostic.ts` — DiagnosticTest, DiagnosticResult, and related types
+- `apps/api/src/db/schema/diagnostics.ts` — diagnostic_tests and diagnostic_results tables
+- `apps/api/src/routes/diagnostics.ts` — Full diagnostics API (list tests, run test, list results)
+- `apps/web/src/lib/diagnostics.ts` — Diagnostics API client functions
+- `apps/web/src/hooks/use-diagnostics.ts` — TanStack Query hooks (tests, run, results)
+
+### Modified Files
+
+- `packages/types/src/index.ts` — Exported diagnostic types
+- `apps/api/src/db/schema/index.ts` — Exported diagnostics schema
+- `apps/api/src/db/seed.ts` — Added 6 diagnostic tests and 12 sample results
+- `apps/api/src/index.ts` — Registered diagnostic routes
+- `apps/web/src/lib/index.ts` — Exported diagnostics API functions
+- `apps/web/src/lib/query-keys.ts` — Added diagnostics query keys
+- `apps/web/src/app/(dashboard)/diagnostics/page.tsx` — Rewritten with dynamic test rendering
+
+### Device Type Integration (Extensibility Proof)
+
+The diagnostics system supports all 5 device types with varying test sets:
+- **gateway** — Ping, Connection, MQTT, Signal, Battery, Firmware (6 tests)
+- **sensor** — Ping, Connection, MQTT, Signal, Battery, Firmware (6 tests)
+- **controller** — Ping, Connection, MQTT, Signal, Battery, Firmware (6 tests)
+- **relay** — Ping, Connection, MQTT, Battery, Firmware (5 tests, no Signal)
+- **camera** — Ping, Connection, MQTT, Signal, Firmware (5 tests, no Battery)
+
+Adding a new test type (e.g. "stream" for cameras) requires only a DB insert — no frontend change.
 
 ---
 

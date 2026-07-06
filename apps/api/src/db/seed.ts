@@ -677,9 +677,229 @@ async function seed() {
   const allNotifications = await db.select().from(schema.notifications);
   console.log(`    → ${allNotifications.length} notifications`);
 
+  // ─── 15. Diagnostic Tests ───────────────────────────────────────────
+
+  console.log("  Creating diagnostic tests...");
+
+  const diagnosticTestDefs: (typeof schema.diagnosticTests.$inferInsert)[] = [
+    {
+      id: uuidFrom("diag-ping"),
+      name: "Ping Test",
+      type: "ping",
+      description: "ICMP connectivity check — verifies the device is reachable on the network.",
+      supportedDeviceTypes: ["controller", "sensor", "gateway", "relay", "camera"],
+      timeout: 10,
+      resultSchema: {
+        type: "object",
+        properties: {
+          success: { type: "boolean" },
+          latencyMs: { type: "number" },
+          packetLoss: { type: "number" },
+          ipAddress: { type: "string" },
+        },
+      },
+      enabled: true,
+      sortOrder: 1,
+    },
+    {
+      id: uuidFrom("diag-connection"),
+      name: "Connection Test",
+      type: "connection",
+      description: "End-to-end connection verification — checks full data path from device to platform.",
+      supportedDeviceTypes: ["controller", "sensor", "gateway", "relay", "camera"],
+      timeout: 15,
+      resultSchema: {
+        type: "object",
+        properties: {
+          connected: { type: "boolean" },
+          roundTripMs: { type: "number" },
+          hops: { type: "number" },
+        },
+      },
+      enabled: true,
+      sortOrder: 2,
+    },
+    {
+      id: uuidFrom("diag-mqtt"),
+      name: "MQTT Status",
+      type: "mqtt",
+      description: "MQTT broker connection status — verifies device can publish/subscribe to its topics.",
+      supportedDeviceTypes: ["controller", "sensor", "gateway", "relay", "camera"],
+      timeout: 10,
+      resultSchema: {
+        type: "object",
+        properties: {
+          connected: { type: "boolean" },
+          broker: { type: "string" },
+          lastMessage: { type: "string" },
+          messagesSent: { type: "number" },
+          qos: { type: "number" },
+        },
+      },
+      enabled: true,
+      sortOrder: 3,
+    },
+    {
+      id: uuidFrom("diag-signal"),
+      name: "Signal Test",
+      type: "signal",
+      description: "Wireless signal strength analysis — measures RSSI, SNR, and link quality.",
+      supportedDeviceTypes: ["controller", "sensor", "gateway", "camera"],
+      timeout: 8,
+      resultSchema: {
+        type: "object",
+        properties: {
+          rssi: { type: "number" },
+          snr: { type: "number" },
+          linkQuality: { type: "number" },
+          channel: { type: "number" },
+          noiseFloor: { type: "number" },
+        },
+      },
+      enabled: true,
+      sortOrder: 4,
+    },
+    {
+      id: uuidFrom("diag-battery"),
+      name: "Battery Test",
+      type: "battery",
+      description: "Battery health and charge cycle analysis — voltage, capacity, cycle count.",
+      supportedDeviceTypes: ["controller", "sensor", "gateway", "relay"],
+      timeout: 5,
+      resultSchema: {
+        type: "object",
+        properties: {
+          voltage: { type: "number" },
+          capacity: { type: "number" },
+          cycleCount: { type: "number" },
+          temperature: { type: "number" },
+          health: { type: "string" },
+        },
+      },
+      enabled: true,
+      sortOrder: 5,
+    },
+    {
+      id: uuidFrom("diag-firmware"),
+      name: "Firmware Check",
+      type: "firmware",
+      description: "Current vs latest firmware version — checks for available updates.",
+      supportedDeviceTypes: ["controller", "sensor", "gateway", "relay", "camera"],
+      timeout: 10,
+      resultSchema: {
+        type: "object",
+        properties: {
+          currentVersion: { type: "string" },
+          latestVersion: { type: "string" },
+          updateAvailable: { type: "boolean" },
+          releaseDate: { type: "string" },
+          changelog: { type: "string" },
+        },
+      },
+      enabled: true,
+      sortOrder: 6,
+    },
+  ];
+
+  for (const t of diagnosticTestDefs) {
+    await db.insert(schema.diagnosticTests).values(t).onConflictDoNothing({ target: schema.diagnosticTests.name });
+  }
+
+  const allTests = await db.select().from(schema.diagnosticTests);
+  console.log(`    → ${allTests.length} diagnostic tests`);
+
+  // ─── 16. Diagnostic Results ──────────────────────────────────────────
+
+  console.log("  Creating diagnostic results...");
+
+  const testStatuses = ["passed", "passed", "passed", "passed", "warning", "failed"] as const;
+
+  for (let i = 0; i < 12; i++) {
+    const device = allDevices[i % allDevices.length];
+    const test = allTests[i % allTests.length];
+    const status = testStatuses[i % testStatuses.length];
+    const user = allUsers[i % allUsers.length];
+    const durationMs = randomBetween(200, 5000);
+    const startedAt = hoursAgo(randomBetween(0, 72));
+
+    // Generate plausible details based on test type
+    let details: Record<string, unknown> = {};
+    let message = "";
+
+    switch (test.type) {
+      case "ping":
+        if (status === "passed") {
+          const lat = randomBetween(1, 80);
+          message = `Ping successful (${lat}ms, 0% loss)`;
+          details = { success: true, latencyMs: lat, packetLoss: 0, ipAddress: `10.0.${Math.floor(i / 4)}.${device.id.charCodeAt(0) % 255}` };
+        } else {
+          message = "Ping failed — no response after 10s";
+          details = { success: false, latencyMs: null, packetLoss: 100, ipAddress: "unreachable" };
+        }
+        break;
+      case "connection":
+        message = status === "passed" ? "Connection verified (42ms round-trip)" : "Connection timed out";
+        details = { connected: status === "passed", roundTripMs: randomBetween(10, 200), hops: randomBetween(3, 12) };
+        break;
+      case "mqtt":
+        message = status === "passed" ? "MQTT broker connected" : "MQTT connection failed";
+        details = { connected: status === "passed", broker: "mqtt://mosquitto:1883", lastMessage: hoursAgo(randomBetween(0, 2)).toISOString(), messagesSent: randomBetween(100, 50000), qos: 1 };
+        break;
+      case "signal":
+        if (status === "passed") {
+          const rssi = randomBetween(-85, -45);
+          message = `Signal strength: ${rssi} dBm`;
+          details = { rssi, snr: randomBetween(15, 40), linkQuality: randomBetween(70, 100), channel: randomBetween(1, 13), noiseFloor: randomBetween(-100, -90) };
+        } else {
+          message = "Weak signal detected";
+          details = { rssi: randomBetween(-115, -90), snr: randomBetween(5, 12), linkQuality: randomBetween(20, 50), channel: randomBetween(1, 13), noiseFloor: randomBetween(-105, -95) };
+        }
+        break;
+      case "battery":
+        if (status === "passed") {
+          message = "Battery health: Good (3.7V, 92% capacity)";
+          details = { voltage: parseFloat((3.3 + Math.random() * 0.5).toFixed(2)), capacity: randomBetween(80, 100), cycleCount: randomBetween(10, 500), temperature: randomBetween(22, 32), health: "good" };
+        } else if (status === "warning") {
+          message = "Battery health: Fair (3.2V, 65% capacity)";
+          details = { voltage: parseFloat((3.0 + Math.random() * 0.3).toFixed(2)), capacity: randomBetween(50, 79), cycleCount: randomBetween(500, 900), temperature: randomBetween(32, 38), health: "fair" };
+        } else {
+          message = "Battery critical — replace immediately";
+          details = { voltage: parseFloat((2.5 + Math.random() * 0.4).toFixed(2)), capacity: randomBetween(5, 25), cycleCount: randomBetween(900, 1500), temperature: randomBetween(38, 45), health: "poor" };
+        }
+        break;
+      case "firmware":
+        if (status === "passed") {
+          message = `Firmware ${device.firmwareVersion} is up to date`;
+          details = { currentVersion: device.firmwareVersion, latestVersion: device.firmwareVersion, updateAvailable: false, releaseDate: hoursAgo(randomBetween(30, 180)).toISOString(), changelog: "No updates available." };
+        } else {
+          message = `Firmware update available: ${device.firmwareVersion} → ${parseFloat(device.firmwareVersion ?? "1.0") + 0.5}.0`;
+          details = { currentVersion: device.firmwareVersion, latestVersion: `${parseFloat(device.firmwareVersion ?? "1.0") + 0.5}.0`, updateAvailable: true, releaseDate: hoursAgo(7).toISOString(), changelog: "Security patches and performance improvements." };
+        }
+        break;
+    }
+
+    await db.insert(schema.diagnosticResults).values({
+      id: uuidFrom(`diag-result-${i}`),
+      testId: test.id,
+      deviceId: device.id,
+      status,
+      message,
+      details,
+      ranBy: user.id,
+      startedAt,
+      completedAt: new Date(startedAt.getTime() + durationMs),
+      durationMs,
+    }).onConflictDoNothing();
+  }
+
+  const allResults = await db.select().from(schema.diagnosticResults);
+  console.log(`    → ${allResults.length} diagnostic results`);
+
   // ─── Summary ───────────────────────────────────────────────────────
 
   console.log("\n✅ Seed complete!");
+  console.log(`    Diagnostic tests:   ${allTests.length}`);
+  console.log(`    Diagnostic results: ${allResults.length}`);
   console.log(`    Roles:      ${allRoles.length}`);
   console.log(`    Customers:  ${allCustomers.length}`);
   console.log(`    Estates:    ${allEstates.length}`);
