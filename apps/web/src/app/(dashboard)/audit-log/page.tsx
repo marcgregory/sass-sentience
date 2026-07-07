@@ -9,7 +9,6 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { formatRelativeTime } from "@sentience/utils";
 import { useAuditLogs } from "@/hooks/use-audit-logs";
 import { useAuditStore, type AuditEntry } from "@/stores/audit-store";
-import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 import { RequirePermission } from "@/components/shared/require-permission";
 import { ROLE_META } from "@/lib/permissions";
 import {
@@ -110,10 +109,9 @@ const SeverityIndicator = ({ action }: { action: string }) => {
 
 export default function AuditLogPage() {
   const storeEntries = useAuditStore((s) => s.entries);
-  const simulatorMode = useSimulatorModeStore((s) => s.enabled);
   const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState<string>("all");
-  const [simulationFilter, setSimulationFilter] = useState<string>("all");
+  const [simulationFilter, setSimulationFilter] = useState<string>("real");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
@@ -146,9 +144,12 @@ export default function AuditLogPage() {
     refetch,
   } = useAuditLogs(apiParams);
 
-  // Merge API entries with locally-created entries (from this session)
-  // When Simulator Mode is ON, also merge simulated audit entries in-memory.
+  // Merge API entries with locally-created entries (from this session).
   // Simulated entries carry isSimulated: true and are never persisted to the DB.
+  //
+  // The source filter (simulationFilter) controls whether real, simulated, or
+  // all entries are displayed — we always merge everything so the filter has
+  // data to work with.
   //
   // IMPORTANT: Filters (search, action) are applied AFTER merging so that
   // simulated and local entries are filtered identically to API entries.
@@ -157,15 +158,9 @@ export default function AuditLogPage() {
     const localEntries = storeEntries.filter((e) => !e.isSimulated);
     const simulatedEntries = storeEntries.filter((e) => e.isSimulated);
 
-    let combined: (AuditEntry | AuditLogApiItem)[];
-    if (simulatorMode && simulatedEntries.length > 0) {
-      // In simulator mode: local entries first, then simulated, then API entries.
-      // This keeps the timeline natural — local entries are the most recent,
-      // simulated entries follow, then historical API entries.
-      combined = [...localEntries, ...simulatedEntries, ...apiEntries];
-    } else {
-      combined = [...localEntries, ...apiEntries];
-    }
+    // Always include local, simulated, and API entries.
+    // The source filter (applied in mergedEntries) controls visibility.
+    const combined = [...localEntries, ...simulatedEntries, ...apiEntries];
     // De-duplicate by ID in case a local entry was persisted and now comes via API
     const seen = new Set<string>();
     return combined.filter((e) => {
@@ -173,7 +168,7 @@ export default function AuditLogPage() {
       seen.add(e.id);
       return true;
     });
-  }, [storeEntries, apiEntries, simulatorMode]);
+  }, [storeEntries, apiEntries]);
 
   // Apply client-side filters (search + action) to the merged dataset.
   // API entries arrive pre-filtered, but store entries (local + simulated)
@@ -506,10 +501,14 @@ export default function AuditLogPage() {
                           {log.resourceId && (
                             <span className="text-[10px] text-muted-foreground">{log.resourceId}</span>
                           )}
-                          {log.isSimulated && (
+                          {log.isSimulated ? (
                             <Badge variant="secondary" className="text-[10px] px-1.5 py-0 flex items-center gap-1">
                               <Cpu className="h-2.5 w-2.5" />
                               Simulated
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-500 text-emerald-600 dark:text-emerald-400">
+                              Real
                             </Badge>
                           )}
                         </div>
@@ -592,10 +591,14 @@ export default function AuditLogPage() {
                     }`} />
                     Severity: {(actionSeverity[selectedEntry.action] ?? "info").charAt(0).toUpperCase() + (actionSeverity[selectedEntry.action] ?? "info").slice(1)}
                   </span>
-                  {selectedEntry.isSimulated && (
+                  {selectedEntry.isSimulated ? (
                     <Badge variant="secondary" className="flex items-center gap-1">
                       <Cpu className="h-3 w-3" />
                       Simulated
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="border-emerald-500 text-emerald-600 dark:text-emerald-400">
+                      Real
                     </Badge>
                   )}
                 </div>

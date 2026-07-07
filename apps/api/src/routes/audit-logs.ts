@@ -69,8 +69,12 @@ export async function auditLogRoutes(app: FastifyInstance) {
       .limit(limit)
       .offset(offset);
 
+    // Add isSimulated: false for every persisted entry — the UI uses this
+    // to distinguish real database records from client-side simulated entries.
+    const data = result.map((entry) => ({ ...entry, isSimulated: false }));
+
     return reply.send({
-      data: result,
+      data,
       pagination: {
         page,
         limit,
