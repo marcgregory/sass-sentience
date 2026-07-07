@@ -1,6 +1,6 @@
 {
-  "id": "0005_add_account_management",
-  "prevId": "91323f2a-30bc-44a5-b741-83e9ba46d05c",
+  "id": "6af958ed-18f6-4039-8118-f25330e13ebd",
+  "prevId": "0005_add_account_management",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -469,7 +469,7 @@
           "name": "user_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "user_name": {
           "name": "user_name",
@@ -1983,6 +1983,12 @@
           "notNull": true,
           "default": false
         },
+        "mfa_secret": {
+          "name": "mfa_secret",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "customer_id": {
           "name": "customer_id",
           "type": "uuid",
@@ -2008,12 +2014,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "mfa_secret": {
-          "name": "mfa_secret",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -2813,8 +2813,8 @@
         }
       },
       "foreignKeys": {
-        "password_reset_tokens_user_id_fkey": {
-          "name": "password_reset_tokens_user_id_fkey",
+        "password_reset_tokens_user_id_users_id_fk": {
+          "name": "password_reset_tokens_user_id_users_id_fk",
           "tableFrom": "password_reset_tokens",
           "tableTo": "users",
           "columnsFrom": [

@@ -22,7 +22,7 @@ type AuditAction =
   | "password_reset" | "mfa_change";
 
 export interface AuditLogInput {
-  userId: string;
+  userId: string | null;
   userName: string;
   userRole: string;
   action: AuditAction;

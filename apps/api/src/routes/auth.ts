@@ -138,7 +138,7 @@ export async function authRoutes(app: FastifyInstance) {
 
     if (!result) {
       await logAuditEvent({
-        userId: "unknown",
+        userId: null,
         userName: body.email,
         userRole: "unknown",
         action: "failed_login",

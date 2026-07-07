@@ -5,9 +5,7 @@ export const auditLogs = pgTable(
   "audit_logs",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id),
+    userId: uuid("user_id").references(() => users.id),
     userName: text("user_name").notNull(),
     userRole: text("user_role").notNull(),
     action: text("action").notNull(),
