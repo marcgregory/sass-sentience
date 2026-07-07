@@ -77,19 +77,24 @@ async function request<T>(
   });
 
   if (!response.ok) {
-    // If the backend rejects the token (401), auto-logout immediately
+    // If a protected endpoint returns 401, the session is dead — auto-logout
     // so the user sees the login screen rather than a stuck error state.
+    // Auth endpoints (login, forgot-password, reset-password, mfa) are
+    // public — a 401 there is expected (e.g. wrong password) and should
+    // NOT trigger logout.
     if (response.status === 401) {
-      const { useAuthStore } = await import("@/stores/auth-store");
-      if (useAuthStore.getState().token) {
-        useAuthStore.getState().logout();
+      const isAuthRoute = /^\/(auth\/|login|forgot-password|reset-password|mfa)/i.test(path);
+      if (!isAuthRoute) {
+        const { useAuthStore } = await import("@/stores/auth-store");
+        if (useAuthStore.getState().token) {
+          useAuthStore.getState().logout();
+        }
+        throw new ApiError(
+          "Session expired — please log in again",
+          401,
+          "SESSION_EXPIRED",
+        );
       }
-      // Throw a clear error so callers can distinguish auth failures
-      throw new ApiError(
-        "Session expired — please log in again",
-        401,
-        "SESSION_EXPIRED",
-      );
     }
 
     const body = await response.json().catch(() => ({}));
