@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useAuthStore, MfaRequiredError } from "@/stores/auth-store";
 import { GuestOnly } from "@/components/shared/guest-only";
 import { Button } from "@/components/ui/button";
@@ -12,10 +15,23 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Eye, EyeOff, Loader2, Shield, Users, Wrench, Eye as EyeIcon } from "lucide-react";
+import { Eye, EyeOff, Loader2, Shield, Users, Wrench, Eye as EyeIcon, AlertCircle } from "lucide-react";
 import type { UserRole } from "@sentience/types";
 import { ROLE_META } from "@/lib/permissions";
 import { SentienceLogo } from "@/components/shared/sentience-logo";
+
+const loginSchema = z.object({
+  email: z
+    .string()
+    .min(1, "Email is required")
+    .email("Enter a valid email address"),
+  password: z
+    .string()
+    .min(1, "Password is required"),
+  rememberMe: z.boolean().optional(),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
 
 const roleIcons: Record<UserRole, React.ComponentType<{ className?: string }>> = {
   admin: Shield,
@@ -38,24 +54,39 @@ const DEMO_LOGIN_ENABLED =
 export default function LoginPage() {
   const router = useRouter();
   const { login, loginAsRole, isLoading, error, clearError } = useAuthStore();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await login(email, password);
-      router.push("/dashboard");
-    } catch (err) {
-      if (err instanceof MfaRequiredError) {
-        router.push(`/mfa?token=${err.mfaToken}`);
-        return;
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setError,
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+      rememberMe: false,
+    },
+  });
+
+  const onSubmit = useCallback(
+    async (data: LoginFormData) => {
+      try {
+        clearError?.();
+        await login(data.email, data.password);
+        router.push("/dashboard");
+      } catch (err) {
+        if (err instanceof MfaRequiredError) {
+          router.push(`/mfa?token=${err.mfaToken}`);
+          return;
+        }
+        // Auth store sets its own error state, but also surface on the password field
+        setError("password", { message: undefined });
       }
-      // Error is already handled by the auth store
-    }
-  };
+    },
+    [router, login, clearError, setError],
+  );
 
   const handleQuickLogin = (role: UserRole) => {
     loginAsRole(role);
@@ -116,7 +147,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
             <div className="space-y-2">
               <label
                 htmlFor="email"
@@ -128,15 +159,16 @@ export default function LoginPage() {
                 id="email"
                 type="email"
                 placeholder="name@example.com"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (error) clearError();
-                }}
+                {...register("email")}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                required
                 autoComplete="email"
               />
+              {errors.email && (
+                <p className="flex items-center gap-1 text-xs text-red-500">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.email.message}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -159,10 +191,8 @@ export default function LoginPage() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  {...register("password")}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  required
                   autoComplete="current-password"
                 />
                 <button
@@ -177,14 +207,19 @@ export default function LoginPage() {
                   )}
                 </button>
               </div>
+              {errors.password && (
+                <p className="flex items-center gap-1 text-xs text-red-500">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.password.message}
+                </p>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
               <input
                 id="remember"
                 type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
+                {...register("rememberMe")}
                 className="h-4 w-4 rounded border-gray-300"
               />
               <label htmlFor="remember" className="text-sm text-muted-foreground">
