@@ -1,4 +1,7 @@
 import type { FastifyInstance } from "fastify";
+import { db } from "../db";
+import { users, devices, alerts } from "../db/schema";
+import { count, eq } from "drizzle-orm";
 import { env } from "../config";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { logAuditEvent } from "../lib/audit";
@@ -11,6 +14,53 @@ interface RenderDeployResponse {
 }
 
 export async function adminRoutes(app: FastifyInstance) {
+  app.get(
+    "/stats",
+    { preHandler: [requireAuth, requireRole("admin")] },
+    async (_request, reply) => {
+      const [userResult] = await db
+        .select({ count: count() })
+        .from(users);
+      const [activeUserResult] = await db
+        .select({ count: count() })
+        .from(users)
+        .where(eq(users.isActive, true));
+      const [deviceResult] = await db
+        .select({ count: count() })
+        .from(devices);
+      const [onlineResult] = await db
+        .select({ count: count() })
+        .from(devices)
+        .where(eq(devices.status, "online"));
+      const [offlineResult] = await db
+        .select({ count: count() })
+        .from(devices)
+        .where(eq(devices.status, "offline"));
+      const [faultResult] = await db
+        .select({ count: count() })
+        .from(devices)
+        .where(eq(devices.status, "fault"));
+      const [openAlertResult] = await db
+        .select({ count: count() })
+        .from(alerts)
+        .where(eq(alerts.status, "open"));
+
+      return reply.send({
+        stats: {
+          totalUsers: Number(userResult?.count ?? 0),
+          activeUsers: Number(activeUserResult?.count ?? 0),
+          totalDevices: Number(deviceResult?.count ?? 0),
+          onlineDevices: Number(onlineResult?.count ?? 0),
+          offlineDevices: Number(offlineResult?.count ?? 0),
+          faultCount: Number(faultResult?.count ?? 0),
+          openAlerts: Number(openAlertResult?.count ?? 0),
+          platformVersion: "v1.5.x",
+          systemUptime: process.uptime(),
+        },
+      });
+    },
+  );
+
   app.post(
     "/simulator/restart",
     { preHandler: [requireAuth, requireRole("admin")] },

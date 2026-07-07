@@ -12,6 +12,25 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { RequirePermission } from "@/components/shared/require-permission";
 import { useAuthStore } from "@/stores/auth-store";
+import { useAdminStats } from "@/hooks/use-admin";
+
+function formatUptime(seconds: number): string {
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  if (days > 0) return `${days}d ${hours}h`;
+  return `${hours}h`;
+}
+
+const statCards = [
+  { label: "Platform Version", key: "platformVersion" as const, render: (v: string) => v },
+  { label: "Active Users", key: "activeUsers" as const, render: (v: number) => String(v) },
+  {
+    label: "System Uptime",
+    key: "systemUptime" as const,
+    render: (v: number) => formatUptime(v),
+  },
+  { label: "Pending Alerts", key: "openAlerts" as const, render: (v: number) => String(v) },
+];
 import {
   Settings,
   Key,
@@ -76,6 +95,8 @@ const adminSections = [
 
 export default function AdminPage() {
   const currentUser = useAuthStore((s) => s.user);
+  const { data, isLoading } = useAdminStats();
+  const stats = data?.stats;
 
   return (
     <RequirePermission resource="admin" action="read">
@@ -98,22 +119,20 @@ export default function AdminPage() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground mb-0.5">Platform Version</p>
-                <p className="text-lg font-semibold">v0.13.0</p>
-              </div>
-              <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground mb-0.5">Active Users</p>
-                <p className="text-lg font-semibold">4</p>
-              </div>
-              <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground mb-0.5">System Uptime</p>
-                <p className="text-lg font-semibold">14d 6h</p>
-              </div>
-              <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground mb-0.5">Pending Alerts</p>
-                <p className="text-lg font-semibold">3</p>
-              </div>
+              {statCards.map((card) => (
+                <div key={card.label} className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground mb-0.5">{card.label}</p>
+                  <p className="text-lg font-semibold">
+                    {isLoading ? (
+                      <span className="inline-block h-5 w-16 animate-pulse rounded bg-muted" />
+                    ) : stats ? (
+                      card.render(stats[card.key] as never)
+                    ) : (
+                      "—"
+                    )}
+                  </p>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

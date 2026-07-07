@@ -370,6 +370,19 @@ export default function AlertsPage() {
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const perPage = 15;
+
+  // Reset to page 1 when filters change
+  const handleSeverityFilter = (value: SeverityFilter) => {
+    setSeverityFilter(value);
+    setPage(1);
+  };
+
+  const handleStatusFilter = (value: StatusFilter) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
 
   // Apply client-side filters
   const filteredAlerts = useMemo(() => {
@@ -379,6 +392,13 @@ export default function AlertsPage() {
       return true;
     });
   }, [alerts, severityFilter, statusFilter]);
+
+  // Client-side pagination
+  const totalPages = Math.max(1, Math.ceil(filteredAlerts.length / perPage));
+  const paginatedAlerts = useMemo(() => {
+    const start = (page - 1) * perPage;
+    return filteredAlerts.slice(start, start + perPage);
+  }, [filteredAlerts, page, perPage]);
 
   // Summary counts (only non-resolved alerts)
   const criticalCount = alerts.filter((a) => a.severity === "critical" && a.status !== "resolved").length;
@@ -458,7 +478,7 @@ export default function AlertsPage() {
               key={opt.key}
               role="radio"
               aria-checked={severityFilter === opt.key}
-              onClick={() => setSeverityFilter(opt.key)}
+              onClick={() => handleSeverityFilter(opt.key)}
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                 severityFilter === opt.key
@@ -481,7 +501,7 @@ export default function AlertsPage() {
               key={opt.key}
               role="radio"
               aria-checked={statusFilter === opt.key}
-              onClick={() => setStatusFilter(opt.key)}
+              onClick={() => handleStatusFilter(opt.key)}
               className={cn(
                 "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                 statusFilter === opt.key
@@ -497,6 +517,11 @@ export default function AlertsPage() {
         {filteredAlerts.length > 0 && (
           <span className="text-xs text-muted-foreground ml-auto">
             {filteredAlerts.length} of {alerts.length} alerts
+            {totalPages > 1 && (
+              <span>
+                {" "}· Page {page} of {totalPages}
+              </span>
+            )}
           </span>
         )}
       </div>
@@ -513,13 +538,13 @@ export default function AlertsPage() {
           }
           action={
             alerts.length > 0
-              ? { label: "Clear Filters", onClick: () => { setSeverityFilter("all"); setStatusFilter("all"); } }
+              ? { label: "Clear Filters", onClick: () => { setSeverityFilter("all"); setStatusFilter("all"); setPage(1); } }
               : undefined
           }
         />
       ) : (
         <div className="space-y-2">
-          {filteredAlerts.map((alert) => (
+          {paginatedAlerts.map((alert) => (
             <div
               key={alert.id}
               className={cn(
@@ -585,6 +610,33 @@ export default function AlertsPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Page {page} of {totalPages} ({filteredAlerts.length} alerts)
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Next
+            </Button>
+          </div>
         </div>
       )}
 

@@ -338,7 +338,7 @@ export default function AuditLogPage() {
         <div className="grid gap-4 sm:grid-cols-4">
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground mb-1">Total Entries</p>
-            <p className="text-2xl font-bold">{displayCount}</p>
+            <p className="text-2xl font-bold">{totalCount}</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground mb-1">Filtered</p>

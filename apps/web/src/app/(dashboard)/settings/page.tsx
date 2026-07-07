@@ -150,6 +150,41 @@ export default function SettingsPage() {
       const mm = getSetting("maintenance_mode");
       if (typeof mm === "boolean") setMaintenanceMode(mm);
 
+      // General — additional fields
+      const se = getSetting("support_email");
+      if (typeof se === "string") setSupportEmail(se);
+      const df = getSetting("date_format");
+      if (typeof df === "string") setDateFormat(df);
+
+      // Maintenance — additional fields
+      const bf = getSetting("backup_frequency");
+      if (typeof bf === "string") setBackupFrequency(bf);
+
+      // Notification channels — merge API-backed values
+      const notifEmail = getSetting("notification_email");
+      const notifPush = getSetting("notification_push");
+      const notifSms = getSetting("notification_sms");
+      const notifWebhook = getSetting("notification_webhook");
+      setNotificationChannels((prev) =>
+        prev.map((c) => {
+          if (c.name === "Email Notifications" && typeof notifEmail === "boolean") return { ...c, enabled: notifEmail };
+          if (c.name === "Push Notifications" && typeof notifPush === "boolean") return { ...c, enabled: notifPush };
+          if (c.name === "SMS Alerts" && typeof notifSms === "boolean") return { ...c, enabled: notifSms };
+          if (c.name === "Webhook Integrations" && typeof notifWebhook === "boolean") return { ...c, enabled: notifWebhook };
+          return c;
+        }),
+      );
+
+      // Tenant fields
+      const orgName = getSetting("tenant_org_name");
+      if (typeof orgName === "string") setTenant((prev) => ({ ...prev, orgName }));
+      const brandColor = getSetting("tenant_brand_color");
+      if (typeof brandColor === "string") setTenant((prev) => ({ ...prev, brandColor }));
+      const supportPhone = getSetting("tenant_support_phone");
+      if (typeof supportPhone === "string") setTenant((prev) => ({ ...prev, supportPhone }));
+      const address = getSetting("tenant_address");
+      if (typeof address === "string") setTenant((prev) => ({ ...prev, address }));
+
       // Feature flags — merge API-backed values into defaults
       const csvExport = getSetting("csv_export_enabled");
       setFeatureFlags((prev) =>
@@ -191,6 +226,8 @@ export default function SettingsPage() {
     // General
     changed("platform_name", platformName);
     changed("timezone", timezone);
+    changed("support_email", supportEmail);
+    changed("date_format", dateFormat);
 
     // Security
     changed("password_min_length", passwordMinLength);
@@ -200,6 +237,19 @@ export default function SettingsPage() {
     // Maintenance
     changed("data_retention_days", dataRetentionDays);
     changed("maintenance_mode", maintenanceMode);
+    changed("backup_frequency", backupFrequency);
+
+    // Notification channels
+    changed("notification_email", notificationChannels.find((c) => c.name === "Email Notifications")?.enabled ?? true);
+    changed("notification_push", notificationChannels.find((c) => c.name === "Push Notifications")?.enabled ?? true);
+    changed("notification_sms", notificationChannels.find((c) => c.name === "SMS Alerts")?.enabled ?? false);
+    changed("notification_webhook", notificationChannels.find((c) => c.name === "Webhook Integrations")?.enabled ?? false);
+
+    // Tenant fields
+    changed("tenant_org_name", tenant.orgName);
+    changed("tenant_brand_color", tenant.brandColor);
+    changed("tenant_support_phone", tenant.supportPhone);
+    changed("tenant_address", tenant.address);
 
     // Feature flags with backend storage
     changed("csv_export_enabled", featureFlags.find((f) => f.key === "csv-export")?.enabled ?? false);
@@ -218,8 +268,10 @@ export default function SettingsPage() {
       }
     }
 
-    // Simulate slight delay for local-only fields
-    await new Promise((r) => setTimeout(r, 300));
+    // Brief delay when nothing changed so the spinner isn't instant
+    if (updates.length === 0) {
+      await new Promise((r) => setTimeout(r, 300));
+    }
 
     setSaving(false);
     setSaved(true);

@@ -41,9 +41,13 @@ const statusConfig: Record<ServiceStatus, { label: string; color: string; bgColo
 };
 
 /**
- * Initial static service definitions for services that don't have
- * real backend health endpoints yet. As each service gets a health
- * endpoint, its data here should be replaced with a real API query.
+ * Static service definitions for services that don't have real
+ * backend health endpoints yet. These show placeholder "healthy"
+ * status with dash metrics.
+ *
+ * TODO: Replace bridge, mqtt, and simulator with real API queries
+ * once dedicated health endpoints are added to the API (planned as
+ * GET /api/admin/service-status/{service}).
  */
 const staticServices: PlatformService[] = [
   {
@@ -85,19 +89,6 @@ const staticServices: PlatformService[] = [
       { label: "Last Published", value: "—" },
     ],
   },
-  {
-    id: "database",
-    name: "Database",
-    status: "healthy",
-    description: "PostgreSQL 16 — primary data store",
-    uptime: 604800,
-    lastCheck: new Date().toISOString(),
-    metrics: [
-      { label: "Connection Pool", value: "—" },
-      { label: "Storage Used", value: "—" },
-      { label: "Query Latency", value: "—" },
-    ],
-  },
 ];
 
 function formatUptime(seconds: number): string {
@@ -130,9 +121,16 @@ export default function PlatformHealthPage() {
       ? "degraded"
       : "healthy";
 
-  // Build the services list: static services + real API health
+  // Derive the database service status from real health data
+  const dbStatus: ServiceStatus = !apiHealth
+    ? "disconnected"
+    : apiHealth.db.status === "unhealthy"
+      ? "down"
+      : "healthy";
+
+  // Build the services list: static services + real API health + real database health
   const services: PlatformService[] = [
-    ...staticServices.map((s) => s.id === "api" ? s : s),
+    ...staticServices,
     // API service — derived from real health endpoint
     {
       id: "api",
@@ -151,6 +149,26 @@ export default function PlatformHealthPage() {
             { label: "Uptime", value: "N/A" },
             { label: "DB Latency", value: "—" },
             { label: "Status", value: healthLoading ? "Checking..." : "Offline" },
+          ],
+    },
+    // Database service — derived from the /api/health endpoint's db data
+    {
+      id: "database",
+      name: "Database",
+      status: dbStatus,
+      description: "PostgreSQL 16 — primary data store",
+      uptime: apiHealth ? Math.max(0, Math.floor(apiHealth.uptime)) : 0,
+      lastCheck: apiHealth?.timestamp ?? new Date().toISOString(),
+      metrics: apiHealth
+        ? [
+            { label: "Connection Pool", value: "—" },
+            { label: "Storage Used", value: "—" },
+            { label: "Query Latency", value: apiHealth.db.latency ?? "—" },
+          ]
+        : [
+            { label: "Connection Pool", value: "—" },
+            { label: "Storage Used", value: "—" },
+            { label: "Query Latency", value: healthLoading ? "Checking..." : "—" },
           ],
     },
   ];

@@ -512,6 +512,19 @@ async function seed() {
     { key: "maintenance_mode", value: false, category: "system", description: "Put platform in maintenance mode" },
     { key: "max_devices_per_site", value: 50, category: "limits", description: "Maximum devices per site" },
     { key: "csv_export_enabled", value: true, category: "features", description: "Enable CSV export functionality" },
+
+    // New fields to support the Settings page (v1.5.4)
+    { key: "support_email", value: "support@sentience.io", category: "general", description: "Public support email address" },
+    { key: "date_format", value: "ISO 8601", category: "general", description: "Default date format for the platform" },
+    { key: "backup_frequency", value: "daily", category: "maintenance", description: "Scheduled database backup frequency" },
+    { key: "notification_email", value: true, category: "notifications", description: "Enable email notification channel" },
+    { key: "notification_push", value: true, category: "notifications", description: "Enable browser push notification channel" },
+    { key: "notification_sms", value: false, category: "notifications", description: "Enable SMS alert channel" },
+    { key: "notification_webhook", value: false, category: "notifications", description: "Enable webhook event channel" },
+    { key: "tenant_org_name", value: "Sentience Inc.", category: "tenant", description: "Organization display name" },
+    { key: "tenant_brand_color", value: "#2563eb", category: "tenant", description: "Primary brand color for the organization" },
+    { key: "tenant_support_phone", value: "+1 (555) 000-1234", category: "tenant", description: "Organization support phone number" },
+    { key: "tenant_address", value: "123 IoT Street, San Francisco, CA 94105", category: "tenant", description: "Organization physical address" },
   ];
 
   for (const s of settingDefs) {

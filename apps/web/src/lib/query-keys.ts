@@ -101,6 +101,12 @@ export const queryKeys = {
     detail: (id: string) => ["notificationRules", "detail", id] as const,
   },
 
+  /** Admin */
+  admin: {
+    all: ["admin"] as const,
+    stats: ["admin", "stats"] as const,
+  },
+
   /** API keys (admin) */
   apiKeys: {
     all: ["apiKeys"] as const,
