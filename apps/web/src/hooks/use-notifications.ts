@@ -60,8 +60,12 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
  * Syncs the result into the Zustand store so the header badge
  * and other components can read it without re-rendering on every query change.
  *
- * When Simulation Mode is active, the API unread count and simulated in-memory
- * unread count are combined so the badge reflects both sources.
+ * When Simulation Mode is active, the API query is DISABLED — the badge count
+ * comes entirely from the in-memory simulated notification store. No database
+ * polling occurs during simulator mode.
+ *
+ * When Simulator Mode is turned off, the API query resumes and the real
+ * unread count is used.
  */
 export function useNotificationUnreadCount() {
   const setUnreadCount = useNotificationStore((s) => s.setUnreadCount);
@@ -74,21 +78,21 @@ export function useNotificationUnreadCount() {
       const result = await getUnreadCount();
       return result.unreadCount;
     },
-    refetchInterval: 30_000, // Poll every 30s as safety net
+    enabled: !simulatorMode,
+    refetchInterval: simulatorMode ? false : 30_000,
   });
 
-  // Sync query result to Zustand store — include simulated unread count
-  // only when simulator mode is active to prevent badge/page mismatch.
+  // Sync to Zustand store: when Sim ON use only simulated count,
+  // when Sim OFF use the API result.
   useEffect(() => {
-    if (query.data !== undefined) {
-      const simulatedUnread = simulatorMode
-        ? storeNotifications.filter(
-            (n): n is Notification & { isSimulated: boolean } =>
-              "isSimulated" in n && n.isSimulated === true && !n.isRead,
-          ).length
-        : 0;
-
-      setUnreadCount(query.data + simulatedUnread);
+    if (simulatorMode) {
+      const simulatedUnread = storeNotifications.filter(
+        (n): n is Notification & { isSimulated: boolean } =>
+          "isSimulated" in n && n.isSimulated === true && !n.isRead,
+      ).length;
+      setUnreadCount(simulatedUnread);
+    } else if (query.data !== undefined) {
+      setUnreadCount(query.data);
     }
   }, [query.data, setUnreadCount, storeNotifications, simulatorMode]);
 
