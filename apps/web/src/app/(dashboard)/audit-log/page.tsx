@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { formatRelativeTime } from "@sentience/utils";
 import { useAuditLogs } from "@/hooks/use-audit-logs";
 import { useAuditStore, type AuditEntry } from "@/stores/audit-store";
 import { RequirePermission } from "@/components/shared/require-permission";
+import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 import { ROLE_META } from "@/lib/permissions";
 import {
   Cpu,
@@ -109,15 +110,22 @@ const SeverityIndicator = ({ action }: { action: string }) => {
 
 export default function AuditLogPage() {
   const storeEntries = useAuditStore((s) => s.entries);
+  const simulatorMode = useSimulatorModeStore((s) => s.enabled);
   const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState<string>("all");
-  const [simulationFilter, setSimulationFilter] = useState<string>("real");
+  const [simulationFilter, setSimulationFilter] = useState<string>(() => simulatorMode ? "simulated" : "real");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [selectedEntry, setSelectedEntry] = useState<AuditLogApiItem | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const perPage = 15;
+
+  // Sync simulation filter when simulator mode toggles
+  useEffect(() => {
+    setSimulationFilter(simulatorMode ? "simulated" : "real");
+    setPage(1);
+  }, [simulatorMode]);
 
   // Build API query params from filter state — filters are applied server-side
   const apiParams = useMemo(() => {
@@ -301,13 +309,14 @@ export default function AuditLogPage() {
   const clearFilters = () => {
     setSearch("");
     setActionFilter("all");
-    setSimulationFilter("all");
+    setSimulationFilter(simulatorMode ? "simulated" : "real");
     setDateFrom("");
     setDateTo("");
     setPage(1);
   };
 
-  const hasActiveFilters = search || actionFilter !== "all" || simulationFilter !== "all" || dateFrom || dateTo;
+  const defaultFilter = simulatorMode ? "simulated" : "real";
+  const hasActiveFilters = search || actionFilter !== "all" || simulationFilter !== defaultFilter || dateFrom || dateTo;
 
   return (
     <RequirePermission resource="audit-log" action="read">
@@ -452,11 +461,17 @@ export default function AuditLogPage() {
         {!isLoading && !isError && mergedEntries.length === 0 && (
           <EmptyState
             icon={ClipboardList}
-            title="No audit entries found"
+            title={
+              simulatorMode && simulationFilter === "simulated"
+                ? "No simulated audit events yet"
+                : "No audit entries found"
+            }
             description={
-              hasActiveFilters
-                ? "Try adjusting your search or filters"
-                : "No audit activity recorded yet"
+              simulatorMode && simulationFilter === "simulated"
+                ? "Simulator mode is on but no simulated audit events have been generated yet. Try performing actions in the simulator."
+                : hasActiveFilters
+                  ? "Try adjusting your search or filters"
+                  : "No audit activity recorded yet"
             }
           />
         )}
