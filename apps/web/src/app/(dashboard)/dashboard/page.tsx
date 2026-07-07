@@ -35,10 +35,13 @@ import {
   Radio,
   RefreshCw,
   Cpu,
+  AlertTriangle,
 } from "lucide-react";
 import { formatRelativeTime } from "@sentience/utils";
 import { useDashboardData } from "./use-dashboard-data";
 import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
 import Link from "next/link";
 
 export default function DashboardPage() {
@@ -58,8 +61,11 @@ export default function DashboardPage() {
     simDeviceCount,
     isSocketConnected,
     lastUpdatedAt,
+    isDbLoading,
+    isDbError,
   } = useDashboardData();
   const simulatorMode = useSimulatorModeStore((s) => s.enabled);
+  const queryClient = useQueryClient();
 
   // Compute offline/fault counts from KPIs for quick actions
   const offlineCount = hasLiveData
@@ -75,14 +81,14 @@ export default function DashboardPage() {
         title="Dashboard"
         description="Real-time operations center for your IoT estate"
         actions={
-          !hasLiveData ? (
+          isDbError ? (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.location.reload()}
+              onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.summary })}
             >
               <RefreshCw className="mr-2 h-4 w-4" />
-              Retry Connection
+              Retry
             </Button>
           ) : undefined
         }
@@ -106,20 +112,45 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* ─── Simulator not running banner (normal mode, no live data) ─────── */}
-      {!simulatorMode && !hasLiveData && (
-        <Card className="border-dashed border-amber-300 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
-          <CardContent className="flex items-center gap-4 py-4">
-            <Radio className="h-6 w-6 shrink-0 text-amber-500" />
-            <div>
-              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
-                Simulator not running
+      {/* ─── Loading skeleton (sim OFF, fetching DB) ──────────────────── */}
+      {!simulatorMode && isDbLoading && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+                <div className="h-8 w-8 animate-pulse rounded-lg bg-muted" />
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 w-16 animate-pulse rounded bg-muted" />
+                <div className="mt-2 h-3 w-20 animate-pulse rounded bg-muted" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* ─── Error state (sim OFF, API failed) ────────────────────────── */}
+      {!simulatorMode && isDbError && (
+        <Card className="border-dashed border-red-300 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20">
+          <CardContent className="flex flex-col items-center gap-4 py-6">
+            <AlertTriangle className="h-8 w-8 text-red-500" />
+            <div className="text-center">
+              <p className="text-sm font-medium text-red-800 dark:text-red-300">
+                Unable to load dashboard data
               </p>
-              <p className="text-xs text-amber-700 dark:text-amber-400">
-                Start the MQTT simulator to see live device data update in
-                real time. For now, showing mock data.
+              <p className="text-xs text-red-700 dark:text-red-400">
+                The database query failed. Check the API connection and try again.
               </p>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.summary })}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Retry
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -340,15 +371,6 @@ export default function DashboardPage() {
                     </span>
                   </Link>
                 ))}
-              </div>
-            ) : !hasLiveData ? (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm text-muted-foreground">
-                  <span>Simulator data required</span>
-                </div>
-                <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm text-muted-foreground">
-                  <span>Start simulator to populate</span>
-                </div>
               </div>
             ) : (
               <p className="py-4 text-center text-sm text-muted-foreground">

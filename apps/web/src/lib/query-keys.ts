@@ -89,6 +89,8 @@ export const queryKeys = {
 
   /** Dashboard KPIs */
   dashboard: {
+    all: ["dashboard"] as const,
+    summary: ["dashboard", "summary"] as const,
     kpis: (estateId?: string) => ["dashboard", "kpis", estateId] as const,
   },
 

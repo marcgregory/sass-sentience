@@ -1,17 +1,22 @@
 /**
  * Dashboard data hook — provides metrics based on current Simulator Mode.
  *
- * Three states:
+ * Three modes:
  *   Simulator Mode ON + live store has data → live metrics from store
  *   Simulator Mode ON + live store empty    → zero state (no simulator running)
- *   Simulator Mode OFF                      → mock data only
+ *   Simulator Mode OFF                      → database summary from API
  *
  * These modes are mutually exclusive — never mix data sources.
+ * No mock/fallback values are ever returned. If the data source has
+ * nothing, all counts are zero. If the API fails, zeros with a retry.
  */
 
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
 import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
+import { queryKeys } from "@/lib/query-keys";
+import { getDashboardSummary } from "@/lib/dashboard";
 import type { LucideIcon } from "lucide-react";
 import { Monitor, Wifi, WifiOff, AlertTriangle } from "lucide-react";
 import {
@@ -63,90 +68,7 @@ export interface OfflineDevice {
   lastSeen: string;
 }
 
-// ─── Mock Fallbacks (Sim Mode OFF, no API data) ───────────────────────
-
-const MOCK_KPIS: DashboardKpi[] = [
-  {
-    label: "Total Devices",
-    value: "2,847",
-    change: "+12",
-    trend: "up",
-    icon: Monitor,
-    color: "text-blue-600 dark:text-blue-400",
-    bg: "bg-blue-50 dark:bg-blue-950/30",
-  },
-  {
-    label: "Online",
-    value: "2,631",
-    change: "92.4%",
-    trend: "up",
-    icon: Wifi,
-    color: "text-emerald-600 dark:text-emerald-400",
-    bg: "bg-emerald-50 dark:bg-emerald-950/30",
-  },
-  {
-    label: "Offline",
-    value: "142",
-    change: "5.0%",
-    trend: "down",
-    icon: WifiOff,
-    color: "text-slate-600 dark:text-slate-400",
-    bg: "bg-slate-50 dark:bg-slate-900/50",
-  },
-  {
-    label: "Faults",
-    value: "37",
-    change: "1.3%",
-    trend: "up",
-    icon: AlertTriangle,
-    color: "text-red-600 dark:text-red-400",
-    bg: "bg-red-50 dark:bg-red-950/30",
-  },
-  {
-    label: "Warnings",
-    value: "89",
-    change: "3.1%",
-    trend: "down",
-    icon: AlertTriangle,
-    color: "text-amber-600 dark:text-amber-400",
-    bg: "bg-amber-50 dark:bg-amber-950/30",
-  },
-];
-
-const MOCK_HEALTH: SystemHealthItem[] = [
-  { label: "Online", value: 92.4, color: "bg-emerald-500" },
-  { label: "Offline", value: 5.0, color: "bg-slate-400" },
-  { label: "Fault", value: 1.3, color: "bg-red-500" },
-  { label: "Warning", value: 1.3, color: "bg-amber-500" },
-];
-
-const MOCK_BATTERY: DistributionItem[] = [
-  { label: "Good (>60%)", value: 68, count: 1937, color: "bg-emerald-500" },
-  { label: "Fair (20–60%)", value: 22, count: 626, color: "bg-amber-500" },
-  { label: "Low (<20%)", value: 10, count: 284, color: "bg-red-500" },
-];
-
-const MOCK_SIGNAL: DistributionItem[] = [
-  { label: "Excellent", value: 35, count: 996, color: "bg-emerald-500" },
-  { label: "Good", value: 30, count: 854, color: "bg-blue-500" },
-  { label: "Fair", value: 22, count: 626, color: "bg-amber-500" },
-  { label: "Poor", value: 13, count: 371, color: "bg-red-500" },
-];
-
-const MOCK_TEMPERATURE: DistributionItem[] = [
-  { label: "Normal", value: 78, count: 2220, color: "bg-emerald-500" },
-  { label: "High", value: 17, count: 484, color: "bg-amber-500" },
-  { label: "Critical", value: 5, count: 143, color: "bg-red-500" },
-];
-
-const MOCK_ESTATES: EstateSummary[] = [
-  { id: "estate-riverside", name: "Riverside Complex", total: 312, online: 287, offline: 15, fault: 3, warning: 7 },
-  { id: "estate-techvalley", name: "Tech Valley Park", total: 245, online: 228, offline: 10, fault: 2, warning: 5 },
-  { id: "estate-harbour", name: "Harbour Terminal", total: 189, online: 172, offline: 9, fault: 3, warning: 5 },
-  { id: "estate-greenfield", name: "Greenfield Data Centre", total: 156, online: 148, offline: 4, fault: 1, warning: 3 },
-];
-
-// ─── Zero state (Sim Mode ON, no simulator running) ───────────────────
+// ─── Zero state (when data source has no data) ────────────────────────
 
 const ZERO_KPIS: DashboardKpi[] = [
   { label: "Total Devices", value: "0", change: "—", trend: "up", icon: Monitor, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/30" },
@@ -187,115 +109,219 @@ export function useDashboardData() {
   const simDeviceCount = deviceEntries.length;
   SIM_DEVICE_COUNT_ATOM.count = simDeviceCount;
 
+  // ── Fetch database summary when simulator is OFF ──────────────────────
+  const dbSummaryQuery = useQuery({
+    queryKey: queryKeys.dashboard.summary,
+    queryFn: getDashboardSummary,
+    // Skip API call in simulator mode — live store is the source
+    enabled: !simulatorMode,
+    // Refetch every 30 seconds so the dashboard stays reasonably fresh
+    refetchInterval: 30_000,
+  });
+
+  const hasDbData =
+    !simulatorMode &&
+    dbSummaryQuery.isSuccess &&
+    (dbSummaryQuery.data?.totalDevices ?? 0) > 0;
+
+  const isDbError =
+    !simulatorMode && !dbSummaryQuery.isLoading && dbSummaryQuery.isError;
+
   // ─── Mode selection ─────────────────────────────────────────────────
   //   Sim ON + has data → live metrics
   //   Sim ON + no data  → zero state (sim is ON but nothing connected)
-  //   Sim OFF           → mock data
+  //   Sim OFF + has DB data → database summary
+  //   Sim OFF + empty DB  or API error → zero state
 
-  const mode: "live" | "zero" | "mock" = simulatorMode
+  const mode: "live" | "zero" | "database" = simulatorMode
     ? hasRealSimData ? "live" : "zero"
-    : "mock";
+    : hasDbData ? "database" : "zero";
+
+  // ─── KPI Derivation ─────────────────────────────────────────────────
 
   const kpis: DashboardKpi[] = useMemo(() => {
-    if (mode === "mock") return MOCK_KPIS;
-    if (mode === "zero") return ZERO_KPIS;
+    if (mode === "live") {
+      const counts = computeStatusCounts(deviceEntries);
+      const onlinePct = counts.total > 0 ? Math.round((counts.online / counts.total) * 100) : 0;
 
-    const counts = computeStatusCounts(deviceEntries);
-    const onlinePct = counts.total > 0 ? Math.round((counts.online / counts.total) * 100) : 0;
+      return [
+        {
+          label: "Total Devices",
+          value: counts.total.toLocaleString(),
+          change: `live: ${counts.total}`,
+          trend: "up",
+          icon: Monitor,
+          color: "text-blue-600 dark:text-blue-400",
+          bg: "bg-blue-50 dark:bg-blue-950/30",
+        },
+        {
+          label: "Online",
+          value: counts.online.toLocaleString(),
+          change: `${onlinePct}%`,
+          trend: "up",
+          icon: Wifi,
+          color: "text-emerald-600 dark:text-emerald-400",
+          bg: "bg-emerald-50 dark:bg-emerald-950/30",
+        },
+        {
+          label: "Offline",
+          value: counts.offline.toLocaleString(),
+          change: counts.total > 0 ? `${Math.round((counts.offline / counts.total) * 100)}%` : "0%",
+          trend: counts.offline > 0 ? "up" : "down",
+          icon: WifiOff,
+          color: "text-slate-600 dark:text-slate-400",
+          bg: "bg-slate-50 dark:bg-slate-900/50",
+        },
+        {
+          label: "Faults",
+          value: counts.fault.toLocaleString(),
+          change: counts.total > 0 ? `${Math.round((counts.fault / counts.total) * 100)}% of total` : "0%",
+          trend: counts.fault > 0 ? "up" : "down",
+          icon: AlertTriangle,
+          color: "text-red-600 dark:text-red-400",
+          bg: "bg-red-50 dark:bg-red-950/30",
+        },
+        {
+          label: "Warnings",
+          value: counts.warning.toLocaleString(),
+          change: counts.total > 0 ? `${Math.round((counts.warning / counts.total) * 100)}% of total` : "0%",
+          trend: counts.warning > 0 ? "up" : "down",
+          icon: AlertTriangle,
+          color: "text-amber-600 dark:text-amber-400",
+          bg: "bg-amber-50 dark:bg-amber-950/30",
+        },
+      ];
+    }
 
-    return [
-      {
-        label: "Total Devices",
-        value: counts.total.toLocaleString(),
-        change: `live: ${counts.total}`,
-        trend: "up",
-        icon: Monitor,
-        color: "text-blue-600 dark:text-blue-400",
-        bg: "bg-blue-50 dark:bg-blue-950/30",
-      },
-      {
-        label: "Online",
-        value: counts.online.toLocaleString(),
-        change: `${onlinePct}%`,
-        trend: "up",
-        icon: Wifi,
-        color: "text-emerald-600 dark:text-emerald-400",
-        bg: "bg-emerald-50 dark:bg-emerald-950/30",
-      },
-      {
-        label: "Offline",
-        value: counts.offline.toLocaleString(),
-        change: counts.total > 0 ? `${Math.round((counts.offline / counts.total) * 100)}%` : "0%",
-        trend: counts.offline > 0 ? "up" : "down",
-        icon: WifiOff,
-        color: "text-slate-600 dark:text-slate-400",
-        bg: "bg-slate-50 dark:bg-slate-900/50",
-      },
-      {
-        label: "Faults",
-        value: counts.fault.toLocaleString(),
-        change: counts.total > 0 ? `${Math.round((counts.fault / counts.total) * 100)}% of total` : "0%",
-        trend: counts.fault > 0 ? "up" : "down",
-        icon: AlertTriangle,
-        color: "text-red-600 dark:text-red-400",
-        bg: "bg-red-50 dark:bg-red-950/30",
-      },
-      {
-        label: "Warnings",
-        value: counts.warning.toLocaleString(),
-        change: counts.total > 0 ? `${Math.round((counts.warning / counts.total) * 100)}% of total` : "0%",
-        trend: counts.warning > 0 ? "up" : "down",
-        icon: AlertTriangle,
-        color: "text-amber-600 dark:text-amber-400",
-        bg: "bg-amber-50 dark:bg-amber-950/30",
-      },
-    ];
-  }, [deviceEntries, mode]);
+    if (mode === "database") {
+      const d = dbSummaryQuery.data!;
+      const onlinePct = d.totalDevices > 0 ? Math.round((d.onlineDevices / d.totalDevices) * 100) : 0;
+
+      return [
+        {
+          label: "Total Devices",
+          value: d.totalDevices.toLocaleString(),
+          change: onlinePct > 0 ? `${onlinePct}%` : "—",
+          trend: "up",
+          icon: Monitor,
+          color: "text-blue-600 dark:text-blue-400",
+          bg: "bg-blue-50 dark:bg-blue-950/30",
+        },
+        {
+          label: "Online",
+          value: d.onlineDevices.toLocaleString(),
+          change: `${onlinePct}%`,
+          trend: "up",
+          icon: Wifi,
+          color: "text-emerald-600 dark:text-emerald-400",
+          bg: "bg-emerald-50 dark:bg-emerald-950/30",
+        },
+        {
+          label: "Offline",
+          value: d.offlineDevices.toLocaleString(),
+          change: d.totalDevices > 0 ? `${Math.round((d.offlineDevices / d.totalDevices) * 100)}%` : "0%",
+          trend: d.offlineDevices > 0 ? "up" : "down",
+          icon: WifiOff,
+          color: "text-slate-600 dark:text-slate-400",
+          bg: "bg-slate-50 dark:bg-slate-900/50",
+        },
+        {
+          label: "Faults",
+          value: d.faultCount.toLocaleString(),
+          change: d.totalDevices > 0 ? `${Math.round((d.faultCount / d.totalDevices) * 100)}% of total` : "0%",
+          trend: d.faultCount > 0 ? "up" : "down",
+          icon: AlertTriangle,
+          color: "text-red-600 dark:text-red-400",
+          bg: "bg-red-50 dark:bg-red-950/30",
+        },
+        {
+          label: "Warnings",
+          value: d.warningCount.toLocaleString(),
+          change: d.totalDevices > 0 ? `${Math.round((d.warningCount / d.totalDevices) * 100)}% of total` : "0%",
+          trend: d.warningCount > 0 ? "up" : "down",
+          icon: AlertTriangle,
+          color: "text-amber-600 dark:text-amber-400",
+          bg: "bg-amber-50 dark:bg-amber-950/30",
+        },
+      ];
+    }
+
+    return ZERO_KPIS;
+  }, [deviceEntries, mode, dbSummaryQuery.data]);
 
   const systemHealth: SystemHealthItem[] = useMemo(() => {
-    if (mode === "mock") return MOCK_HEALTH;
-    if (mode === "zero") return ZERO_HEALTH;
-    return computeSystemHealth(deviceEntries);
-  }, [deviceEntries, mode]);
+    if (mode === "live") return computeSystemHealth(deviceEntries);
+    if (mode === "database") {
+      const d = dbSummaryQuery.data!;
+      const total = d.totalDevices || 1;
+      return [
+        { label: "Online", value: Math.round((d.onlineDevices / total) * 1000) / 10, color: "bg-emerald-500" },
+        { label: "Offline", value: Math.round((d.offlineDevices / total) * 1000) / 10, color: "bg-slate-400" },
+        { label: "Fault", value: Math.round((d.faultCount / total) * 1000) / 10, color: "bg-red-500" },
+        { label: "Warning", value: Math.round((d.warningCount / total) * 1000) / 10, color: "bg-amber-500" },
+      ];
+    }
+    return ZERO_HEALTH;
+  }, [deviceEntries, mode, dbSummaryQuery.data]);
 
   const fleetHealthScore = useMemo((): number => {
-    if (mode === "mock") return 87.2;
-    if (mode === "zero") return 0;
-    return computeFleetHealthScore(deviceEntries);
-  }, [deviceEntries, mode]);
+    if (mode === "live") return computeFleetHealthScore(deviceEntries);
+    if (mode === "database") return dbSummaryQuery.data!.fleetHealth;
+    return 0;
+  }, [deviceEntries, mode, dbSummaryQuery.data]);
 
   const batteryDistribution: DistributionItem[] = useMemo(() => {
-    if (mode !== "live") return mode === "mock" ? MOCK_BATTERY : ZERO_DISTRIBUTION;
-    const result = computeBatteryDistribution(deviceEntries);
-    return result.every((d) => d.count === 0) ? ZERO_DISTRIBUTION : result;
-  }, [deviceEntries, mode]);
+    if (mode === "live") {
+      const result = computeBatteryDistribution(deviceEntries);
+      return result.every((d) => d.count === 0) ? ZERO_DISTRIBUTION : result;
+    }
+    if (mode === "database") {
+      const d = dbSummaryQuery.data!.batteryDistribution;
+      return d.every((item) => item.count === 0) ? ZERO_DISTRIBUTION : d;
+    }
+    return ZERO_DISTRIBUTION;
+  }, [deviceEntries, mode, dbSummaryQuery.data]);
 
   const signalDistribution: DistributionItem[] = useMemo(() => {
-    if (mode !== "live") return mode === "mock" ? MOCK_SIGNAL : ZERO_DISTRIBUTION;
-    const result = computeSignalDistribution(deviceEntries);
-    return result.every((d) => d.count === 0) ? ZERO_DISTRIBUTION : result;
-  }, [deviceEntries, mode]);
+    if (mode === "live") {
+      const result = computeSignalDistribution(deviceEntries);
+      return result.every((d) => d.count === 0) ? ZERO_DISTRIBUTION : result;
+    }
+    if (mode === "database") {
+      const d = dbSummaryQuery.data!.signalDistribution;
+      return d.every((item) => item.count === 0) ? ZERO_DISTRIBUTION : d;
+    }
+    return ZERO_DISTRIBUTION;
+  }, [deviceEntries, mode, dbSummaryQuery.data]);
 
   const temperatureDistribution: DistributionItem[] = useMemo(() => {
-    if (mode !== "live") return mode === "mock" ? MOCK_TEMPERATURE : ZERO_DISTRIBUTION;
-    const result = computeTemperatureDistribution(deviceEntries);
-    return result.every((d) => d.count === 0) ? ZERO_DISTRIBUTION : result;
-  }, [deviceEntries, mode]);
+    if (mode === "live") {
+      const result = computeTemperatureDistribution(deviceEntries);
+      return result.every((d) => d.count === 0) ? ZERO_DISTRIBUTION : result;
+    }
+    if (mode === "database") {
+      const d = dbSummaryQuery.data!.temperatureDistribution;
+      return d.every((item) => item.count === 0) ? ZERO_DISTRIBUTION : d;
+    }
+    return ZERO_DISTRIBUTION;
+  }, [deviceEntries, mode, dbSummaryQuery.data]);
 
   // ─── Live Alerts (severity-filtered events) ───────────────────────
 
   const liveAlerts: LiveAlert[] = useMemo(() => {
-    if (mode !== "live") return [];
-    return recentEvents
-      .filter((e) => e.severity === "critical" || e.severity === "warning")
-      .slice(0, 4)
-      .map((e) => ({
-        id: e.eventId,
-        title: e.title,
-        severity: e.severity as "critical" | "warning" | "info",
-        time: e.timestamp,
-        site: e.siteName ?? e.siteId ?? "Unknown",
-      }));
+    if (mode === "live") {
+      return recentEvents
+        .filter((e) => e.severity === "critical" || e.severity === "warning")
+        .slice(0, 4)
+        .map((e) => ({
+          id: e.eventId,
+          title: e.title,
+          severity: e.severity as "critical" | "warning" | "info",
+          time: e.timestamp,
+          site: e.siteName ?? e.siteId ?? "Unknown",
+        }));
+    }
+    return [];
   }, [recentEvents, mode]);
 
   // ─── Recent Activity (latest 10 events) ───────────────────────────
@@ -308,10 +334,10 @@ export function useDashboardData() {
   // ─── Estate Summary ───────────────────────────────────────────────
 
   const estateSummary: EstateSummary[] = useMemo(() => {
-    if (mode === "mock") return MOCK_ESTATES;
-    if (mode === "zero") return ZERO_ESTATES;
-    return computeEstateSummary(deviceEntries);
-  }, [deviceEntries, mode]);
+    if (mode === "live") return computeEstateSummary(deviceEntries);
+    if (mode === "database") return dbSummaryQuery.data!.estates;
+    return ZERO_ESTATES;
+  }, [deviceEntries, mode, dbSummaryQuery.data]);
 
   // ─── Devices Recently Offline ─────────────────────────────────────
 
@@ -328,12 +354,11 @@ export function useDashboardData() {
       .slice(0, 10);
   }, [deviceEntries, mode]);
 
-  // ─── Events Today (count from recent events) ──────────────────────
+  // ─── Events Today ─────────────────────────────────────────────────
 
   const eventsToday = useMemo(() => {
-    if (mode === "mock") return "1,247";
-    if (mode === "zero") return "0";
-    return recentEvents.length.toLocaleString();
+    if (mode === "live") return recentEvents.length.toLocaleString();
+    return "0";
   }, [recentEvents.length, mode]);
 
   return {
@@ -353,5 +378,8 @@ export function useDashboardData() {
     mode,
     isSocketConnected: simulatorMode ? isSocketConnected : false,
     lastUpdatedAt: simulatorMode ? lastUpdatedAt : null,
+    // Expose API state for the page to show retry/error buttons
+    isDbLoading: !simulatorMode && dbSummaryQuery.isLoading,
+    isDbError,
   };
 }

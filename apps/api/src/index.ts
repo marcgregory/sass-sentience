@@ -43,6 +43,7 @@ import { estateRoutes } from "./routes/estates";
 import { siteRoutes } from "./routes/sites";
 import { customerRoutes } from "./routes/customers";
 import { diagnosticRoutes } from "./routes/diagnostics";
+import { dashboardRoutes } from "./routes/dashboard";
 
 let app: FastifyInstance | undefined;
 
@@ -122,6 +123,7 @@ async function main() {
   await app.register(siteRoutes, { prefix: "/api/sites" });
   await app.register(customerRoutes, { prefix: "/api/customers" });
   await app.register(diagnosticRoutes, { prefix: "/api/diagnostics" });
+  await app.register(dashboardRoutes, { prefix: "/api/dashboard" });
 
   // ─── Socket.IO (shares the same HTTP server) ────────────────────
 
