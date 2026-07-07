@@ -41,14 +41,18 @@ export const useSimulatorModeStore = create<SimulatorModeState>()(
             });
           });
         } else {
+          // Generate "Simulator Stopped" audit entry before clearing
+          import("@/stores/audit-store").then(({ useAuditStore }) => {
+            import("@/lib/simulated-audit-logs").then(({ simulatorStopped }) => {
+              useAuditStore.getState().addSimulatedEntry(simulatorStopped());
+            }).then(() => {
+              useAuditStore.getState().clearSimulatedEntries();
+            });
+          });
           // When simulator mode is turned off, clear simulated notifications
           // from the in-memory store so the badge count doesn't show stale data.
           import("@/stores/notification-store").then(({ useNotificationStore }) => {
             useNotificationStore.getState().clearSimulatedNotifications();
-          });
-          // Also clear simulated audit entries
-          import("@/stores/audit-store").then(({ useAuditStore }) => {
-            useAuditStore.getState().clearSimulatedEntries();
           });
         }
       },
@@ -63,13 +67,18 @@ export const useSimulatorModeStore = create<SimulatorModeState>()(
       },
       disable: () => {
         set({ enabled: false });
+        // Generate "Simulator Stopped" audit entry before clearing
+        import("@/stores/audit-store").then(({ useAuditStore }) => {
+          import("@/lib/simulated-audit-logs").then(({ simulatorStopped }) => {
+            useAuditStore.getState().addSimulatedEntry(simulatorStopped());
+          }).then(() => {
+            // Clear simulated entries after adding the stop entry
+            useAuditStore.getState().clearSimulatedEntries();
+          });
+        });
         // Clear simulated notifications when simulator mode is disabled
         import("@/stores/notification-store").then(({ useNotificationStore }) => {
           useNotificationStore.getState().clearSimulatedNotifications();
-        });
-        // Also clear simulated audit entries
-        import("@/stores/audit-store").then(({ useAuditStore }) => {
-          useAuditStore.getState().clearSimulatedEntries();
         });
       },
     }),

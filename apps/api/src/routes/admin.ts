@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { env } from "../config";
 import { requireAuth, requireRole } from "../middleware/auth";
+import { logAuditEvent } from "../lib/audit";
 
 interface RenderDeployResponse {
   id?: string;
@@ -49,6 +50,18 @@ export async function adminRoutes(app: FastifyInstance) {
           code: "RENDER_RESTART_FAILED",
         });
       }
+
+      const reqUser = _request.user as { sub: string; name: string; role: string } | undefined;
+      await logAuditEvent({
+        userId: reqUser?.sub ?? "system",
+        userName: reqUser?.name ?? "System",
+        userRole: reqUser?.role ?? "admin",
+        action: "update",
+        resource: "Simulator",
+        description: "Simulator restart triggered",
+        ipAddress: _request.ip,
+        userAgent: _request.headers["user-agent"],
+      });
 
       return reply.status(202).send({
         message: "Simulator restart triggered",

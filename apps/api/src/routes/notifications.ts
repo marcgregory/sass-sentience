@@ -5,6 +5,7 @@ import { notifications } from "../db/schema";
 import { eq, and, count, desc, sql, SQL } from "drizzle-orm";
 import { requireAuth, type JwtPayload } from "../middleware/auth";
 import { emitNotification } from "../socket/notifications-emitter";
+import { logAuditEvent } from "../lib/audit";
 
 const createNotificationSchema = z.object({
   userId: z.string().uuid(),
@@ -31,6 +32,20 @@ export async function notificationRoutes(app: FastifyInstance) {
         link: body.link ?? null,
       })
       .returning();
+
+    const user = request.user as JwtPayload;
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "create",
+      resource: "Notification",
+      resourceId: notification.id,
+      description: `Notification "${body.title}" created for user ${body.userId}`,
+      details: { priority: body.priority, category: body.category },
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
 
     // Emit live event through the bridge
     emitNotification({
@@ -158,6 +173,18 @@ export async function notificationRoutes(app: FastifyInstance) {
       return reply.status(404).send({ message: "Notification not found", code: "NOT_FOUND" });
     }
 
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "update",
+      resource: "Notification",
+      resourceId: id,
+      description: `Notification "${updated.title}" marked as read`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
+
     return reply.send(updated);
   });
 
@@ -171,6 +198,17 @@ export async function notificationRoutes(app: FastifyInstance) {
       .where(and(eq(notifications.userId, user.sub), eq(notifications.isRead, false)))
       .returning({ id: notifications.id })
       .then((rows) => [{ count: rows.length }]);
+
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "update",
+      resource: "Notification",
+      description: `All notifications marked as read (${updatedCount} updated)`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
 
     return reply.send({ updatedCount });
   });

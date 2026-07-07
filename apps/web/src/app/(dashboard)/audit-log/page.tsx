@@ -113,6 +113,9 @@ export default function AuditLogPage() {
   const simulatorMode = useSimulatorModeStore((s) => s.enabled);
   const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState<string>("all");
+  const [simulationFilter, setSimulationFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [selectedEntry, setSelectedEntry] = useState<AuditLogApiItem | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -126,10 +129,12 @@ export default function AuditLogPage() {
     };
     if (search) params.search = search;
     if (actionFilter !== "all") params.action = actionFilter;
+    if (dateFrom) params.start_date = dateFrom;
+    if (dateTo) params.end_date = dateTo;
     params.sort = "createdAt";
     params.order = "desc";
     return params;
-  }, [search, actionFilter, page]);
+  }, [search, actionFilter, page, dateFrom, dateTo]);
 
   // Fetch audit log entries from API with server-side filtering
   const {
@@ -193,8 +198,15 @@ export default function AuditLogPage() {
       );
     }
 
+    // Simulation filter
+    if (simulationFilter === "real") {
+      filtered = filtered.filter((e) => !e.isSimulated);
+    } else if (simulationFilter === "simulated") {
+      filtered = filtered.filter((e) => e.isSimulated);
+    }
+
     return filtered;
-  }, [rawMerged, actionFilter, search]);
+  }, [rawMerged, actionFilter, search, simulationFilter]);
 
   // Get unique action types from merged entries
   const actionTypes = useMemo(() => {
@@ -216,6 +228,8 @@ export default function AuditLogPage() {
       const exportParams: Record<string, unknown> = { limit: 10000 };
       if (search) exportParams.search = search;
       if (actionFilter !== "all") exportParams.action = actionFilter;
+      if (dateFrom) exportParams.start_date = dateFrom;
+      if (dateTo) exportParams.end_date = dateTo;
       exportParams.sort = "createdAt";
       exportParams.order = "desc";
       const result = await getAuditLogs(exportParams);
@@ -241,6 +255,11 @@ export default function AuditLogPage() {
             (e.resourceId && e.resourceId.toLowerCase().includes(q)) ||
             (e.ipAddress && e.ipAddress.toLowerCase().includes(q))
         );
+      }
+      if (simulationFilter === "real") {
+        filteredStore = filteredStore.filter((e) => !e.isSimulated);
+      } else if (simulationFilter === "simulated") {
+        filteredStore = filteredStore.filter((e) => e.isSimulated);
       }
 
       const exportData = [...filteredStore, ...result.data];
@@ -279,13 +298,21 @@ export default function AuditLogPage() {
     setPage(1);
   };
 
-  const clearFilters = () => {
-    setSearch("");
-    setActionFilter("all");
+  const handleSimulationFilter = (value: string) => {
+    setSimulationFilter(value);
     setPage(1);
   };
 
-  const hasActiveFilters = search || actionFilter !== "all";
+  const clearFilters = () => {
+    setSearch("");
+    setActionFilter("all");
+    setSimulationFilter("all");
+    setDateFrom("");
+    setDateTo("");
+    setPage(1);
+  };
+
+  const hasActiveFilters = search || actionFilter !== "all" || simulationFilter !== "all" || dateFrom || dateTo;
 
   return (
     <RequirePermission resource="audit-log" action="read">
@@ -358,6 +385,32 @@ export default function AuditLogPage() {
               <option key={a} value={a}>{actionLabels[a] ?? a}</option>
             ))}
           </select>
+
+          <select
+            value={simulationFilter}
+            onChange={(e) => { handleSimulationFilter(e.target.value); }}
+            className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="all">All Entries</option>
+            <option value="real">Real Only</option>
+            <option value="simulated">Simulated Only</option>
+          </select>
+
+          <input
+            type="date"
+            aria-label="Date from"
+            value={dateFrom}
+            onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+            className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+          />
+          <span className="text-xs text-muted-foreground">to</span>
+          <input
+            type="date"
+            aria-label="Date to"
+            value={dateTo}
+            onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+            className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+          />
 
           {hasActiveFilters && (
             <Button
