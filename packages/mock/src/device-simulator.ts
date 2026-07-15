@@ -309,17 +309,43 @@ export async function runSimulator(
   // ─── Health HTTP Endpoint (for Render Web Service port detection) ──
   // The simulator is a headless MQTT publisher, but Render's free tier
   // requires all services to listen on a TCP port. This minimal HTTP
-  // server exposes health/stats at GET /health and GET / so Render can
-  // detect an open port and keep the service alive.
+  // server exposes liveness/readiness so Render can detect an open port
+  // and keep the service alive.
+  //
+  //   GET /        → liveness (process is alive)
+  //   GET /health  → full metrics JSON (MQTT status, publish stats, uptime)
+  //   GET /ready   → readiness (MQTT connected = ready to publish)
+  //
   const PORT = parseInt(process.env.PORT ?? "3000", 10);
-  const healthServer = http.createServer((req, res) => {
-    if (req.url === "/health") {
-      const activeDevices = devices.filter((d) => d.status !== "offline").length;
-      const pausedDevices = devices.filter(
-        (d) => d.status === "offline" || d.status === "fault",
-      ).length;
-      const uptimeSeconds = (Date.now() - startTime) / 1000;
 
+  function healthMetrics() {
+    const activeDevices = devices.filter((d) => d.status !== "offline").length;
+    const pausedDevices = devices.filter(
+      (d) => d.status === "offline" || d.status === "fault",
+    ).length;
+    const uptimeSeconds = (Date.now() - startTime) / 1000;
+    return { activeDevices, pausedDevices, uptimeSeconds };
+  }
+
+  const healthServer = http.createServer((req, res) => {
+    const { activeDevices, pausedDevices, uptimeSeconds } = healthMetrics();
+
+    if (req.url === "/ready") {
+      // Readiness — distinguishes "process is alive" from "simulator is operational"
+      const ready = mqttConnected && devices.length > 0;
+      res.writeHead(ready ? 200 : 503, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          status: ready ? "ready" : "not_ready",
+          mqtt: { connected: mqttConnected },
+          activeDevices,
+          totalDevices: deviceCount,
+        }),
+      );
+      return;
+    }
+
+    if (req.url === "/health") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(
         JSON.stringify({
@@ -337,19 +363,19 @@ export async function runSimulator(
           sessionId,
         }),
       );
-    } else {
-      // Render probes any port — respond to root with a brief summary
-      const uptimeSeconds = (Date.now() - startTime) / 1000;
-      res.writeHead(200, { "Content-Type": "text/plain" });
-      res.end(
-        `Sentience IoT Simulator\n` +
-          `Status: ${mqttConnected ? "running" : "degraded"}\n` +
-          `Devices: ${deviceCount}\n` +
-          `Published: ${publishCount}\n` +
-          `Failures: ${publishFailureCount}\n` +
-          `Uptime: ${formatUptime(uptimeSeconds)}\n`,
-      );
+      return;
     }
+
+    // Root — liveness probe (Render scans for any open port)
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end(
+      `Sentience IoT Simulator\n` +
+        `Status: ${mqttConnected ? "running" : "degraded"}\n` +
+        `Devices: ${deviceCount}\n` +
+        `Published: ${publishCount}\n` +
+        `Failures: ${publishFailureCount}\n` +
+        `Uptime: ${formatUptime(uptimeSeconds)}\n`,
+    );
   });
 
   healthServer.listen(PORT, "0.0.0.0", () => {
