@@ -61,10 +61,9 @@ ENV PORT=3000
 # Standalone output includes server.js + bundled node_modules
 COPY --from=base /app/apps/web/.next/standalone ./
 # Static assets must be copied separately
-COPY --from=base /app/apps/web/.next/static ./.next/static
+COPY --from=base /app/apps/web/.next/static /app/apps/web/.next/static
 
 EXPOSE 3000
 
-# Standalone server bundles are in the output root by default
-# (next.config.js outputFileTracingRoot can adjust this)
-CMD ["node", "server.js"]
+# Next.js 15 standalone output preserves the monorepo path inside standalone/
+CMD ["node", "apps/web/server.js"]

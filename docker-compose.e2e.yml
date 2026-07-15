@@ -25,7 +25,7 @@ services:
       POSTGRES_PASSWORD: sentience
       POSTGRES_DB: sentience
     ports:
-      - "5433:5432"
+      - "5434:5432"
     volumes:
       - sentience-e2e-pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -47,7 +47,7 @@ services:
       - mosquitto-e2e-data:/mosquitto/data
       - mosquitto-e2e-log:/mosquitto/log
     healthcheck:
-      test: ["CMD-SHELL", "timeout 3 bash -c 'echo > /dev/tcp/127.0.0.1/1883'"]
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 1883"]
       interval: 3s
       timeout: 3s
       retries: 10
@@ -76,7 +76,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3001/api/health"]
       interval: 5s
       timeout: 3s
       retries: 15
@@ -103,7 +103,7 @@ services:
       mosquitto:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "timeout 3 bash -c 'echo > /dev/tcp/127.0.0.1/3002'"]
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 3002"]
       interval: 5s
       timeout: 3s
       retries: 15
@@ -140,14 +140,14 @@ services:
       NEXT_PUBLIC_SOCKET_URL: http://realtime:3002
       NEXT_PUBLIC_ENABLE_DEMO_LOGIN: "false"
     ports:
-      - "3000:3000"
+      - "3003:3000"
     depends_on:
       api:
         condition: service_healthy
       realtime:
         condition: service_started
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/login"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/login"]
       interval: 5s
       timeout: 5s
       retries: 20
