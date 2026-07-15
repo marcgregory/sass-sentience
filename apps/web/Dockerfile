@@ -25,16 +25,15 @@ COPY packages/utils/src packages/utils/src
 COPY packages/ui/src packages/ui/src
 COPY packages/hooks/src packages/hooks/src
 COPY packages/mock/src packages/mock/src
-COPY packages/config/src packages/config/src
+COPY packages/config/tailwind packages/config/tailwind
+COPY packages/config/typescript packages/config/typescript
 
 # ─── Web app source ────────────────────────────────────────────────
 COPY apps/web/src apps/web/src
-COPY apps/web/public apps/web/public
 COPY apps/web/next.config.ts apps/web/
 COPY apps/web/tsconfig.json apps/web/
 COPY apps/web/tailwind.config.ts apps/web/
-COPY apps/web/postcss.config.mjs apps/web/
-COPY apps/web/.eslintrc.json apps/web/
+COPY apps/web/postcss.config.js apps/web/
 
 # ─── Build args (baked into client JS) ─────────────────────────────
 ARG NEXT_PUBLIC_API_URL=http://api:3001/api
@@ -63,7 +62,6 @@ ENV PORT=3000
 COPY --from=base /app/apps/web/.next/standalone ./
 # Static assets must be copied separately
 COPY --from=base /app/apps/web/.next/static ./.next/static
-COPY --from=base /app/apps/web/public ./public
 
 EXPOSE 3000
 

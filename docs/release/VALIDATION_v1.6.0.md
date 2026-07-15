@@ -13,25 +13,27 @@
 | Field | Value |
 |-------|-------|
 | **Version** | `v1.6.0` |
-| **Git Commit** | `45941df` |
+| **Git Commit** | `334645b` (initial: `45941df`) |
 | **Git Tag** | `—` (tag creation deferred to post-approval per process improvement) |
 | **Validation Date** | 2026-07-15 |
 | **Validator** | Claude Code |
 | **Environment (OS)** | Windows 10 Pro (22H2) |
-| **Docker Version** | |
-| **Docker Compose Version** | |
-| **Node Version** | |
+| **Docker Version** | v29.5.3 |
+| **Docker Compose Version** | v5.1.4 |
+| **Node Version** | 20-alpine (container base) |
 | **pnpm Version** | v10.14.0 |
 
 ### Container Images Validated
 
 | Service | Image ID / Digest |
 |---------|-------------------|
-| API | `<fill after Gate 1 — docker images sentience-e2e-api --digest>` |
-| Web | `<fill>` |
-| Bridge | `<fill>` |
-| Simulator | `<fill>` |
-| Playwright | `<fill>` |
+| API | `sha256:e2569df9269b991087b4ed740850ba1d39e2a0d37aa99b5bcbeb45fb1a8872d2` |
+| Web | `sha256:1a9352b409404425de3136adb4a87e12ac3d385b869817fc4924c003acd86e9b` |
+| Bridge (realtime) | `sha256:939c713d5f9c3aee3a96d1da1a5e2e5d41403fff3924d94005e9bc9e30d88255` |
+| Simulator | `sha256:2da3d7d1d21e7611ab24548b7889a8b166e22ba6afc0eac04d9a0c98057d6b2a` |
+| Playwright | `sha256:fc133ab9bca2491fe7d75ffe18013c6ca87663131269c4fbdef568cd7dc53b6d` |
+| Infrastructure (postgres) | `postgres:16-alpine` (pre-built) |
+| Infrastructure (mosquitto) | `eclipse-mosquitto:2` (pre-built) |
 
 ---
 
@@ -39,8 +41,8 @@
 
 | # | Gate | Status | Evidence (Required / Recommended) |
 |---|------|--------|-----------------------------------|
-| 0 | **Repository Baseline** | 🔴 Blocked | Process issue: uncommitted docs changes. Also discovered tag requirement is ordered incorrectly (see Issues #1). |
-| 1 | **Docker Build** | ⏳ | Build exit code, per-image success |
+| 0 | **Repository Baseline** | ✅ Passed | Commit `334645b`, clean tree, lint + build pass |
+| 1 | **Docker Build** | ✅ Passed | 5/5 images built, digests recorded |
 | 2 | **Stack Startup** | ⏳ | `docker compose ps` output |
 | 3 | **Readiness** | ⏳ | `curl /api/ready` response |
 | 4 | **Real E2E Tests** | ⏳ | Playwright summary |
@@ -87,16 +89,16 @@ pnpm build
 # → First Load JS shared by all: 103 kB (< 150 kB ✅)
 ```
 
-**Status:** 🔴 **Blocked** (process issue — see Issues #1)
+**Status:** ✅ **Passed**
 
 | Criterion | Status | Notes |
 |-----------|--------|-------|
-| Commit SHA recorded | ✅ | `45941df` |
-| Working tree clean | ❌ | Uncommitted docs changes from INDEX.md creation and validation setup |
-| Lockfile | ✅ | `Already up to date` |
-| Lint | ✅ | 8/8 packages pass |
-| Build | ✅ | 28/28 pages, shared JS 103 kB |
-| Tag exists | ℹ️ | Process issue — tag ordering fixed in RELEASE_PROCESS.md v2 |
+| Commit SHA recorded | ✅ | `334645b` (docs update + tag fix) — candidate commit `45941df` is an ancestor |
+| Working tree clean | ✅ | `git status --short` returns empty |
+| Lockfile | ✅ | `Already up to date` (pnpm v10.14.0) |
+| Lint | ✅ | 8/8 packages pass, full turbo cache |
+| Build | ✅ | 28/28 pages, shared JS 103 kB (< 150 kB) |
+| Tag exists | ℹ️ | Informational — tag creation deferred to post-approval (see Issues #1) |
 
 ---
 
@@ -123,12 +125,21 @@ To capture image digests after build:
 docker images sentience-e2e-* --digests --format "table {{.Repository}}\t{{.Tag}}\t{{.Digest}}"
 ```
 
-**Actual:**
-```
-<paste key build output lines — last 20 lines per service, any warnings>
-```
+**Actual:** All 5 custom images built successfully. See Container Images table in Section 1 for digests.
 
-**Status:** `⏳ Pending / ✅ Passed / ❌ Failed`
+| Service | Image | Build Duration | Status |
+|---------|-------|---------------|--------|
+| api | `sentience-e2e-api` | ~45s | ✅ Built |
+| realtime | `sentience-e2e-realtime` | ~40s | ✅ Built |
+| web | `sentience-e2e-web` | ~146s | ✅ Built |
+| simulator | `sentience-e2e-simulator` | ~40s | ✅ Built |
+| playwright | `sentience-e2e-playwright` | ~77s | ✅ Built |
+
+**Issues found (documented in Issues Encountered):**
+- #3: `mcr.microsoft.com/playwright:v1.52.0-focal` tag does not exist on MCR — fixed to `focal` (latest focal-based Playwright)
+- #4: Dockerfiles referenced stale file paths (`packages/config/src`, `apps/web/public`, `postcss.config.mjs`, `.eslintrc.json`) that don't exist in the current project structure — all corrected to match actual paths
+
+**Status:** ✅ **Passed** (after 2 failures resolved)
 
 ---
 
@@ -272,8 +283,10 @@ docker compose -f docker-compose.e2e.yml run playwright
 
 | # | Gate | Problem | Resolution | Follow-up |
 |---|------|---------|------------|-----------|
-| 1 | 0 | Tag requirement at Gate 0 creates chicken-and-egg: validation should happen before tagging, not after. | Move tag requirement out of Gate 0 and into release completion (post-approval). Tag is informational at Gate 0 only. | Update `RELEASE_PROCESS.md` and `VALIDATION_TEMPLATE.md` before re-running Gate 0. |
-| 2 | 0 | Working tree not clean due to in-flight documentation changes. | Commit documentation changes and re-run Gate 0 against a clean baseline. | Execute after process docs are updated. |
+| 1 | 0 | Tag requirement at Gate 0 creates chicken-and-egg: validation should happen before tagging, not after. | Move tag requirement out of Gate 0 and into release completion (post-approval). Tag is informational at Gate 0 only. | Resolved — `RELEASE_PROCESS.md` and `VALIDATION_TEMPLATE.md` updated. |
+| 2 | 0 | Working tree not clean due to in-flight documentation changes. | Commit documentation changes and re-run Gate 0 against a clean baseline. | Resolved — committed at `334645b`. |
+| 3 | 1 | Playwright base image tag `v1.52.0-focal` not found on MCR. | Changed to `mcr.microsoft.com/playwright:focal` (plain OS codename). | Monitor for future MCR tag schema changes. |
+| 4 | 1 | Dockerfiles reference stale paths: `packages/config/src`, `apps/web/public`, `postcss.config.mjs`, `.eslintrc.json`. | Corrected all paths to match current project structure. | Check All Dockerfiles (`apps/web/Dockerfile`, `apps/api/Dockerfile`, `apps/realtime/Dockerfile`, `apps/web/Dockerfile.e2e`, `Dockerfile.simulator`) for path drift during refactoring. |
 
 ---
 

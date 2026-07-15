@@ -22,7 +22,8 @@ RUN apk del python3 make g++
 # ─── Shared packages source ────────────────────────────────────────
 COPY packages/types/src packages/types/src
 COPY packages/utils/src packages/utils/src
-COPY packages/config/src packages/config/src
+COPY packages/config/tailwind packages/config/tailwind
+COPY packages/config/typescript packages/config/typescript
 
 # ─── API source ────────────────────────────────────────────────────
 COPY apps/api/src apps/api/src

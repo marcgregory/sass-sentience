@@ -4,7 +4,7 @@
 # All service dependencies (api, realtime, etc.) are expected to be
 # running as separate containers in the e2e compose environment.
 
-FROM mcr.microsoft.com/playwright:v1.52.0-focal
+FROM mcr.microsoft.com/playwright:focal
 
 WORKDIR /app
 
@@ -39,16 +39,15 @@ COPY packages/utils/src packages/utils/src
 COPY packages/ui/src packages/ui/src
 COPY packages/hooks/src packages/hooks/src
 COPY packages/mock/src packages/mock/src
-COPY packages/config/src packages/config/src
+COPY packages/config/tailwind packages/config/tailwind
+COPY packages/config/typescript packages/config/typescript
 
 # ─── Web source + test files ──────────────────────────────────────
 COPY apps/web/src apps/web/src
-COPY apps/web/public apps/web/public
 COPY apps/web/next.config.ts apps/web/
 COPY apps/web/tsconfig.json apps/web/
 COPY apps/web/tailwind.config.ts apps/web/
-COPY apps/web/postcss.config.mjs apps/web/
-COPY apps/web/.eslintrc.json apps/web/
+COPY apps/web/postcss.config.js apps/web/
 COPY apps/web/e2e apps/web/e2e
 COPY apps/web/playwright.e2e.config.ts apps/web/
 COPY apps/web/vitest.config.ts apps/web/
