@@ -31,6 +31,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import type { UserRole } from "@sentience/types";
+import { usePlatformHealth } from "@/hooks/use-platform-health";
 
 type SettingsTab = "general" | "tenant" | "security" | "notifications" | "feature-flags" | "maintenance";
 
@@ -103,6 +104,7 @@ export default function SettingsPage() {
   // ─── API state ───────────────────────────────────────────────────────
   const { settings, isLoading, isError, error, refetch } = useSettings();
   const updateSetting = useUpdateSetting();
+  const { data: platformHealth } = usePlatformHealth(30_000);
 
   // ─── Local form state ────────────────────────────────────────────────
   const [platformName, setPlatformName] = useState("");
@@ -693,26 +695,73 @@ export default function SettingsPage() {
                   <p className="text-sm font-semibold mb-2">Service Status</p>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <Wifi className="h-5 w-5 text-emerald-500" />
+                      <Wifi className={`h-5 w-5 ${platformHealth ? "text-emerald-500" : "text-muted-foreground"}`} />
                       <div>
-                        <p className="text-sm font-medium">MQTT Broker Status</p>
-                        <p className="text-xs text-muted-foreground">Connected to mosquitto://localhost:1883</p>
+                        <p className="text-sm font-medium">MQTT Broker</p>
+                        <p className="text-xs text-muted-foreground">
+                          {platformHealth
+                            ? (() => {
+                                const mqtt = platformHealth.services.find((s) => s.id === "mqtt");
+                                return mqtt?.metrics.find((m) => m.label === "Host")?.value ?? "Checking...";
+                              })()
+                            : "Checking..."}
+                        </p>
                       </div>
                     </div>
-                    <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-400">
-                      Online
+                    <Badge className={
+                      platformHealth
+                        ? (() => {
+                            const mqtt = platformHealth.services.find((s) => s.id === "mqtt");
+                            if (!mqtt) return "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-400";
+                            return mqtt.status === "healthy"
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-400"
+                              : "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-400";
+                          })()
+                        : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-400"
+                    }>
+                      {platformHealth
+                        ? (() => {
+                            const mqtt = platformHealth.services.find((s) => s.id === "mqtt");
+                            if (!mqtt) return "Checking...";
+                            return mqtt.status === "healthy" ? "Online" : "Offline";
+                          })()
+                        : "Checking..."}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <Database className="h-5 w-5 text-blue-500" />
+                      <Database className={`h-5 w-5 ${platformHealth ? "text-blue-500" : "text-muted-foreground"}`} />
                       <div>
-                        <p className="text-sm font-medium">Database Status</p>
-                        <p className="text-xs text-muted-foreground">PostgreSQL 16 — 2.3 GB used</p>
+                        <p className="text-sm font-medium">Database</p>
+                        <p className="text-xs text-muted-foreground">
+                          {platformHealth
+                            ? (() => {
+                                const db = platformHealth.services.find((s) => s.id === "database");
+                                const storage = db?.metrics.find((m) => m.label === "Storage")?.value;
+                                return storage ? `PostgreSQL 16 — ${storage} used` : "Checking...";
+                              })()
+                            : "Checking..."}
+                        </p>
                       </div>
                     </div>
-                    <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-400">
-                      Healthy
+                    <Badge className={
+                      platformHealth
+                        ? (() => {
+                            const db = platformHealth.services.find((s) => s.id === "database");
+                            if (!db) return "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-400";
+                            return db.status === "healthy"
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-400"
+                              : "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-400";
+                          })()
+                        : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-400"
+                    }>
+                      {platformHealth
+                        ? (() => {
+                            const db = platformHealth.services.find((s) => s.id === "database");
+                            if (!db) return "Checking...";
+                            return db.status === "healthy" ? "Healthy" : "Unhealthy";
+                          })()
+                        : "Checking..."}
                     </Badge>
                   </div>
                 </div>

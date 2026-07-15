@@ -105,6 +105,7 @@ export const queryKeys = {
   admin: {
     all: ["admin"] as const,
     stats: ["admin", "stats"] as const,
+    health: ["admin", "health"] as const,
   },
 
   /** API keys (admin) */

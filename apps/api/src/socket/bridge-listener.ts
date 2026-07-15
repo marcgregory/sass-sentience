@@ -332,3 +332,14 @@ export function disconnectBridgeListener(): void {
     client = null;
   }
 }
+
+/**
+ * Returns the current bridge listener connection status.
+ * Used by the Platform Health endpoint to report realtime bridge state.
+ */
+export function getBridgeStatus(): { connected: boolean; url: string } {
+  return {
+    connected: client?.connected ?? false,
+    url: env.REALTIME_WS_URL,
+  };
+}

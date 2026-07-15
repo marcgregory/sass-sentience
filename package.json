@@ -27,6 +27,6 @@
   },
   "packageManager": "pnpm@10.14.0",
   "pnpm": {
-    "onlyBuiltDependencies": ["bcrypt"]
+    "onlyBuiltDependencies": ["bcrypt", "better-sqlite3", "core-js", "esbuild", "unrs-resolver"]
   }
 }
