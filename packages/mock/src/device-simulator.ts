@@ -31,6 +31,7 @@
  */
 
 import crypto from "crypto";
+import http from "http";
 import mqtt from "mqtt";
 import { generateDevice, seed as createSeed } from "./device-generator";
 import type { Device, DeviceStatus } from "@sentience/types";
@@ -305,6 +306,56 @@ export async function runSimulator(
     `[simulator] Published initial status for ${deviceCount} devices.`,
   );
 
+  // ─── Health HTTP Endpoint (for Render Web Service port detection) ──
+  // The simulator is a headless MQTT publisher, but Render's free tier
+  // requires all services to listen on a TCP port. This minimal HTTP
+  // server exposes health/stats at GET /health and GET / so Render can
+  // detect an open port and keep the service alive.
+  const PORT = parseInt(process.env.PORT ?? "3000", 10);
+  const healthServer = http.createServer((req, res) => {
+    if (req.url === "/health") {
+      const activeDevices = devices.filter((d) => d.status !== "offline").length;
+      const pausedDevices = devices.filter(
+        (d) => d.status === "offline" || d.status === "fault",
+      ).length;
+      const uptimeSeconds = (Date.now() - startTime) / 1000;
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          status: mqttConnected ? "healthy" : "degraded",
+          mqtt: mqttConnected ? "connected" : "disconnected",
+          activeDevices,
+          pausedDevices,
+          totalDevices: deviceCount,
+          publishCount,
+          publishFailureCount,
+          reconnectAttempts,
+          uptimeSeconds: Math.round(uptimeSeconds),
+          uptime: formatUptime(uptimeSeconds),
+          clientId,
+          sessionId,
+        }),
+      );
+    } else {
+      // Render probes any port — respond to root with a brief summary
+      const uptimeSeconds = (Date.now() - startTime) / 1000;
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end(
+        `Sentience IoT Simulator\n` +
+          `Status: ${mqttConnected ? "running" : "degraded"}\n` +
+          `Devices: ${deviceCount}\n` +
+          `Published: ${publishCount}\n` +
+          `Failures: ${publishFailureCount}\n` +
+          `Uptime: ${formatUptime(uptimeSeconds)}\n`,
+      );
+    }
+  });
+
+  healthServer.listen(PORT, "0.0.0.0", () => {
+    console.log(`[simulator] Health endpoint listening on http://0.0.0.0:${PORT}`);
+  });
+
   // ─── Telemetry Loop ──────────────────────────────────────────────
 
   for (const sd of devices) {
@@ -426,6 +477,9 @@ export async function runSimulator(
       if (sd.eventTimer) clearInterval(sd.eventTimer);
     }
     clearInterval(healthInterval);
+
+    // Close health HTTP server
+    await new Promise<void>((resolve) => healthServer.close(() => resolve()));
 
     await client.endAsync(true);
     console.log("[simulator] Disconnected. Goodbye.");
