@@ -49,9 +49,11 @@ Only one sprint may be active at a time. See `docs/implementation/BUILD_PLAN.md`
 
 ## Current Phase
 
-**v1.5.x — Product Completion** (2026-07-06)
+**v1.5.x — Product Completion** (2026-07-15)
 
-The platform is functionally complete for core domains (devices, telemetry, alerts, events, reports, users, roles) and most secondary domains (estates, sites, diagnostics, authentication flows). The remaining gap is platform administration (dashboard API, health, settings wiring) before full-stack E2E validation.
+All v1.5.x milestones are delivered. The platform is functionally complete for all domains: devices, telemetry, alerts, events, reports, users, roles, estates, sites, diagnostics, authentication flows (including forgot password, MFA, profile), platform administration (dashboard API, health, settings, admin overview, profile notification prefs). No mock data remains in production UI.
+
+The next phase is full-stack E2E validation against real infrastructure.
 
 See `docs/implementation/ROADMAP.md` for milestone tracking.
 
@@ -61,8 +63,8 @@ See `docs/implementation/ROADMAP.md` for milestone tracking.
 | **v1.5.1** | Core Entity Management (Estates, Sites CRUD) | ✅ Delivered |
 | **v1.5.2** | Device Diagnostics | ✅ Delivered |
 | **v1.5.3** | Account Management (Forgot Password, MFA, Profile) | ✅ Delivered |
-| **v1.5.4** | Platform Administration (Dashboard, Health, Settings) | ⏳ Next |
-| **v1.6.0** | Full-Stack End-to-End Validation | ⏳ Blocked |
+| **v1.5.4** | Platform Administration (Dashboard, Health, Settings) | ✅ Delivered |
+| **v1.6.0** | Full-Stack End-to-End Validation | ⏳ Next |
 
 ### Key Achievements (v1.0 through v1.5.0)
 

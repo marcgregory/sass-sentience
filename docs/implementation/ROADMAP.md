@@ -518,25 +518,27 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 
 ---
 
-## ⏳ Next — v1.5.4 — Platform Administration
+## ✅ Completed — v1.5.4 — Platform Administration (2026-07-15)
 
 **Goal:** Fill remaining feature gaps in dashboard, admin overview, platform health, and settings persistence.
 
 | Area                                | Status     | Notes                                                   |
 | ----------------------------------- | ---------- | ------------------------------------------------------- |
-| **Dashboard summary API**           | ⬜ Pending | `GET /api/dashboard/summary` for production dashboard   |
-| **Dashboard page (frontend)**       | ⬜ Pending | Use API endpoint when simulator is OFF                  |
-| **Admin overview stats**            | ⬜ Pending | Replace hardcoded users/uptime/alerts with real data    |
-| **Platform Health service status**  | ⬜ Pending | Replace 4 static services with real health endpoints    |
-| **Settings: Tenant tab**            | ⬜ Pending | Persist tenant fields to API                            |
-| **Settings: Notification channels** | ⬜ Pending | Persist channel toggles to API                          |
-| **Profile notification prefs**      | ⬜ Pending | Wire toggle switches to API                             |
-| **Reports: Schedule placeholder**   | ⬜ Pending | Wire or formally document as future                     |
-| **Reports: Recent exports**         | ⬜ Pending | Replace hardcoded entries with API query                |
-| **TypeScript check**                | ⬜ Pending | Zero errors                                             |
-| **Production build**                | ⬜ Pending |                                                         |
+| **Dashboard summary API**           | ✅ Done    | `GET /api/dashboard/summary` with full fleet KPIs, customer isolation, estate breakdowns |
+| **Dashboard page (frontend)**       | ✅ Done    | Uses real API endpoint with live device store overlay   |
+| **Admin overview stats**            | ✅ Done    | `GET /api/admin/stats` returns real DB counts to `useAdminStats()` |
+| **Platform Health service status**  | ✅ Done    | `GET /api/admin/health` — 5 real checks (API, DB, MQTT via TCP, Bridge via Socket.IO, Simulator via SQL) |
+| **Settings: Tenant tab**            | ✅ Done    | Persists `tenant_org_name`, `brand_color`, `support_phone`, `address` to API |
+| **Settings: Notification channels** | ✅ Done    | Email/push/SMS/webhook toggles persisted to `notification_*` setting keys |
+| **Settings: Maintenance tab**       | ✅ Done    | Consumes `usePlatformHealth()` for live MQTT/DB status |
+| **Profile notification prefs**      | ✅ Done    | Interactive toggles with optimistic updates via `PUT /api/auth/me` |
+| **Reports: Recent exports**         | ✅ Done    | Removed hardcoded mock data; session-only tracking with honest empty state |
+| **Reports: Schedule placeholder**   | ➡️ Deferred | Remains "Coming Soon" — documented as technical debt     |
+| **Reports: PDF Export**             | ➡️ Deferred | PDF export button functional (v1.3.0) — scheduled scheduling deferred |
+| **TypeScript check**                | ✅ Passed  | Zero errors                                              |
+| **Production build**                | ✅ Passed  |                                                          |
 
-**Definition of Done:** Dashboard shows real data without simulator. All settings persist. Platform Health reflects actual service status.
+**Definition of Done:** Dashboard shows real data without simulator. All settings persist. Platform Health reflects actual service status. Profile notification prefs wire to API. No mock data remains in production UI.
 
 ---
 

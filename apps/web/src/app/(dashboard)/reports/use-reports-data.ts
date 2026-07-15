@@ -11,7 +11,7 @@
  * when simulator mode is active with data, otherwise falls back to the API.
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useReportSummary, useReportTrends } from "@/hooks/use-reports";
 import { useLiveDeviceStore, type LiveDeviceEntry } from "@/stores/live-device-store";
 import { useLiveAlertStore, type LiveAlertEntry } from "@/stores/live-alert-store";
@@ -49,7 +49,14 @@ export interface RecentExport {
   exportedAt: string;
 }
 
-// ─── Days map ─────────────────────────────────────────────────────────
+// ─── Date Range helpers ──────────────────────────────────────────────
+
+const DATE_RANGE_LABELS: Record<ReportFilter["dateRange"], string> = {
+  today: "Today",
+  "7d": "Last 7 Days",
+  "30d": "Last 30 Days",
+  "90d": "Last 90 Days",
+};
 
 function dateRangeToDays(range: ReportFilter["dateRange"]): number {
   switch (range) {
@@ -336,13 +343,25 @@ export function useReportsData(filter: ReportFilter) {
     return Math.max(recentEvents.length, recentEvents.length * (days > 1 ? days : 1));
   }, [recentEvents.length, days]);
 
-  // ─── Recent Exports (in-memory tracking) ─────────────────────────
+  // ─── Recent Exports (session-only tracking) ─────────────────────
+  // Track exports during this browser session. List clears on page refresh.
 
-  const [recentExports] = useState<RecentExport[]>([
-    { id: "EXP-001", name: "Fleet Health Report", filters: "All estates", dateRange: "Last 30 Days", format: "CSV", exportedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
-    { id: "EXP-002", name: "Alert Analysis", filters: "Critical + Warning", dateRange: "Last 7 Days", format: "CSV", exportedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() },
-    { id: "EXP-003", name: "Monthly Summary", filters: "Tech Valley Park", dateRange: "Last 30 Days", format: "PDF", exportedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
-  ]);
+  const [recentExports, setRecentExports] = useState<RecentExport[]>([]);
+
+  const addExport = useCallback((name: string, filters: string, format: "CSV" | "PDF") => {
+    const exportId = `exp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    setRecentExports((prev) => [
+      {
+        id: exportId,
+        name,
+        filters,
+        dateRange: DATE_RANGE_LABELS[filter.dateRange],
+        format,
+        exportedAt: new Date().toISOString(),
+      },
+      ...prev,
+    ]);
+  }, [filter.dateRange]);
 
   // ─── CSV Export ──────────────────────────────────────────────────
 
@@ -403,6 +422,23 @@ export function useReportsData(filter: ReportFilter) {
     a.click();
     URL.revokeObjectURL(url);
     exportCounter++;
+
+    // Track in session export history
+    const filterParts: string[] = [];
+    if (filter.estateId) {
+      const estate = estateOptions.find((e) => e.id === filter.estateId);
+      if (estate) filterParts.push(estate.name);
+    }
+    if (filter.siteId) {
+      const site = siteOptions.find((s) => s.id === filter.siteId);
+      if (site) filterParts.push(site.name);
+    }
+    if (filter.deviceId) {
+      const device = deviceOptions.find((d) => d.id === filter.deviceId);
+      if (device) filterParts.push(device.name);
+    }
+    const filtersStr = filterParts.length > 0 ? filterParts.join(", ") : "All";
+    addExport("Fleet Health Export", filtersStr, "CSV");
   }
 
   // ─── Estate/Site options for filter dropdowns ─────────────────────
@@ -484,6 +520,7 @@ export function useReportsData(filter: ReportFilter) {
     eventsInScope,
     openAlerts,
     recentExports,
+    addExport,
     estateOptions,
     siteOptions,
     deviceOptions,

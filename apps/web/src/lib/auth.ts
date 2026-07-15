@@ -74,9 +74,17 @@ export interface ChangePasswordResponse {
   message: string;
 }
 
+export interface NotificationPreferences {
+  criticalAlerts?: boolean;
+  weeklyReports?: boolean;
+  firmwareUpdates?: boolean;
+  systemAnnouncements?: boolean;
+}
+
 export interface UpdateProfilePayload {
   name?: string;
   email?: string;
+  notificationPreferences?: NotificationPreferences;
 }
 
 export interface UpdateProfileResponse {
@@ -86,6 +94,7 @@ export interface UpdateProfileResponse {
   role: string;
   isActive: boolean;
   mfaEnabled: boolean;
+  notificationPreferences?: NotificationPreferences;
   avatar?: string;
   lastLogin?: string;
   createdAt: string;

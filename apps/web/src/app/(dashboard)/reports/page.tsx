@@ -91,6 +91,7 @@ export default function ReportsPage() {
     eventsInScope,
     openAlerts,
     recentExports,
+    addExport,
     estateOptions,
     siteOptions,
     deviceOptions,
@@ -758,7 +759,7 @@ export default function ReportsPage() {
                   <Download className="h-4 w-4" />
                   Recent Exports
                 </CardTitle>
-                <CardDescription>Recently generated reports</CardDescription>
+                <CardDescription>Exports created in this session</CardDescription>
               </CardHeader>
               <CardContent>
                 {recentExports.length > 0 ? (
@@ -781,9 +782,12 @@ export default function ReportsPage() {
                     ))}
                   </div>
                 ) : (
-                  <p className="py-4 text-center text-sm text-muted-foreground">
-                    No exports yet. Generate a report to see it here.
-                  </p>
+                  <div className="py-4 text-center">
+                    <p className="text-sm text-muted-foreground">No exports yet.</p>
+                    <p className="text-xs text-muted-foreground/70 mt-0.5">
+                      Reports you export during this session will appear here.
+                    </p>
+                  </div>
                 )}
               </CardContent>
             </Card>

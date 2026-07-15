@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import {
   Card,
@@ -615,35 +615,119 @@ export default function ProfilePage() {
           </Card>
 
           {/* Notification Preferences */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Notification Preferences</CardTitle>
-              <CardDescription>Choose how you receive notifications</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {[
-                { name: "Critical Alerts", desc: "Immediate notifications for critical device alerts", channel: "email, push", enabled: true },
-                { name: "Weekly Reports", desc: "Weekly summary reports", channel: "email", enabled: true },
-                { name: "Firmware Updates", desc: "When new firmware is available for your devices", channel: "email, push", enabled: false },
-                { name: "System Announcements", desc: "Platform maintenance and feature updates", channel: "email", enabled: true },
-              ].map((pref) => (
-                <div key={pref.name} className="flex items-center justify-between rounded-lg border p-3">
-                  <div>
-                    <p className="text-sm font-medium">{pref.name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{pref.desc}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">via {pref.channel}</p>
-                  </div>
-                  <div className={`h-6 w-11 rounded-full transition-colors cursor-pointer ${pref.enabled ? "bg-primary" : "bg-input"}`}>
-                    <div className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-                      pref.enabled ? "translate-x-[22px]" : "translate-x-0.5"
-                    }`} />
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+          <NotificationPreferencesSection user={user} updateProfileMutation={updateProfileMutation} />
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── Notification Preferences Sub-Component ────────────────────────────
+
+interface NotificationPreference {
+  key: "criticalAlerts" | "weeklyReports" | "firmwareUpdates" | "systemAnnouncements";
+  name: string;
+  desc: string;
+  channel: string;
+}
+
+const NOTIFICATION_PREFS: NotificationPreference[] = [
+  { key: "criticalAlerts", name: "Critical Alerts", desc: "Immediate notifications for critical device alerts", channel: "email, push" },
+  { key: "weeklyReports", name: "Weekly Reports", desc: "Weekly summary reports", channel: "email" },
+  { key: "firmwareUpdates", name: "Firmware Updates", desc: "When new firmware is available for your devices", channel: "email, push" },
+  { key: "systemAnnouncements", name: "System Announcements", desc: "Platform maintenance and feature updates", channel: "email" },
+];
+
+function NotificationPreferencesSection({
+  user,
+  updateProfileMutation,
+}: {
+  user: NonNullable<ReturnType<typeof useAuthStore.getState>["user"]>;
+  updateProfileMutation: ReturnType<typeof useUpdateProfile>;
+}) {
+  const [pendingToggles, setPendingToggles] = useState<Set<string>>(new Set());
+  const [notifError, setNotifError] = useState<string | null>(null);
+
+  const prefs = user.notificationPreferences ?? {};
+  const canEdit = hasPermission(user.role, "profile", "update");
+
+  const toggleNotification = useCallback(
+    (key: NotificationPreference["key"]) => {
+      if (!canEdit) return;
+      setNotifError(null);
+      setPendingToggles((prev) => new Set(prev).add(key));
+
+      const current = prefs[key] ?? true;
+      const updated = { ...prefs, [key]: !current };
+
+      // Optimistic update
+      useAuthStore.getState().setUser({ ...user, notificationPreferences: updated });
+
+      updateProfileMutation.mutate(
+        { notificationPreferences: updated },
+        {
+          onSettled: () => {
+            setPendingToggles((prev) => {
+              const next = new Set(prev);
+              next.delete(key);
+              return next;
+            });
+          },
+          onError: () => {
+            // Rollback
+            useAuthStore.getState().setUser({ ...user, notificationPreferences: prefs });
+            setNotifError("Failed to save preference");
+          },
+        },
+      );
+    },
+    [user, prefs, canEdit, updateProfileMutation],
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Notification Preferences</CardTitle>
+        <CardDescription>Choose how you receive notifications</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {notifError && (
+          <div className="rounded-md border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30 p-2.5">
+            <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5">
+              <AlertCircle className="h-3 w-3 shrink-0" />
+              {notifError}
+            </p>
+          </div>
+        )}
+        {NOTIFICATION_PREFS.map((pref) => {
+          const enabled = prefs[pref.key] ?? true;
+          const isPending = pendingToggles.has(pref.key);
+          return (
+            <div key={pref.key} className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <p className="text-sm font-medium">{pref.name}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{pref.desc}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">via {pref.channel}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => toggleNotification(pref.key)}
+                disabled={isPending || !canEdit}
+                className={`h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  isPending ? "cursor-default" : "cursor-pointer"
+                } ${enabled ? "bg-primary" : "bg-input"} ${isPending ? "opacity-50" : ""}`}
+                aria-label={`Toggle ${pref.name}`}
+              >
+                <div
+                  className={`h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                    enabled ? "translate-x-[22px]" : "translate-x-0.5"
+                  } ${isPending ? "opacity-50" : ""}`}
+                />
+              </button>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }

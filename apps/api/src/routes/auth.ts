@@ -51,6 +51,14 @@ const changePasswordSchema = z.object({
 const updateProfileSchema = z.object({
   name: z.string().min(1).optional(),
   email: z.string().email().optional(),
+  notificationPreferences: z
+    .object({
+      criticalAlerts: z.boolean().optional(),
+      weeklyReports: z.boolean().optional(),
+      firmwareUpdates: z.boolean().optional(),
+      systemAnnouncements: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 // ─── Shared User Columns ───────────────────────────────────────────────
@@ -61,6 +69,7 @@ const userColumns = {
   name: users.name,
   isActive: users.isActive,
   mfaEnabled: users.mfaEnabled,
+  notificationPreferences: users.notificationPreferences,
   avatar: users.avatar,
   lastLogin: users.lastLogin,
   createdAt: users.createdAt,
@@ -412,6 +421,7 @@ export async function authRoutes(app: FastifyInstance) {
         name: users.name,
         isActive: users.isActive,
         mfaEnabled: users.mfaEnabled,
+        notificationPreferences: users.notificationPreferences,
         avatar: users.avatar,
         lastLogin: users.lastLogin,
         createdAt: users.createdAt,
@@ -433,6 +443,7 @@ export async function authRoutes(app: FastifyInstance) {
       role: result.roleName,
       isActive: result.isActive,
       mfaEnabled: result.mfaEnabled,
+      notificationPreferences: result.notificationPreferences,
       avatar: result.avatar,
       lastLogin: result.lastLogin,
       createdAt: result.createdAt,
@@ -807,6 +818,9 @@ export async function authRoutes(app: FastifyInstance) {
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
     if (body.name !== undefined) updateData.name = body.name;
     if (body.email !== undefined) updateData.email = body.email;
+    if (body.notificationPreferences !== undefined) {
+      updateData.notificationPreferences = body.notificationPreferences;
+    }
 
     if (Object.keys(updateData).length <= 1) {
       return reply.send({ message: "No changes to apply." });
@@ -848,6 +862,7 @@ export async function authRoutes(app: FastifyInstance) {
       role: updated.roleName,
       isActive: updated.isActive,
       mfaEnabled: updated.mfaEnabled,
+      notificationPreferences: updated.notificationPreferences,
       avatar: updated.avatar,
       lastLogin: updated.lastLogin,
       createdAt: updated.createdAt,

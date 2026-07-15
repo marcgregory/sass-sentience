@@ -4,6 +4,38 @@ All notable changes to the Sentience IoT Platform.
 
 ---
 
+## v1.5.4 — 2026-07-15
+
+### Platform Administration — Completion
+
+**Added**
+
+- **Dashboard summary API** — `GET /api/dashboard/summary` returns fleet KPIs (total/online/offline/fault/warning counts), battery/signal/temperature distributions, fleet health score, estate breakdowns, site count, and open alert count. Customer-isolated via `customerScope` middleware.
+- **Admin overview backend** — `GET /api/admin/stats` returns real database counts (users, devices, alerts) with platform version and uptime.
+- **Platform Health endpoint** — `GET /api/admin/health` performs 5 real service checks: API process metrics, PostgreSQL connection/storage/latency, MQTT broker TCP connectivity, Bridge Socket.IO state, Simulator event activity.
+- **Profile notification preferences** — `notification_preferences` JSONB column on users table (migration `0006`). `PUT /api/auth/me` accepts and persists preferences with Zod validation. `GET /api/auth/me` returns them.
+
+**Changed**
+
+- **Reports page** — Replaced 3 hardcoded mock export entries (EXP-001–EXP-003) with session-only tracking. Honest empty state message: "No exports yet. Reports you export during this session will appear here."
+- **Settings page** — Tenant tab persists `tenant_org_name`, `brand_color`, `support_phone`, `address` via the settings API. Notification channels tab persists email/push/SMS/webhook toggles. Maintenance tab consumes `usePlatformHealth()` for live MQTT/DB status.
+- **Platform Health page** — No longer uses placeholder data. Displays live status for all 5 services with auto-refresh, admin-only simulator restart button, loading/error/empty states.
+- **Admin overview page** — Displays real stats from `useAdminStats()` + `GET /api/admin/stats` instead of hardcoded values.
+
+**Fixed**
+
+- Profile notification preference toggles are now interactive with optimistic updates and rollback on failure. Each toggle saves independently (doesn't freeze the page).
+
+**Technical Debt**
+
+- PDF Export is functional (v1.3.0) but UI scheduling placeholder remains "Coming Soon." Tracked in `TECHNICAL_DEBT.md`.
+- Report scheduling UI remains a placeholder — deferred as intentionally prioritized below user-facing completion.
+
+**Build**
+
+- TypeScript: ✅ Zero errors
+- Production build: ✅ Passed
+
 ## v1.5.0 — 2026-07-06
 
 ### Playwright UI Regression Suite (API Mocked)

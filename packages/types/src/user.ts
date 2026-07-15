@@ -8,6 +8,12 @@ export interface User {
   role: UserRole;
   isActive: boolean;
   mfaEnabled: boolean;
+  notificationPreferences?: {
+    criticalAlerts?: boolean;
+    weeklyReports?: boolean;
+    firmwareUpdates?: boolean;
+    systemAnnouncements?: boolean;
+  };
   customerId?: string;
   lastLogin?: string;
   createdAt: string;
