@@ -29,8 +29,8 @@ test.describe("Device Lifecycle", () => {
   test("device detail page loads for a specific device", async ({ adminPage, request }) => {
     const { page, token } = adminPage;
 
-    // First, get a device ID from the API
-    const devicesRes = await request.get("/api/devices?limit=1", {
+    // First, get a device ID from the API (web doesn't proxy /api, hit API directly)
+    const devicesRes = await request.get("http://api:3001/api/devices?limit=1&page=1", {
       headers: { Authorization: `Bearer ${token}` },
     });
     expect(devicesRes.ok()).toBe(true);

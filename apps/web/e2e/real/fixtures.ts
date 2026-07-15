@@ -39,7 +39,7 @@ async function loginAs(page: Page, role: Role): Promise<string> {
   await page.waitForURL("**/dashboard", { timeout: 15_000 });
 
   // Extract JWT token from localStorage (set by auth-store persist)
-  const token = await page.evaluate(() => localStorage.getItem("auth-storage"));
+  const token = await page.evaluate(() => localStorage.getItem("sentience-auth"));
   if (!token) throw new Error("No auth token found after login");
   const parsed = JSON.parse(token);
   return parsed.state?.token ?? "";

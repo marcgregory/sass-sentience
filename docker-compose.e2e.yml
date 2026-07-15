@@ -64,9 +64,9 @@ services:
       JWT_SECRET: sentience-e2e-jwt-secret-change-in-production
       PORT: 3001
       HOST: 0.0.0.0
-      CORS_ORIGIN: http://localhost:3000
+      CORS_ORIGIN: "http://web:3000"
       REALTIME_WS_URL: http://realtime:3002
-      APP_URL: http://localhost:3000
+      APP_URL: http://web:3000
       RATE_LIMIT_MAX: 1000
       RUN_MIGRATIONS: "true"
       SEED_DATABASE: "true"
@@ -93,7 +93,7 @@ services:
       MQTT_URL: mqtt://mosquitto:1883
       MQTT_TOPIC_PREFIX: sentience
       PORT: 3002
-      CORS_ORIGIN: http://localhost:3000
+      CORS_ORIGIN: http://web:3000
       JWT_SECRET: sentience-e2e-jwt-secret-change-in-production
       SOCKET_ALLOW_UNAUTHENTICATED: "false"
       LOG_LEVEL: info
@@ -131,8 +131,8 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:3001/api
-        NEXT_PUBLIC_SOCKET_URL: http://localhost:3002
+        NEXT_PUBLIC_API_URL: http://api:3001/api
+        NEXT_PUBLIC_SOCKET_URL: http://realtime:3002
         NEXT_PUBLIC_ENABLE_DEMO_LOGIN: "false"
     container_name: sentience-e2e-web
     environment:

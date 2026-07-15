@@ -43,9 +43,9 @@
 |---|------|--------|-----------------------------------|
 | 0 | **Repository Baseline** | ✅ Passed | Commit `334645b`, clean tree, lint + build pass |
 | 1 | **Docker Build** | ✅ Passed | 5/5 images built, digests recorded |
-| 2 | **Stack Startup** | ⏳ | `docker compose ps` output |
-| 3 | **Readiness** | ⏳ | `curl /api/ready` response |
-| 4 | **Real E2E Tests** | ⏳ | Playwright summary |
+| 2 | **Stack Startup** | ✅ Passed | 6/6 services running, all healthy |
+| 3 | **Readiness** | ✅ Passed | `{"status":"ready"}` at `/api/ready`, API health OK, web serving |
+| 4 | **Real E2E Tests** | ✅ Passed | 16/16 tests pass in 14.4s. Real API login, RBAC, device lifecycle, health, and telemetry pipeline validated end-to-end. |
 | 5 | **Failure Modes** | ⏳ | Health transitions per scenario |
 
 ---
@@ -195,11 +195,27 @@ This verifies:
 
 **Actual:**
 ```
-<HTTP status code>
-<response body>
+HTTP 200
+{"status":"ready","timestamp":"2026-07-15T16:44:29.740Z"}
 ```
 
-**Status:** `⏳ Pending / ✅ Passed / ❌ Failed`
+**Supporting verifications:**
+
+```bash
+curl -s http://localhost:3001/api/health
+# → {"status":"ok","uptime":606.67,"db":{"status":"healthy","latency":null}}
+
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3003/login
+# → 200
+```
+
+**Service log summary:**
+- API: DB connected, migrations applied, seed complete, bridge listener connected
+- Realtime: Receiving MQTT events, 25 devices tracked, 2 clients
+- Simulator: 25/25 active, ~165 msg/min, MQTT connected, 0 reconnects
+- Web: Server started, serving at http://0.0.0.0:3000
+
+**Status:** ✅ **Passed**
 
 ---
 
@@ -227,10 +243,45 @@ docker compose -f docker-compose.e2e.yml run playwright
 
 **Actual:**
 ```
-<Playwright summary — passed / total, failure details if any>
+Running 16 tests using 1 worker
+  16 passed (14.4s)
 ```
 
-**Status:** `⏳ Pending / ✅ Passed / ❌ Failed`
+Detailed per-test results:
+
+| # | Test | Status | Duration |
+|---|------|--------|----------|
+| 1 | login page redirects unauthenticated user to /login | ✅ Passed | 364ms |
+| 2 | admin login succeeds and navigates to dashboard | ✅ Passed | 1.0s |
+| 3 | invalid credentials show error message | ✅ Passed | 1.4s |
+| 4 | logout clears state and redirects to login | ✅ Passed | 1.0s |
+| 5 | customer sees only their own data on dashboard | ✅ Passed | 763ms |
+| 6 | customer cannot access admin pages | ✅ Passed | 827ms |
+| 7 | admin can access admin pages | ✅ Passed | 878ms |
+| 8 | device list loads real devices with pagination from API | ✅ Passed | 1.0s |
+| 9 | device detail page loads for a specific device | ✅ Passed | 1.1s |
+| 10 | diagnostics page shows available tests for devices | ✅ Passed | 929ms |
+| 11 | admin can view platform health page with all services | ✅ Passed | 977ms |
+| 12 | API health endpoint returns healthy state | ✅ Passed | 11ms |
+| 13 | API ready endpoint returns ready state (migrations applied) | ✅ Passed | 10ms |
+| 14 | admin platform health stats show real data | ✅ Passed | 900ms |
+| 15 | dashboard shows device status changing from real telemetry | ✅ Passed | 990ms |
+| 16 | device list shows real devices from API | ✅ Passed | 924ms |
+
+**Fixes applied during Gate 4:**
+- Added `tsx` global install to Dockerfile.e2e (was not available in container)
+- Fixed `wait-for-services.ts` — API health URL path and simulator skip
+- Fixed Chromium version mismatch — installed correct browser from lockfile
+- Fixed `--disable-dev-shm-usage` for Docker shared memory limits
+- Fixed CORS origin in compose — API `CORS_ORIGIN` was `localhost:3000` but browser origin is `web:3000`
+- Fixed `NEXT_PUBLIC_API_URL` web build arg — was `localhost:3001` (baked into client JS) instead of `api:3001`
+- Fixed localStorage key mismatch — fixture used `auth-storage` but zustand store uses `sentience-auth`
+- Fixed logout test — zustand persist writes empty state (not null) on logout
+- Fixed strict-mode selector violations (text=Dashboard matches multiple elements)
+- Fixed health/device API tests — web does not proxy `/api` so tests hit API directly
+- Fixed admin page heading text assertion
+
+**Status:** ✅ **Passed** (16/16 tests, 14.4s total)
 
 ---
 
@@ -287,6 +338,21 @@ docker compose -f docker-compose.e2e.yml run playwright
 | 2 | 0 | Working tree not clean due to in-flight documentation changes. | Commit documentation changes and re-run Gate 0 against a clean baseline. | Resolved — committed at `334645b`. |
 | 3 | 1 | Playwright base image tag `v1.52.0-focal` not found on MCR. | Changed to `mcr.microsoft.com/playwright:focal` (plain OS codename). | Monitor for future MCR tag schema changes. |
 | 4 | 1 | Dockerfiles reference stale paths: `packages/config/src`, `apps/web/public`, `postcss.config.mjs`, `.eslintrc.json`. | Corrected all paths to match current project structure. | Check All Dockerfiles (`apps/web/Dockerfile`, `apps/api/Dockerfile`, `apps/realtime/Dockerfile`, `apps/web/Dockerfile.e2e`, `Dockerfile.simulator`) for path drift during refactoring. |
+| 5 | 2 | Host port 5433 collision with existing `tims-db` container. | Changed E2E postgres host port to 5434. | Document in VALIDATION_TEMPLATE.md: E2E compose should use non-conflicting ports by default. |
+| 6 | 2 | Mosquitto healthcheck used `bash -c 'echo > /dev/tcp/...'` — bash not available in `eclipse-mosquitto:2`. | Replaced with `nc -z 127.0.0.1 1883`. | Review all healthchecks for Alpine compatibility during Dockerfile review. |
+| 7 | 2 | Realtime healthcheck same bash-ism. | Replaced with `nc -z 127.0.0.1 3002`. | Same as #6. |
+| 8 | 2 | API healthcheck hit `/health` but route is registered at `/api/health`. | Changed to `http://127.0.0.1:3001/api/health`. | The discrepancy suggests API routes were refactored to use `/api` prefix without updating compose healthcheck. Add healthcheck path to service contract docs. |
+| 9 | 2 | `localhost` resolves to `::1` (IPv6) in Alpine containers — server binds IPv4 only. | Changed all healthchecks from `localhost` to `127.0.0.1`. | PINO-xxx: document as Docker/Alpine compatibility note. |
+| 10 | 2 | Orphan migration `0006_add_notification_preferences.sql` existed on disk but was never registered in Drizzle `_journal.json`. | Renamed to `0007_add_notification_preferences.sql`, added journal entry and snapshot. | Drizzle migration generation produced conflicting `0006` prefixes — review migration generation workflow. |
+| 11 | 2 | Web container CMD `node server.js` but Next.js 15 standalone output preserves monorepo path (`apps/web/server.js`). | Fixed CMD to `node apps/web/server.js` and static asset path. | Next.js 15 changed standalone output structure — verify Dockerfile after Next.js major upgrades. |
+| 12 | 2 | Host port 3000 collision with existing `tims-web` container. | Changed E2E web host port to 3003. | Same as #5 — document port allocation strategy for E2E. |
+| 13 | 4 | `tsx` CLI not found in Playwright container (only in sub-package devDependencies). | Installed `tsx` globally in Dockerfile.e2e. | Document root-level CLI dependency requirement. |
+| 14 | 4 | Playwright `v1.46.1` browsers shipped in base image but lockfile resolved `v1.61.1`. | Added `pnpm exec playwright install chromium` step in Dockerfile.e2e. | Pin `@playwright/test` version or use `next-*` base image in future. |
+| 15 | 4 | CORS blocked login POST — browser origin `http://web:3000` not allowed by API `CORS_ORIGIN=localhost:3000`. | Changed E2E compose `CORS_ORIGIN` to `http://web:3000` for API and realtime services. | Document E2E-specific CORS config; consider wildcard for test environments. |
+| 16 | 4 | `NEXT_PUBLIC_API_URL` build arg was `http://localhost:3001/api` — baked into client JS where `localhost` resolves to Playwright container, not API container. | Changed to `http://api:3001/api` in E2E compose build args. | Document that `NEXT_PUBLIC_*` build args must resolve from the browser's network context, not the build host's. |
+| 17 | 4 | Zustand auth store persisted to localStorage key `sentience-auth` but test fixture read `auth-storage`. | Fixed fixture to read `sentience-auth`. | Document persist key name in test fixtures. |
+| 18 | 4 | Web container does not proxy `/api` routes to the backend — health/device API tests hitting `/api/health` via Next.js web server returned 404. | Changed tests to hit API container directly (`http://api:3001/api/health`). | Consider adding Next.js `rewrites` to proxy `/api` to the backend for production parity. |
+| 19 | 4 | `data-testid="role-badge"` selector did not exist in header (header uses aria-label `"Open user menu"`). | Fixed logout test to use `page.getByLabel("Open user menu")`. | Document test selectors in component contract. |
 
 ---
 
@@ -294,10 +360,10 @@ docker compose -f docker-compose.e2e.yml run playwright
 
 | Artifact | Location / Path |
 |----------|----------------|
-| Playwright HTML report | `<fill after e2e run>` |
-| Traces / Screenshots / Videos | `<fill>` |
+| Playwright HTML report | `apps/web/playwright-report/` (generated inside playwright container) |
+| Traces / Screenshots / Videos | `apps/web/playwright-results/` (generated inside playwright container) |
 | Container logs | `docker compose logs --tail=100 <service>` |
-| Build output | `<fill>` |
+| Build output | `pnpm build` succeeds, 28/28 pages, 103 kB shared JS |
 
 ---
 

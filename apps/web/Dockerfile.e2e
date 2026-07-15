@@ -14,8 +14,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# ─── Install pnpm ──────────────────────────────────────────────────
-RUN npm install -g pnpm@10.14.0
+# ─── Install pnpm + tsx ───────────────────────────────────────────
+RUN npm install -g pnpm@10.14.0 tsx@4.19.0
 
 # ─── Copy monorepo config ──────────────────────────────────────────
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
@@ -30,8 +30,11 @@ COPY packages/config/package.json packages/config/
 # ─── Install all deps (includes playwright + app deps) ─────────────
 RUN pnpm install --frozen-lockfile
 
-# ─── Playwright browsers (already installed in playwright image) ───
-# The mcr.microsoft.com/playwright base image includes Chromium
+# ─── Playwright browsers ─────────────────────────────────────────
+# The base playwright image ships browsers for its own version,
+# but our lockfile may pin a newer @playwright/test version.
+# Install the correct browser for whatever version was resolved.
+RUN cd apps/web && pnpm exec playwright install chromium
 
 # ─── Shared packages source ────────────────────────────────────────
 COPY packages/types/src packages/types/src

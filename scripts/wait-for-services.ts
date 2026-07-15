@@ -38,7 +38,7 @@ const CFG = {
     port: parseInt(process.env.MQTT_PORT ?? "1883", 10),
   },
   api: {
-    healthUrl: `${process.env.API_URL ?? "http://api:3001"}/health`,
+    healthUrl: `${process.env.API_URL ?? "http://api:3001"}/api/health`,
     readyUrl: `${process.env.API_URL ?? "http://api:3001"}/api/ready`,
   },
   realtime: {
@@ -46,8 +46,9 @@ const CFG = {
     port: parseInt(process.env.REALTIME_PORT ?? "3002", 10),
   },
   simulator: {
-    host: process.env.SIMULATOR_HOST ?? "simulator",
-    port: parseInt(process.env.SIMULATOR_PORT ?? "3000", 10),
+    // Simulator is MQTT-only and does not expose a TCP listener
+    // Skip TCP check — rely on MQTT broker readiness instead
+    skip: true as const,
   },
   web: {
     url: process.env.WEB_URL ?? "http://web:3000",
@@ -152,10 +153,9 @@ async function checkAll(): Promise<CheckResult[]> {
     await waitForService("Realtime Bridge", () => tcpCheck(CFG.realtime.host, CFG.realtime.port)),
   );
 
-  // 6. Simulator TCP
-  results.push(
-    await waitForService("Simulator", () => tcpCheck(CFG.simulator.host, CFG.simulator.port)),
-  );
+  // 6. Simulator (MQTT-only — no TCP listener; skip check)
+  log("  ✅ Simulator: MQTT-only, no TCP listener (skipped)");
+  results.push({ name: "Simulator", ok: true, detail: "skipped (MQTT-only)" });
 
   // 7. Web HTTP
   results.push(
