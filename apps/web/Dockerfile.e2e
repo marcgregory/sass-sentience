@@ -1,0 +1,71 @@
+# Sentience E2E Playwright Runner — Dockerfile
+#
+# Extends the web production image with Playwright + test files.
+# All service dependencies (api, realtime, etc.) are expected to be
+# running as separate containers in the e2e compose environment.
+
+FROM mcr.microsoft.com/playwright:v1.52.0-focal
+
+WORKDIR /app
+
+# ─── System deps ───────────────────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# ─── Install pnpm ──────────────────────────────────────────────────
+RUN npm install -g pnpm@10.14.0
+
+# ─── Copy monorepo config ──────────────────────────────────────────
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY apps/web/package.json apps/web/
+COPY packages/types/package.json packages/types/
+COPY packages/utils/package.json packages/utils/
+COPY packages/ui/package.json packages/ui/
+COPY packages/hooks/package.json packages/hooks/
+COPY packages/mock/package.json packages/mock/
+COPY packages/config/package.json packages/config/
+
+# ─── Install all deps (includes playwright + app deps) ─────────────
+RUN pnpm install --frozen-lockfile
+
+# ─── Playwright browsers (already installed in playwright image) ───
+# The mcr.microsoft.com/playwright base image includes Chromium
+
+# ─── Shared packages source ────────────────────────────────────────
+COPY packages/types/src packages/types/src
+COPY packages/utils/src packages/utils/src
+COPY packages/ui/src packages/ui/src
+COPY packages/hooks/src packages/hooks/src
+COPY packages/mock/src packages/mock/src
+COPY packages/config/src packages/config/src
+
+# ─── Web source + test files ──────────────────────────────────────
+COPY apps/web/src apps/web/src
+COPY apps/web/public apps/web/public
+COPY apps/web/next.config.ts apps/web/
+COPY apps/web/tsconfig.json apps/web/
+COPY apps/web/tailwind.config.ts apps/web/
+COPY apps/web/postcss.config.mjs apps/web/
+COPY apps/web/.eslintrc.json apps/web/
+COPY apps/web/e2e apps/web/e2e
+COPY apps/web/playwright.e2e.config.ts apps/web/
+COPY apps/web/vitest.config.ts apps/web/
+
+# ─── Wait-for-services script ──────────────────────────────────────
+COPY scripts scripts/
+
+# ─── Build the web app (needed for transpilePackages resolution) ───
+ENV NEXT_PUBLIC_API_URL=http://api:3001/api
+ENV NEXT_PUBLIC_SOCKET_URL=http://realtime:3002
+ENV NEXT_PUBLIC_ENABLE_DEMO_LOGIN=false
+RUN pnpm --filter @sentience/web build
+
+# ─── Default: wait for services, then run E2E tests ────────────────
+ENV PWTEST_E2E_MODE=real
+ENV PLAYWRIGHT_BASE_URL=http://web:3000
+CMD ["sh", "-c", "\
+  npx tsx scripts/wait-for-services.ts && \
+  cd apps/web && npx playwright test --config=playwright.e2e.config.ts \
+"]

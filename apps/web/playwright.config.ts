@@ -7,7 +7,7 @@ import { defineConfig, devices } from "@playwright/test";
  * via page.route() in the shared mock fixtures — no backend required.
  */
 export default defineConfig({
-  testDir: "./e2e",
+  testDir: "./e2e/mocked",
   testMatch: "**/*.spec.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,

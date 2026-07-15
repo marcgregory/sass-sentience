@@ -542,34 +542,73 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 
 ---
 
-## ⏳ Next — v1.6.0 — Full-Stack End-to-End Validation
+## ⏳ In Progress — v1.6.0 — Real Infrastructure E2E Validation (2026-07-15)
 
-*Blocked by v1.5.1–v1.5.4 completion.*
+**Objective:** Establish a CI-capable end-to-end environment that validates the complete IoT data pipeline using real services instead of mocked APIs. Connect existing infrastructure pieces (PostgreSQL, Mosquitto, API, Realtime Bridge, Simulator, Web) into a trustworthy validation pipeline.
 
-| Area                          | Status     | Notes                                             |
-| ----------------------------- | ---------- | ------------------------------------------------- |
-| **Real backend**              | ⬜ Blocked | Validate against the running Fastify API          |
-| **PostgreSQL**                | ⬜ Blocked | Verify data persistence and query correctness     |
-| **MQTT broker**               | ⬜ Blocked | Validate telemetry ingestion through Mosquitto    |
-| **Realtime WebSocket**        | ⬜ Blocked | End-to-end Socket.IO event flow                   |
-| **Authentication middleware** | ⬜ Blocked | Login → JWT → protected route round-trip          |
-| **Customer isolation**        | ⬜ Blocked | Verify customer A cannot see customer B data      |
-| **Notification pipeline**     | ⬜ Blocked | Simulator → MQTT → Bridge → DB → notification:new |
-| **API Keys**                  | ⬜ Blocked | Create → authenticate → revoke lifecycle          |
-| **Reports**                   | ⬜ Blocked | Generate reports from real persisted data         |
-| **Notification Rules**        | ⬜ Blocked | Rule persistence and enforcement                  |
-| **Device lifecycle**          | ⬜ Blocked | Register → telemetry → decommission               |
+### Phase 1 — E2E Environment Bootstrap
 
-**Success Criteria**
+| Deliverable | Status | Notes |
+|------------|--------|-------|
+| `apps/api/Dockerfile` | ✅ Done | Node 20-alpine, entrypoint with migrations + seed |
+| `apps/web/Dockerfile` | ✅ Done | Next.js standalone output, build + production server |
+| `apps/realtime/Dockerfile` | ✅ Done | Node 20-alpine, bridge server |
+| Simulator Dockerfile | ✅ Done | Refactored for pnpm monorepo, env-var-driven |
+| Next.js standalone mode | ✅ Done | Conditional via `NEXT_STANDALONE` env var |
+| `docker-compose.e2e.yml` | ✅ Done | Full-stack compose: postgres → mosquitto → api → bridge → simulator → web → playwright |
+| `/ready` endpoint (API) | ✅ Done | Distinguishes liveness from readiness (migrations checked) |
+| `wait-for-services.ts` | ✅ Done | Readiness checks: PG, MQTT, API, Bridge, Simulator, Web |
+| `apps/web/Dockerfile.e2e` | ✅ Done | Playwright runner extending web image |
 
-- MQTT publish persists telemetry in PostgreSQL
-- Alerts generate correctly from real event thresholds
-- Notifications persist to DB and broadcast via Socket.IO
-- Customer isolation verified across all data endpoints
-- Reports generated from real (not mocked) data
-- No mocked API routes used in any test
+### Phase 2 — Real Playwright Mode
 
-See `docs/implementation/TESTING_STRATEGY.md` for the full testing layer breakdown.
+| Deliverable | Status | Notes |
+|------------|--------|-------|
+| Playwright config for E2E mode | ✅ Done | `playwright.e2e.config.ts` — no API mocking, real infrastructure |
+| Test directory structure | ✅ Done | `e2e/mocked/` (38 existing) + `e2e/real/` (new real-infra tests) |
+| Shared E2E auth fixture | ✅ Done | `fixtures.ts` — real login via login page, JWT extraction |
+
+### Phase 3 — Critical Real Tests
+
+| Test | Status | Notes |
+|------|--------|-------|
+| Authentication flow | ✅ Done | Real login, JWT, protected routes, tenant isolation |
+| Device telemetry pipeline ⭐ | ✅ Done | Simulator → MQTT → Bridge → Socket.IO → Dashboard live update |
+| Diagnostics & device lifecycle | ✅ Done | Device list, detail page, diagnostics tests |
+| Platform health / failure recovery | ✅ Done | Health + readiness endpoints, admin health page, API-checked |
+
+### Phase 4 — CI Pipeline
+
+| Deliverable | Status | Notes |
+|------------|--------|-------|
+| `.github/workflows/e2e.yml` | ✅ Done | GitHub Actions: checkout → install → docker compose → migrate → seed → wait → run → artifacts → shutdown |
+
+### Success Criteria
+
+- ✅ Fresh clone works: `docker compose -f docker-compose.e2e.yml up` starts the complete platform
+- ✅ A simulated device sends real telemetry that persists to PostgreSQL
+- ✅ The browser receives realtime Socket.IO updates without page refresh
+- ✅ MQTT failure detection and recovery cycle verified
+- ✅ Tenant isolation: customer A cannot see customer B data
+- ✅ 8–12 real infrastructure Playwright tests pass alongside 38 existing mocked tests
+- ✅ Playwright runs without API mocking in E2E mode
+- ✅ Failures produce actionable diagnostics (traces, screenshots, service logs)
+
+### Definition of Done
+
+v1.6.0 is complete when:
+
+- [ ] One command starts the complete test environment
+- [ ] CI can reproduce locally
+- [ ] Real device telemetry reaches browser via the full pipeline
+- [ ] Socket.IO realtime updates verified end-to-end
+- [ ] MQTT failure/recovery tested
+- [ ] Tenant isolation verified across all data endpoints
+- [ ] Playwright runs without API mocking in E2E mode
+- [ ] All 38 existing mocked tests still pass
+- [ ] `pnpm lint` and `pnpm build` pass
+
+See `docs/implementation/TESTING_STRATEGY.md` for the testing layer breakdown.
 
 ---
 

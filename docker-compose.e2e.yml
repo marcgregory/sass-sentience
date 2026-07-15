@@ -1,0 +1,177 @@
+# Sentience E2E Test Environment
+#
+# Full-stack environment for real-infrastructure end-to-end validation.
+# Start with:  docker compose -f docker-compose.e2e.yml up
+# Run tests:   docker compose -f docker-compose.e2e.yml run playwright
+#
+# Service startup order:
+#   postgres ──→ api ──→ web
+#   mosquitto ─╯        │
+#       ↓               │
+#   realtime ───────────╯
+#   simulator ──→ mosquitto (MQTT only)
+#
+# All services share the "sentience" Docker network.
+
+name: sentience-e2e
+
+services:
+  # ─── PostgreSQL ──────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: sentience-e2e-postgres
+    environment:
+      POSTGRES_USER: sentience
+      POSTGRES_PASSWORD: sentience
+      POSTGRES_DB: sentience
+    ports:
+      - "5433:5432"
+    volumes:
+      - sentience-e2e-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentience"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # ─── Mosquitto MQTT Broker ───────────────────────────────────────────
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: sentience-e2e-mosquitto
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./docker/mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-e2e-data:/mosquitto/data
+      - mosquitto-e2e-log:/mosquitto/log
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 3 bash -c 'echo > /dev/tcp/127.0.0.1/1883'"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # ─── API Server ──────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: sentience-e2e-api
+    environment:
+      DATABASE_URL: postgres://sentience:sentience@postgres:5432/sentience
+      JWT_SECRET: sentience-e2e-jwt-secret-change-in-production
+      PORT: 3001
+      HOST: 0.0.0.0
+      CORS_ORIGIN: http://localhost:3000
+      REALTIME_WS_URL: http://realtime:3002
+      APP_URL: http://localhost:3000
+      RATE_LIMIT_MAX: 1000
+      RUN_MIGRATIONS: "true"
+      SEED_DATABASE: "true"
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+      start_period: 10s
+    restart: unless-stopped
+
+  # ─── Realtime Bridge (Socket.IO + MQTT) ──────────────────────────────
+  realtime:
+    build:
+      context: .
+      dockerfile: apps/realtime/Dockerfile
+    container_name: sentience-e2e-realtime
+    environment:
+      MQTT_URL: mqtt://mosquitto:1883
+      MQTT_TOPIC_PREFIX: sentience
+      PORT: 3002
+      CORS_ORIGIN: http://localhost:3000
+      JWT_SECRET: sentience-e2e-jwt-secret-change-in-production
+      SOCKET_ALLOW_UNAUTHENTICATED: "false"
+      LOG_LEVEL: info
+    ports:
+      - "3002:3002"
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 3 bash -c 'echo > /dev/tcp/127.0.0.1/3002'"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+      start_period: 10s
+    restart: unless-stopped
+
+  # ─── Device Simulator ────────────────────────────────────────────────
+  simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile.simulator
+    container_name: sentience-e2e-simulator
+    environment:
+      MQTT_URL: mqtt://mosquitto:1883
+      MQTT_TOPIC_PREFIX: sentience
+      SIMULATOR_DEVICE_COUNT: 25
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─── Web Application (Next.js) ───────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3001/api
+        NEXT_PUBLIC_SOCKET_URL: http://localhost:3002
+        NEXT_PUBLIC_ENABLE_DEMO_LOGIN: "false"
+    container_name: sentience-e2e-web
+    environment:
+      NEXT_PUBLIC_API_URL: http://api:3001/api
+      NEXT_PUBLIC_SOCKET_URL: http://realtime:3002
+      NEXT_PUBLIC_ENABLE_DEMO_LOGIN: "false"
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+      realtime:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/login"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    restart: unless-stopped
+
+  # ─── Playwright Test Runner ──────────────────────────────────────────
+  playwright:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile.e2e
+    container_name: sentience-e2e-playwright
+    environment:
+      PWTEST_E2E_MODE: "real"
+      PLAYWRIGHT_BASE_URL: http://web:3000
+    depends_on:
+      web:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+
+volumes:
+  sentience-e2e-pgdata:
+  mosquitto-e2e-data:
+  mosquitto-e2e-log:
+  playwright-results:
+  playwright-report:

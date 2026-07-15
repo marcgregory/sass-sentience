@@ -4,6 +4,34 @@ All notable changes to the Sentience IoT Platform.
 
 ---
 
+## v1.6.0 — 2026-07-15
+
+### Real Infrastructure E2E Validation
+
+**Added**
+
+- **Dockerfiles for all services** — `apps/api/Dockerfile` (Fastify + entrypoint for migrations/seed), `apps/web/Dockerfile` (Next.js standalone output), `apps/realtime/Dockerfile` (Socket.IO bridge), `Dockerfile.simulator` (MQTT device simulator). All use Node 20-alpine with pnpm frozen-lockfile installs.
+- **`docker-compose.e2e.yml`** — Full-stack environment: postgres → mosquitto → api → realtime → simulator → web → playwright. Healthchecks and dependency ordering ensure reliable startup. Services share the `sentience-e2e` Docker network.
+- **API `/ready` endpoint** — Distinguishes liveness (`/health`) from readiness (`/ready`). `/ready` verifies DB connection + migrations applied. Returns 503 with diagnostic reason until ready.
+- **`scripts/wait-for-services.ts`** — Readiness checker polling 7 services (PostgreSQL TCP, Mosquitto TCP, API liveness/readiness, Realtime Bridge TCP, Simulator TCP, Web HTTP). Times out with per-service diagnostic summary.
+- **Next.js standalone output mode** — Conditional via `NEXT_STANDALONE` env var. Enabled in Docker builds, skipped on Windows (no symlink issues).
+- **Real-infrastructure Playwright tests** — 4 spec files (10 tests) in `e2e/real/`: authentication (login/logout/invalid creds/RBAC), device telemetry pipeline (simulator → dashboard), platform health (5 service status cards, `/health`, `/ready`), device lifecycle (list/detail/diagnostics).
+- **Playwright E2E config** — `playwright.e2e.config.ts` for real-infrastructure mode. No API mocking, no webServer (expects external Docker Compose).
+- **Shared E2E auth fixture** — `e2e/real/fixtures.ts` performs real login for admin/support/customer roles, extracts JWT from localStorage.
+- **GitHub Actions CI pipeline** — `.github/workflows/e2e.yml` with two jobs: lint-build (fast parallel gate) and e2e (full infrastructure test). Artifacts: Playwright report, traces/screenshots/videos, and service logs. Automatic shutdown and volume cleanup.
+
+**Changed**
+
+- **Playwright test directory restructured** — Existing 38 mocked tests moved to `e2e/mocked/`. New real-infrastructure tests in `e2e/real/`. Main `playwright.config.ts` updated to point at `e2e/mocked/`.
+- **`apps/web/package.json` scripts** — Added `test:e2e:real` script.
+
+**Build**
+
+- TypeScript: ✅ Zero errors
+- Production build: ✅ Passed (standalone disabled on Windows, conditional env var)
+
+---
+
 ## v1.5.4 — 2026-07-15
 
 ### Platform Administration — Completion

@@ -1,0 +1,139 @@
+# Sentience E2E Validation Pipeline
+#
+# Runs real-infrastructure end-to-end tests against Docker Compose.
+# Triggered on pushes to main and PRs targeting main.
+#
+# Pipeline:
+#   checkout → install pnpm → docker compose up → wait for health →
+#   run Playwright → collect artifacts → shutdown
+
+name: E2E Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PNPM_VERSION: 10.14.0
+  DOCKER_COMPOSE_FILE: docker-compose.e2e.yml
+
+jobs:
+  # ─── Lint & Build (fast parallel gate) ──────────────────────────────
+  lint-build:
+    name: Lint & Build
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript check
+        run: pnpm lint
+
+      - name: Production build
+        run: pnpm build
+
+  # ─── E2E Tests (requires full infrastructure) ───────────────────────
+  e2e:
+    name: E2E Real Infrastructure
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    needs: [lint-build]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker Compose — start infrastructure
+        run: |
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} up --build -d
+          echo "Started all services (background)"
+
+      - name: Docker Compose — wait for services
+        run: |
+          echo "=== Waiting for all services to be healthy ==="
+          # Poll until all containers show healthy status
+          for i in $(seq 1 60); do
+            STATUS=$(docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} ps --format json 2>/dev/null | \
+              python3 -c "
+import json, sys
+try:
+    services = json.load(sys.stdin)
+    if isinstance(services, dict):
+        services = [services]
+    statuses = [s.get('Health', 'unhealthy') if isinstance(s, dict) else 'unknown' for s in services]
+    # Filter out the playwright service (it's a runner, not a long-lived service)
+    statuses = [s for s in statuses if s in ('healthy', 'unhealthy', '(healthy)', '(unhealthy)')]
+    healthy = all('healthy' in s for s in statuses if s != 'unknown')
+    print(f'Healthy: {healthy} — {statuses}')
+    sys.exit(0 if healthy else 1)
+except Exception as e:
+    print(f'Error parsing status: {e}')
+    sys.exit(1)
+" 2>/dev/null) && break
+            echo "  Attempt $i: services not all healthy yet..."
+            sleep 5
+          done
+          echo "$STATUS"
+
+      - name: Run Playwright E2E tests
+        run: |
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} run --rm playwright
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: apps/web/playwright-report/
+          retention-days: 7
+
+      - name: Upload Playwright results (traces, screenshots, videos)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-${{ github.run_id }}
+          path: apps/web/playwright-results/
+          retention-days: 7
+
+      - name: Collect service logs
+        if: always()
+        run: |
+          mkdir -p service-logs
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} logs --no-color > service-logs/all-services.log
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} logs api > service-logs/api.log
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} logs realtime > service-logs/realtime.log
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} logs simulator > service-logs/simulator.log
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} logs web > service-logs/web.log
+          docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} logs playwright > service-logs/playwright.log 2>/dev/null || true
+
+      - name: Upload service logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-logs-${{ github.run_id }}
+          path: service-logs/
+          retention-days: 7
+
+      - name: Shutdown
+        if: always()
+        run: docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} down -v --remove-orphans
