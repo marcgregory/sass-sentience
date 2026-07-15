@@ -13,15 +13,15 @@
 | Field | Value |
 |-------|-------|
 | **Version** | `v1.6.0` |
-| **Git Commit** | `<fill>` |
-| **Git Tag** | `v1.6.0` |
-| **Validation Date** | `<fill>` |
-| **Validator** | `<fill>` |
-| **Environment (OS)** | |
+| **Git Commit** | `45941df` |
+| **Git Tag** | `—` (tag creation deferred to post-approval per process improvement) |
+| **Validation Date** | 2026-07-15 |
+| **Validator** | Claude Code |
+| **Environment (OS)** | Windows 10 Pro (22H2) |
 | **Docker Version** | |
 | **Docker Compose Version** | |
 | **Node Version** | |
-| **pnpm Version** | |
+| **pnpm Version** | v10.14.0 |
 
 ### Container Images Validated
 
@@ -39,7 +39,7 @@
 
 | # | Gate | Status | Evidence (Required / Recommended) |
 |---|------|--------|-----------------------------------|
-| 0 | **Repository Baseline** | ⏳ | Commit, working tree, lint, build |
+| 0 | **Repository Baseline** | 🔴 Blocked | Process issue: uncommitted docs changes. Also discovered tag requirement is ordered incorrectly (see Issues #1). |
 | 1 | **Docker Build** | ⏳ | Build exit code, per-image success |
 | 2 | **Stack Startup** | ⏳ | `docker compose ps` output |
 | 3 | **Readiness** | ⏳ | `curl /api/ready` response |
@@ -50,31 +50,53 @@
 
 ### 2.0 Gate 0 — Repository Baseline
 
-Establishes that the repository itself is in a valid state before Docker validation begins.
+Establishes that the repository is in a known good state before Docker validation begins.
 
 **Required evidence:**
 
 ```bash
 git log --oneline -1
-# → <fill>
+# → 45941df refactor(entrypoint): remove HTTP health server setup from entrypoint script
 
 git status --short
-# → <fill>
+# →  M docs/release/RELEASE_PROCESS.md
+# →  M docs/release/VALIDATION_TEMPLATE.md
+# →  M docs/release/VALIDATION_v1.6.0.md
+# → ?? docs/release/INDEX.md
+# ⚠ Working tree not clean — 3 modified, 1 untracked
 
 git tag --points-at HEAD
-# → <fill>
+# → (no output — tag does not exist)
+# ℹ Process improvement discovered: tag requirement should be informational at Gate 0,
+#   with tag creation deferred to post-approval release completion.
 
 pnpm install --frozen-lockfile
-# → <fill>
+# → Lockfile is up to date, resolution step is skipped
+# → Already up to date
+# → Done in 1.4s using pnpm v10.14.0
 
 pnpm lint
-# → <fill>
+# → 8 successful, 8 total
+# → Cached: 8 cached, 8 total
+# → Time: 114ms >>> FULL TURBO
 
 pnpm build
-# → <fill>
+# → Tasks: 2 successful, 2 total
+# → ✓ Compiled successfully in 6.7s
+# → ✓ Generating static pages (28/28)
+# → First Load JS shared by all: 103 kB (< 150 kB ✅)
 ```
 
-**Status:** `⏳ Pending / ✅ Passed / ❌ Failed`
+**Status:** 🔴 **Blocked** (process issue — see Issues #1)
+
+| Criterion | Status | Notes |
+|-----------|--------|-------|
+| Commit SHA recorded | ✅ | `45941df` |
+| Working tree clean | ❌ | Uncommitted docs changes from INDEX.md creation and validation setup |
+| Lockfile | ✅ | `Already up to date` |
+| Lint | ✅ | 8/8 packages pass |
+| Build | ✅ | 28/28 pages, shared JS 103 kB |
+| Tag exists | ℹ️ | Process issue — tag ordering fixed in RELEASE_PROCESS.md v2 |
 
 ---
 
@@ -250,8 +272,8 @@ docker compose -f docker-compose.e2e.yml run playwright
 
 | # | Gate | Problem | Resolution | Follow-up |
 |---|------|---------|------------|-----------|
-| | | | | |
-| | | | | |
+| 1 | 0 | Tag requirement at Gate 0 creates chicken-and-egg: validation should happen before tagging, not after. | Move tag requirement out of Gate 0 and into release completion (post-approval). Tag is informational at Gate 0 only. | Update `RELEASE_PROCESS.md` and `VALIDATION_TEMPLATE.md` before re-running Gate 0. |
+| 2 | 0 | Working tree not clean due to in-flight documentation changes. | Commit documentation changes and re-run Gate 0 against a clean baseline. | Execute after process docs are updated. |
 
 ---
 

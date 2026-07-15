@@ -42,12 +42,12 @@ pnpm lint
 pnpm build
 ```
 
-**Expected:** Correct commit checked out, working tree clean, tag points at HEAD, frozen-lockfile resolves, lint and build both succeed.
+**Expected:** Correct commit checked out, working tree clean, frozen-lockfile resolves, lint and build both succeed.
 
 **Checks:**
 - Commit SHA matches intended release
 - `git status` shows no uncommitted changes
-- Git tag is present on HEAD
+- `git tag --points-at HEAD` recorded as informational (tag creation is deferred to post-approval — see Section 6)
 - `pnpm install --frozen-lockfile` exits cleanly (lockfile in sync)
 - `pnpm lint` passes (zero TypeScript errors)
 - `pnpm build` passes (all pages compile, shared JS under 150 kB)

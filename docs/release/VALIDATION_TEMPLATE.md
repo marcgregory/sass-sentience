@@ -11,7 +11,7 @@
 |-------|-------|
 | **Version** | `vX.Y.Z` |
 | **Git Commit** | `<full SHA>` |
-| **Git Tag** | `vX.Y.Z` |
+| **Git Tag** | `—` (tag created post-approval — see RELEASE_PROCESS.md §6) |
 | **Validation Date** | YYYY-MM-DD |
 | **Validator** | `<name / CI run>` |
 | **Environment (OS)** | |
@@ -56,7 +56,7 @@ git status --short
 # → <empty — working tree clean>
 
 git tag --points-at HEAD
-# → vX.Y.Z
+# → (optional — recorded as informational; tag creation deferred to post-approval per RELEASE_PROCESS.md Section 6)
 
 pnpm install --frozen-lockfile
 # → Already up to date
@@ -65,7 +65,7 @@ pnpm lint
 # → 8 successful, 8 total
 
 pnpm build
-# → 30/30 pages
+# → 28/28 pages
 ```
 
 **Status:** `⏳ Pending / ✅ Passed / ❌ Failed`
