@@ -2,7 +2,7 @@
 
 > **Product backlog.** Tracks what is completed, in progress, next, and blocked.
 > Engineering sprint details live in `BUILD_PLAN.md`.
-> Last updated: 2026-07-06
+> Last updated: 2026-07-15
 
 ---
 
@@ -544,6 +544,8 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 
 ## ⏳ In Progress — v1.6.0 — Real Infrastructure E2E Validation (2026-07-15)
 
+**Status: Implementation Complete / Validation Pending**
+
 **Objective:** Establish a CI-capable end-to-end environment that validates the complete IoT data pipeline using real services instead of mocked APIs. Connect existing infrastructure pieces (PostgreSQL, Mosquitto, API, Realtime Bridge, Simulator, Web) into a trustworthy validation pipeline.
 
 ### Phase 1 — E2E Environment Bootstrap
@@ -594,19 +596,63 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 - ✅ Playwright runs without API mocking in E2E mode
 - ✅ Failures produce actionable diagnostics (traces, screenshots, service logs)
 
+### Validation Remaining
+
+The milestone has moved from **build phase** into **release verification phase**. Docker orchestration is where integration failures usually appear — stack images must build and run correctly in Linux containers.
+
+#### 1. Build images
+
+```bash
+docker compose -f docker-compose.e2e.yml build
+```
+
+Validate that API, Web, Bridge, and Simulator images build and dependencies install correctly inside Linux containers.
+
+#### 2. Start stack
+
+```bash
+docker compose -f docker-compose.e2e.yml up -d
+```
+
+Expected service states: `postgres` (healthy), `mosquitto` (healthy), `api` (healthy), `bridge` (healthy), `simulator` (running), `web` (healthy).
+
+#### 3. Validate readiness chain
+
+Verify `/api/ready` returns `{"status": "ready"}`. Confirm API→PostgreSQL, Bridge→MQTT, and Simulator→MQTT pub connections.
+
+#### 4. Run real Playwright
+
+```bash
+docker compose -f docker-compose.e2e.yml run playwright
+```
+
+Expected: 10+ passed, 0 failed. Highest-value test: Simulator → MQTT → Bridge → Socket.IO → Browser assertion.
+
+#### 5. Failure-mode checks (added for completeness)
+
+| Scenario | Expected |
+|----------|----------|
+| MQTT outage (stop mosquitto) | `/api/admin/health` reports unhealthy; recovery on restart |
+| Database failure | API readiness fails; stack reports unhealthy |
+| Bridge disconnect | Realtime status changes; recovery confirmed |
+
 ### Definition of Done
 
 v1.6.0 is complete when:
 
 - [ ] One command starts the complete test environment
-- [ ] CI can reproduce locally
-- [ ] Real device telemetry reaches browser via the full pipeline
-- [ ] Socket.IO realtime updates verified end-to-end
-- [ ] MQTT failure/recovery tested
-- [ ] Tenant isolation verified across all data endpoints
-- [ ] Playwright runs without API mocking in E2E mode
+- [ ] Docker images build successfully on local machine
+- [ ] Docker stack starts with all services healthy
+- [ ] `/api/ready` returns `{"status": "ready"}`
+- [ ] Real Playwright tests pass against Docker stack (10+ tests)
 - [ ] All 38 existing mocked tests still pass
+- [ ] MQTT failure/recovery verified
+- [ ] Database failure/recovery verified
+- [ ] Bridge disconnect/recovery verified
+- [ ] CI can reproduce locally
 - [ ] `pnpm lint` and `pnpm build` pass
+- [ ] Technical debt documented
+- [ ] CHANGELOG updated
 
 See `docs/implementation/TESTING_STRATEGY.md` for the testing layer breakdown.
 

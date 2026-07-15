@@ -30,6 +30,20 @@ All notable changes to the Sentience IoT Platform.
 - TypeScript: ✅ Zero errors
 - Production build: ✅ Passed (standalone disabled on Windows, conditional env var)
 
+**Validation Notes**
+
+v1.6.0 implementation is fully delivered but **not yet validated**. The milestone has moved from build phase into release verification phase. The following validation must complete before marking v1.6.0 done:
+
+- Docker images build successfully on local machine (Linux containers)
+- Docker stack starts with all 6 services healthy
+- `/api/ready` returns `{"status": "ready"}`
+- Real Playwright tests (10) pass against Docker stack
+- All 38 mocked tests still pass
+- Failure-mode checks: MQTT outage, database failure, bridge disconnect all detected by health monitoring
+- CI pipeline validates on GitHub Actions
+
+See `docs/implementation/ROADMAP.md` (v1.6.0 Validation Remaining) for the full validation sequence.
+
 ---
 
 ## v1.5.4 — 2026-07-15
