@@ -20,15 +20,41 @@ Before a release candidate is ready for validation, all of the following must be
 
 ## 2. Validation Gates
 
-Every release candidate must pass all five gates in order. A gate failure blocks progression to the next gate.
+Every release candidate must pass all six gates in order. A gate failure blocks progression to the next gate.
 
 | # | Gate | What it proves | Blocking |
 |---|------|----------------|----------|
+| 0 | **Repository Baseline** | The repository is in a known good state before Docker validation begins | Gate 1 |
 | 1 | **Docker Build** | The repository is containerizable — workspace deps, native modules, and build pipeline work in a clean Linux context | Gate 2 |
 | 2 | **Stack Startup** | All services start, pass healthchecks, and form a connected system | Gate 3 |
 | 3 | **Readiness** | The platform is usable — API responds to requests, DB is migrated, services communicate | Gate 4 |
 | 4 | **Real E2E Tests** | The full IoT pipeline (Simulator → MQTT → Bridge → Socket.IO → Browser UI) works end-to-end | Gate 5 |
 | 5 | **Failure Modes** | The platform detects and reports dependency failures accurately, and recovers when they return | Release decision |
+
+### 2.0 Gate 0 — Repository Baseline
+
+```bash
+git log --oneline -1
+git status --short
+git tag --points-at HEAD
+pnpm install --frozen-lockfile
+pnpm lint
+pnpm build
+```
+
+**Expected:** Correct commit checked out, working tree clean, tag points at HEAD, frozen-lockfile resolves, lint and build both succeed.
+
+**Checks:**
+- Commit SHA matches intended release
+- `git status` shows no uncommitted changes
+- Git tag is present on HEAD
+- `pnpm install --frozen-lockfile` exits cleanly (lockfile in sync)
+- `pnpm lint` passes (zero TypeScript errors)
+- `pnpm build` passes (all pages compile, shared JS under 150 kB)
+
+**Failure response:** Resolve the issue (uncommitted work, lockfile mismatch, TS error, build error) → re-run Gate 0 → confirm green before proceeding to Gate 1. Any uncommitted changes during validation would invalidate the results — the validation must represent the exact release state.
+
+---
 
 ### 2.1 Gate 1 — Docker Build
 
@@ -42,6 +68,11 @@ docker compose -f docker-compose.e2e.yml build
 - Next.js standalone output builds without errors
 - No native dependency compilation failures
 - Docker layer caching is effective (not invalidated by unrelated changes)
+
+**Evidence to record:** Record image IDs/digests in the validation document's Container Images table:
+```bash
+docker images sentience-e2e-* --digests --format "table {{.Repository}}\t{{.Tag}}\t{{.Digest}}"
+```
 
 **Failure response:** Fix the build issue → re-run build → confirm green before proceeding.
 
@@ -118,16 +149,36 @@ For each gate, record:
 - The **actual outcome** (paste key output lines)
 - **Status**: Passed / Failed / Skipped
 
+### Evidence quality levels
+
+| Level | What | Included in | Examples |
+|-------|------|-------------|---------|
+| **Required** | Proves pass/fail conclusively | Validation document body | Exit code, command output, `docker compose ps`, Playwright summary line, curl response |
+| **Recommended** | Adds context for diagnosis | Validation document body or footnote | Relevant log excerpt (last 10-20 lines), key warnings, HTTP status code |
+| **Optional** | Rich artifact for deep inspection | Referenced by path | Playwright HTML report, trace archive, screenshots/videos, container logs |
+
+Required evidence is always included inline. Recommended evidence is included inline when concise, or referenced if lengthy. Optional evidence is stored alongside the release tag and referenced by path.
+
 Evidence is stored in `docs/release/VALIDATION_vX.Y.Z.md` using the template at `docs/release/VALIDATION_TEMPLATE.md`. This file is committed to the repository as part of the release.
 
 ---
 
 ## 4. Decision Authority
 
+### Decision definitions
+
+| Decision | Meaning |
+|----------|---------|
+| **Approved** | All required gates passed; no release-blocking issues. |
+| **Approved with Conditions** | Non-blocking issues documented with follow-up actions. |
+| **Blocked** | One or more required gates failed; release cannot proceed. |
+
+### Authority
+
 | Role | Decision | Requires |
 |------|----------|----------|
-| Engineering Lead | Approve release candidate | All 5 gates pass |
-| Engineering Lead | Approve with conditions | Minor gate waivers documented with mitigation |
+| Engineering Lead | Approve release candidate | All 6 gates pass |
+| Engineering Lead | Approve with conditions | Non-blocking issues documented with follow-up actions |
 | Engineering Lead | Block release | Any gate failure without known fix |
 
 ---
@@ -156,11 +207,12 @@ If a gate fails and cannot be resolved within the planned timeline:
 
 When all gates pass and the release is approved:
 
-1. **Update ROADMAP.md** — mark milestone as "Completed" with validation evidence summary
-2. **Update CHANGELOG.md** — add validation notes, link to validation document
-3. **Update TECHNICAL_DEBT.md** — add any new debt discovered during validation
-4. **Tag the release** — `git tag vX.Y.Z` and push
-5. **Archive validation document** — `VALIDATION_vX.Y.Z.md` remains in the repo as the permanent record
+1. **Create or verify git tag** — `git tag vX.Y.Z <commit-sha>` matching Gate 0 evidence
+2. **Update ROADMAP.md** — mark milestone as "Completed" with validation evidence summary
+3. **Update CHANGELOG.md** — add validation notes, link to validation document
+4. **Update TECHNICAL_DEBT.md** — add any new debt discovered during validation
+5. **Push tag** — `git push origin vX.Y.Z`
+6. **Archive validation document** — `VALIDATION_vX.Y.Z.md` remains in the repo as the permanent record
 
 ---
 

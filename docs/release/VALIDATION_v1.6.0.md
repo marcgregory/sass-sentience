@@ -13,22 +13,68 @@
 | Field | Value |
 |-------|-------|
 | **Version** | `v1.6.0` |
-| **Commit SHA** | `<fill after validation>` |
-| **Validation date** | `<fill>` |
+| **Git Commit** | `<fill>` |
+| **Git Tag** | `v1.6.0` |
+| **Validation Date** | `<fill>` |
 | **Validator** | `<fill>` |
-| **Environment** | OS: , Docker: , Node: , pnpm: |
+| **Environment (OS)** | |
+| **Docker Version** | |
+| **Docker Compose Version** | |
+| **Node Version** | |
+| **pnpm Version** | |
+
+### Container Images Validated
+
+| Service | Image ID / Digest |
+|---------|-------------------|
+| API | `<fill after Gate 1 — docker images sentience-e2e-api --digest>` |
+| Web | `<fill>` |
+| Bridge | `<fill>` |
+| Simulator | `<fill>` |
+| Playwright | `<fill>` |
 
 ---
 
 ## 2. Gate Results
 
-| # | Gate | Status | Evidence |
-|---|------|--------|----------|
-| 1 | **Docker Build** | ⏳ | |
-| 2 | **Stack Startup** | ⏳ | |
-| 3 | **Readiness** | ⏳ | |
-| 4 | **Real E2E Tests** | ⏳ | |
-| 5 | **Failure Modes** | ⏳ | |
+| # | Gate | Status | Evidence (Required / Recommended) |
+|---|------|--------|-----------------------------------|
+| 0 | **Repository Baseline** | ⏳ | Commit, working tree, lint, build |
+| 1 | **Docker Build** | ⏳ | Build exit code, per-image success |
+| 2 | **Stack Startup** | ⏳ | `docker compose ps` output |
+| 3 | **Readiness** | ⏳ | `curl /api/ready` response |
+| 4 | **Real E2E Tests** | ⏳ | Playwright summary |
+| 5 | **Failure Modes** | ⏳ | Health transitions per scenario |
+
+---
+
+### 2.0 Gate 0 — Repository Baseline
+
+Establishes that the repository itself is in a valid state before Docker validation begins.
+
+**Required evidence:**
+
+```bash
+git log --oneline -1
+# → <fill>
+
+git status --short
+# → <fill>
+
+git tag --points-at HEAD
+# → <fill>
+
+pnpm install --frozen-lockfile
+# → <fill>
+
+pnpm lint
+# → <fill>
+
+pnpm build
+# → <fill>
+```
+
+**Status:** `⏳ Pending / ✅ Passed / ❌ Failed`
 
 ---
 
@@ -48,9 +94,16 @@ docker compose -f docker-compose.e2e.yml build
 - `sentience-e2e-simulator` — MQTT device generator
 - `sentience-e2e-playwright` — Playwright runner (extends web)
 
+**Required evidence:** Build exit code, per-image success confirmation, image IDs/digests for the Container Images table in Section 1.
+
+To capture image digests after build:
+```bash
+docker images sentience-e2e-* --digests --format "table {{.Repository}}\t{{.Tag}}\t{{.Digest}}"
+```
+
 **Actual:**
 ```
-<paste key build output lines here — last 20 lines per service, any warnings>
+<paste key build output lines — last 20 lines per service, any warnings>
 ```
 
 **Status:** `⏳ Pending / ✅ Passed / ❌ Failed`
@@ -78,6 +131,8 @@ docker compose -f docker-compose.e2e.yml ps
 
 **Startup order:** postgres → mosquitto → api (waits for postgres) → realtime (waits for mosquitto) → simulator (waits for mosquitto) → web (waits for api + realtime)
 
+**Required evidence:** Full `docker compose ps` output.
+
 **Actual:**
 ```
 <docker compose ps output>
@@ -91,13 +146,11 @@ docker compose -f docker-compose.e2e.yml ps
 
 **Command:**
 ```bash
-curl http://localhost:3001/api/ready
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/api/ready
+curl -s http://localhost:3001/api/ready
 ```
 
-**Expected:**
-```json
-{"status":"ready"}
-```
+**Expected:** HTTP 200 with body `{"status":"ready"}`.
 
 This verifies:
 - API can connect to PostgreSQL
@@ -105,9 +158,12 @@ This verifies:
 - Seed data has been loaded (`SEED_DATABASE: "true"`)
 - API is ready to serve authenticated requests
 
+**Required evidence:** HTTP status code and response body.
+
 **Actual:**
 ```
-<curl response>
+<HTTP status code>
+<response body>
 ```
 
 **Status:** `⏳ Pending / ✅ Passed / ❌ Failed`
@@ -132,9 +188,13 @@ docker compose -f docker-compose.e2e.yml run playwright
 
 **Highest-value test:** Telemetry pipeline — Simulator → MQTT → Bridge → Socket.IO → Browser UI assertion.
 
+**Required evidence:** Playwright summary line (passed / failed / skipped).
+
+**Recommended evidence:** Link to Playwright HTML report.
+
 **Actual:**
 ```
-<Playwright test summary — passed / total, failure details if any>
+<Playwright summary — passed / total, failure details if any>
 ```
 
 **Status:** `⏳ Pending / ✅ Passed / ❌ Failed`
@@ -142,6 +202,8 @@ docker compose -f docker-compose.e2e.yml run playwright
 ---
 
 ### 2.5 Gate 5 — Failure Modes
+
+**Required evidence:** For each scenario, record the health endpoint response before, during, and after the failure.
 
 #### 2.5.1 MQTT Outage
 
@@ -206,12 +268,14 @@ docker compose -f docker-compose.e2e.yml run playwright
 
 ## 5. Release Decision
 
-```
-Release Recommendation
+| Decision | Meaning |
+|----------|---------|
+| **Approved** | All required gates passed; no release-blocking issues. |
+| **Approved with Conditions** | Non-blocking issues documented with follow-up actions. |
+| **Blocked** | One or more required gates failed; release cannot proceed. |
 
-☐ Approved
-☐ Approved with conditions
-☐ Blocked
+```
+Release Recommendation: ☐ Approved / ☐ Approved with conditions / ☐ Blocked
 
 Conditions / Blockers:
 - ...

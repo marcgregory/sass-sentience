@@ -1,7 +1,7 @@
 # Validation Record — vX.Y.Z
 
 > One file per release. Copy this template for each new version.
-> Instructions in `RELEASE_PROCESS.md`.
+> Process: `docs/release/RELEASE_PROCESS.md`
 
 ---
 
@@ -10,22 +10,67 @@
 | Field | Value |
 |-------|-------|
 | **Version** | `vX.Y.Z` |
-| **Commit SHA** | `<full SHA>` |
-| **Validation date** | YYYY-MM-DD |
+| **Git Commit** | `<full SHA>` |
+| **Git Tag** | `vX.Y.Z` |
+| **Validation Date** | YYYY-MM-DD |
 | **Validator** | `<name / CI run>` |
-| **Environment** | OS: , Docker: , Node: , pnpm: |
+| **Environment (OS)** | |
+| **Docker Version** | |
+| **Docker Compose Version** | |
+| **Node Version** | |
+| **pnpm Version** | |
+
+### Container Images Validated
+
+| Service | Image ID / Digest |
+|---------|-------------------|
+| API | `<image id or sha256:...>` |
+| Web | `<image id or sha256:...>` |
+| Bridge | `<image id or sha256:...>` |
+| Simulator | `<image id or sha256:...>` |
+| Playwright | `<image id or sha256:...>` |
 
 ---
 
 ## 2. Gate Results
 
-| # | Gate | Status | Evidence |
-|---|------|--------|----------|
+| # | Gate | Status | Evidence (Required / Recommended) |
+|---|------|--------|-----------------------------------|
+| 0 | **Repository Baseline** | `⏳ / ✅ / ❌` | Commit, working tree, lint, build |
 | 1 | **Docker Build** | `⏳ / ✅ / ❌` | Build command output, image count |
-| 2 | **Stack Startup** | `⏳ / ✅ / ❌` | `docker compose ps` output, health status per service |
+| 2 | **Stack Startup** | `⏳ / ✅ / ❌` | `docker compose ps`, service health status |
 | 3 | **Readiness** | `⏳ / ✅ / ❌` | `curl /api/ready` response |
 | 4 | **Real E2E Tests** | `⏳ / ✅ / ❌` | Playwright summary: tests passed / total |
-| 5 | **Failure Modes** | `⏳ / ✅ / ❌` | MQTT stop/start, DB kill, bridge disconnect — health transitions |
+| 5 | **Failure Modes** | `⏳ / ✅ / ❌` | MQTT/DB/Bridge health transitions |
+
+### 2.0 Gate 0 — Repository Baseline
+
+Establishes that the repository itself is in a valid state before Docker validation begins.
+
+**Required evidence:**
+```bash
+git log --oneline -1
+# → abc1234 <commit message>
+
+git status --short
+# → <empty — working tree clean>
+
+git tag --points-at HEAD
+# → vX.Y.Z
+
+pnpm install --frozen-lockfile
+# → Already up to date
+
+pnpm lint
+# → 8 successful, 8 total
+
+pnpm build
+# → 30/30 pages
+```
+
+**Status:** `⏳ Pending / ✅ Passed / ❌ Failed`
+
+---
 
 ### 2.1 Gate 1 — Docker Build
 
@@ -35,6 +80,13 @@ docker compose -f docker-compose.e2e.yml build
 ```
 
 **Expected:** All services build successfully (exit 0). No missing dependencies, workspace resolution errors, or native dependency failures.
+
+**Required evidence:** Build exit code, per-image success confirmation, image IDs/digests for the Container Images table in Section 1.
+
+To capture image digests after a successful build:
+```bash
+docker images sentience-e2e-* --digests --format "table {{.Repository}}\t{{.Tag}}\t{{.Digest}}"
+```
 
 **Actual:**
 ```
@@ -64,6 +116,8 @@ docker compose -f docker-compose.e2e.yml ps
 | simulator | running |
 | web | healthy |
 
+**Required evidence:** Full `docker compose ps` output.
+
 **Actual:**
 ```
 <docker compose ps output>
@@ -85,6 +139,8 @@ curl http://localhost:<api-port>/api/ready
 {"status": "ready"}
 ```
 
+**Required evidence:** curl response body and HTTP status code.
+
 **Actual:**
 ```
 <curl response>
@@ -103,6 +159,10 @@ docker compose -f docker-compose.e2e.yml run playwright
 
 **Expected:** All real-infrastructure tests pass. The telemetry pipeline test (Simulator → MQTT → Bridge → Socket.IO → Browser UI) is the highest-value assertion.
 
+**Required evidence:** Playwright summary line (passed / failed / skipped).
+
+**Recommended evidence:** Link to Playwright HTML report.
+
 **Actual:**
 ```
 <Playwright summary — tests passed / total, failure details if any>
@@ -114,12 +174,14 @@ docker compose -f docker-compose.e2e.yml run playwright
 
 ### 2.5 Gate 5 — Failure Modes
 
+**Required evidence:** For each scenario, record the health endpoint response before, during, and after the failure.
+
 #### 2.5.1 MQTT Outage
 
 | Step | Command | Expected | Actual |
 |------|---------|----------|--------|
 | Stop | `docker compose stop mosquitto` | Health reports unhealthy | |
-| Verify | `curl /api/admin/health` or health page | MQTT check fails | |
+| Verify | `curl /api/admin/health` | MQTT check fails | |
 | Restart | `docker compose start mosquitto` | Health recovers | |
 | Re-verify | `curl /api/admin/health` | MQTT check passes | |
 
@@ -158,21 +220,23 @@ docker compose -f docker-compose.e2e.yml run playwright
 
 | Artifact | Location / Path |
 |----------|----------------|
-| Playwright HTML report | `<path>` |
-| Traces / Screenshots / Videos | `<path>` |
-| Container logs archive | `<path>` |
-| Additional evidence | `<path>` |
+| Playwright HTML report | |
+| Traces / Screenshots / Videos | |
+| Container logs | |
+| Additional evidence | |
 
 ---
 
 ## 5. Release Decision
 
-```
-Release Recommendation
+| Decision | Meaning |
+|----------|---------|
+| **Approved** | All required gates passed; no release-blocking issues. |
+| **Approved with Conditions** | Non-blocking issues documented with follow-up actions. |
+| **Blocked** | One or more required gates failed; release cannot proceed. |
 
-☐ Approved
-☐ Approved with conditions
-☐ Blocked
+```
+Release Recommendation: ☐ Approved / ☐ Approved with conditions / ☐ Blocked
 
 Conditions / Blockers:
 - ...
