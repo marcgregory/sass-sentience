@@ -64,6 +64,13 @@
       "when": 1785000000000,
       "tag": "0008_add_device_groups",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784204573191,
+      "tag": "0009_silly_mephisto",
+      "breakpoints": true
     }
   ]
 }
