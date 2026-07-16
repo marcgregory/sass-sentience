@@ -78,6 +78,14 @@ export default function DevicesPage() {
   // ── Search & filter state ───────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
   const [activeReasonFilters, setActiveReasonFilters] = useState<StatusReason[]>([]);
+  const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
+
+  // Collect unique tags from current page devices
+  const availableTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    devices.forEach((d) => d.tags.forEach((t) => tagSet.add(t)));
+    return Array.from(tagSet).sort();
+  }, [devices]);
 
   const toggleReasonFilter = (reason: StatusReason) => {
     setActiveReasonFilters((prev) =>
@@ -106,6 +114,13 @@ export default function DevicesPage() {
     if (activeReasonFilters.length > 0) {
       result = result.filter((d) =>
         activeReasonFilters.some((r) => d.reasons.includes(r)),
+      );
+    }
+
+    // Tag filters (OR logic — match any selected tag)
+    if (activeTagFilters.length > 0) {
+      result = result.filter((d) =>
+        d.tags.some((t) => activeTagFilters.includes(t)),
       );
     }
 
@@ -168,15 +183,16 @@ export default function DevicesPage() {
             onClick={() => {
               setSearchQuery("");
               setActiveReasonFilters([]);
+              setActiveTagFilters([]);
             }}
-            disabled={!searchQuery && activeReasonFilters.length === 0}
+            disabled={!searchQuery && activeReasonFilters.length === 0 && activeTagFilters.length === 0}
           >
             <X className="h-4 w-4" />
             Clear
           </Button>
         </div>
 
-        {/* Bottom row — reason filter chips */}
+        {/* Bottom row — reason filter chips + tag filter chips */}
         <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by status reason">
           {REASON_FILTERS.map(({ reason, label, icon: Icon, color }) => {
             const isActive = activeReasonFilters.includes(reason);
@@ -207,6 +223,43 @@ export default function DevicesPage() {
             </span>
           )}
         </div>
+
+        {/* Tag filter chips */}
+        {availableTags.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by tag">
+            {availableTags.map((tag) => {
+              const isActive = activeTagFilters.includes(tag);
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  aria-pressed={isActive}
+                  onClick={() => {
+                    setActiveTagFilters((prev) =>
+                      prev.includes(tag)
+                        ? prev.filter((t) => t !== tag)
+                        : [...prev, tag],
+                    );
+                  }}
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors
+                    ${
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                >
+                  {tag}
+                  {isActive && <X className="h-2.5 w-2.5 ml-0.5" />}
+                </button>
+              );
+            })}
+            {activeTagFilters.length > 0 && (
+              <span className="text-xs text-muted-foreground ml-1">
+                {filteredDevices.length} device{filteredDevices.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Error State */}
@@ -292,15 +345,15 @@ export default function DevicesPage() {
       {!isLoading && !isError && filteredDevices.length === 0 && (
         <EmptyState
           icon={HardDrive}
-          title={activeReasonFilters.length > 0 || searchQuery ? "No matching devices" : "No devices found"}
+          title={activeReasonFilters.length > 0 || activeTagFilters.length > 0 || searchQuery ? "No matching devices" : "No devices found"}
           description={
             activeReasonFilters.length > 0 || searchQuery
-              ? "No devices match the current filters. Try adjusting your search or clearing the filters."
+              ? "No devices match the current filters. Try adjusting your search, tags, or clearing the filters."
               : "No devices are registered yet. Add a device or start the MQTT simulator to get started."
           }
           action={
-            activeReasonFilters.length > 0 || searchQuery
-              ? { label: "Clear Filters", onClick: () => { setSearchQuery(""); setActiveReasonFilters([]); } }
+            activeReasonFilters.length > 0 || activeTagFilters.length > 0 || searchQuery
+              ? { label: "Clear Filters", onClick: () => { setSearchQuery(""); setActiveReasonFilters([]); setActiveTagFilters([]); } }
               : undefined
           }
         />
@@ -332,6 +385,9 @@ export default function DevicesPage() {
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
                   Temp
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                  Tags
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
                   Last Seen
@@ -395,6 +451,27 @@ export default function DevicesPage() {
                         {device.temp !== 0 ? `${device.temp}°C` : "N/A"}
                       </span>
                     </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    {device.tags.length > 0 ? (
+                      <div className="flex gap-1 flex-wrap max-w-[10rem]">
+                        {device.tags.slice(0, 3).map((tag) => (
+                          <span
+                            key={tag}
+                            className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                        {device.tags.length > 3 && (
+                          <span className="text-[10px] text-muted-foreground">
+                            +{device.tags.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
                     {formatRelativeTime(device.lastSeen)}

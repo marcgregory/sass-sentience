@@ -12,3 +12,4 @@ export * from "./api-key";
 export * from "./notification-rule";
 export * from "./platform-health";
 export * from "./diagnostic";
+export * from "./device-group";

@@ -1,10 +1,11 @@
 export { get, post, put, patch, del, ApiError } from "./api-client";
-export { getDevices, getDevice } from "./devices";
+export { getDevices, getDevice, updateDevice } from "./devices";
 export type {
   DeviceApiItem,
   DeviceListResponse,
   DeviceDetailResponse,
   DevicesParams,
+  UpdateDevicePayload,
 } from "./devices";
 export { getEvents, getEvent } from "./events";
 export type {
@@ -124,3 +125,12 @@ export type {
   UpdateProfilePayload,
   UpdateProfileResponse,
 } from "./auth";
+
+export { getDeviceGroups, getDeviceGroup, createDeviceGroup, updateDeviceGroup, deleteDeviceGroup } from "./device-groups";
+export type {
+  DeviceGroupApiItem,
+  DeviceGroupListResponse,
+  DeviceGroupListParams,
+  CreateDeviceGroupPayload,
+  UpdateDeviceGroupPayload,
+} from "./device-groups";

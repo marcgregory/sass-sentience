@@ -546,6 +546,24 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 
 **Validation outcome:** All 6 gates passed. Release approved. Tagged `v1.6.0`.
 
+---
+
+## ✅ Completed — v1.7.0 — Fleet Management: Device Tags & Groups (2026-07-16)
+
+**Goal:** Give operators the ability to organize devices into meaningful collections.
+
+| Area | Status | Notes |
+|------|--------|-------|
+| **Tags on device list** | ✅ Done | Tags column with badges (max 3 + "+N"), tag filter chips, `?tags=` API param |
+| **Tag editor on device detail** | ✅ Done | Inline add/remove, persisted via `PATCH /api/devices/:id`, Enter/Escape keyboard support |
+| **Device Groups DB + API** | ✅ Done | `device_groups` table, full CRUD with RBAC (admin/support for mutations) |
+| **Groups list page** | ✅ Done | `/groups` — card grid, search, create dialog, delete confirmation |
+| **Group detail page** | ✅ Done | `/groups/[id]` — metadata, member device table, edit, add/remove devices |
+| **Nav entry** | ✅ Done | `/groups` in sidebar, visible to admin/support via `device-groups` resource |
+| **Dialog/AlertDialog components** | ✅ Done | shadcn-style components built on `@radix-ui/react-dialog` and `@radix-ui/react-alert-dialog` |
+| **TypeScript check** | ✅ Passed | Zero errors across all 9 packages |
+| **Production build** | ✅ Passed | 29/29 pages, shared JS 103 kB |
+
 **Summary of validation (see `docs/release/VALIDATION_v1.6.0.md`):**
 
 | Gate | Result | Key Evidence |
@@ -572,7 +590,11 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 
 ---
 
-## 🔮 Future (Infrastructure & Polish)
+## 🔮 Future (v1.8.0+)
 
-- Deployment pipeline — CI/CD
-- Advanced scaling — Kubernetes, Redis, multi-region
+- **Bulk operations** — Apply actions (rename, retag, diagnostics, firmware) to multiple devices at once, including group-scoped operations
+- **Filter-based dynamic groups** — Groups defined by query rules (e.g. "all offline sensors in Building A") instead of explicit membership
+- **Standalone tags management** — UI to create/manage/rename tags independently, not just inline
+- **Notification routing by group** — Route alert notifications to specific channels based on device group membership
+- **Fleet exports** — Export device data by group to CSV
+- **Batch diagnostics** — Run diagnostics across all devices in a group

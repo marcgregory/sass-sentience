@@ -10,8 +10,8 @@
  */
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { getDevices, getDevice } from "@/lib/devices";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getDevices, getDevice, updateDevice, type UpdateDevicePayload } from "@/lib/devices";
 import type { DeviceDetailResponse, DevicesParams } from "@/lib/devices";
 import { queryKeys } from "@/lib/query-keys";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
@@ -35,6 +35,7 @@ export interface DeviceListRow {
   site: string;
   lastSeen: string;
   uptime: number | null;
+  tags: string[];
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -73,6 +74,7 @@ function mapDeviceToRow(
     site: d.siteName ?? `Site ${d.siteId.slice(0, 8)}`,
     lastSeen: d.lastHeartbeat ?? d.updatedAt ?? new Date().toISOString(),
     uptime: d.uptime,
+    tags: d.tags ?? [],
   };
 }
 
@@ -130,6 +132,7 @@ function mapLiveEntryToRow(
     site: entry.siteName ?? entry.siteId ?? "Unassigned",
     lastSeen: entry.lastSeen,
     uptime: entry.telemetry?.uptime ?? null,
+    tags: [],
   };
 }
 
@@ -219,6 +222,7 @@ export function useDevices(page: number = 1) {
           live.estateName ?? api.estateName,
           api.siteId,
         ),
+        tags: api.tags ?? [],
       };
     });
   }, [simulatorMode, query.data, liveDevices]);
@@ -297,6 +301,7 @@ export function useDevice(id: string) {
         site: liveEntry.siteName ?? liveEntry.siteId ?? "Unassigned",
         lastSeen: liveEntry.lastSeen,
         uptime: liveEntry.telemetry?.uptime ?? null,
+        tags: [],
       };
     }
 
@@ -360,6 +365,7 @@ export function useDevice(id: string) {
           liveEntry?.estateName ?? api.estateName,
           api.siteId,
         ),
+        tags: api.tags ?? [],
       };
     }
 
@@ -380,6 +386,7 @@ export function useDevice(id: string) {
         api.estateName,
         api.siteId,
       ),
+      tags: api.tags ?? [],
     };
   }, [simulatorMode, query.data, liveEntry]);
 
@@ -390,4 +397,23 @@ export function useDevice(id: string) {
     isError: simulatorMode ? false : query.isError,
     error: simulatorMode ? null : query.error,
   };
+}
+
+// ─── useUpdateDevice ─────────────────────────────────────────────────────
+
+/**
+ * Mutation hook for updating device fields (name, tags, notes, etc.).
+ * Invalidates device detail and list caches on success.
+ */
+export function useUpdateDevice() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateDevicePayload }) =>
+      updateDevice(id, payload),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.devices.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.devices.detail(variables.id) });
+    },
+  });
 }

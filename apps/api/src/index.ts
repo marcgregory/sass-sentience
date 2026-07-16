@@ -45,6 +45,7 @@ import { customerRoutes } from "./routes/customers";
 import { diagnosticRoutes } from "./routes/diagnostics";
 import { dashboardRoutes } from "./routes/dashboard";
 import { adminHealthRoutes } from "./routes/admin-health";
+import { deviceGroupRoutes } from "./routes/device-groups";
 
 let app: FastifyInstance | undefined;
 
@@ -126,6 +127,7 @@ async function main() {
   await app.register(diagnosticRoutes, { prefix: "/api/diagnostics" });
   await app.register(dashboardRoutes, { prefix: "/api/dashboard" });
   await app.register(adminHealthRoutes, { prefix: "/api" });
+  await app.register(deviceGroupRoutes, { prefix: "/api/device-groups" });
 
   // ─── Socket.IO (shares the same HTTP server) ────────────────────
 

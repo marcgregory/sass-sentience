@@ -54,6 +54,8 @@ import type { DeviceStatus } from "@sentience/types";
 import { getEvents } from "@/lib/events";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
+import { useUpdateDevice } from "@/hooks/use-devices";
+import { Plus, X as XIcon } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -248,6 +250,9 @@ export default function DeviceDetailPage() {
   const deviceId = params.id;
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [runningDiag, setRunningDiag] = useState<string | null>(null);
+  const [tagInput, setTagInput] = useState("");
+  const [isAddingTag, setIsAddingTag] = useState(false);
+  const updateDevice = useUpdateDevice();
 
   // API data source
   const { device, apiDevice, isLoading, isError } = useDevice(deviceId);
@@ -550,6 +555,83 @@ export default function DeviceDetailPage() {
           </div>
         </SectionCard>
       </div>
+
+      {/* Tags */}
+      {!simulatorMode && apiDevice && (
+        <SectionCard title="Tags" description="Organize devices with free-form tags">
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-1.5">
+              {(apiDevice.tags ?? []).length > 0 ? (
+                (apiDevice.tags ?? []).map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium"
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updatedTags = (apiDevice.tags ?? []).filter((t) => t !== tag);
+                        updateDevice.mutate({ id: deviceId, payload: { tags: updatedTags } });
+                      }}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label={`Remove tag ${tag}`}
+                    >
+                      <XIcon className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">No tags</p>
+              )}
+            </div>
+            {isAddingTag ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && tagInput.trim()) {
+                      const currentTags = apiDevice.tags ?? [];
+                      if (!currentTags.includes(tagInput.trim())) {
+                        updateDevice.mutate(
+                          { id: deviceId, payload: { tags: [...currentTags, tagInput.trim()] } },
+                          { onSuccess: () => setTagInput("") },
+                        );
+                      }
+                    }
+                    if (e.key === "Escape") {
+                      setIsAddingTag(false);
+                      setTagInput("");
+                    }
+                  }}
+                  placeholder="Enter tag name..."
+                  className="h-8 rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring w-40"
+                  autoFocus
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setIsAddingTag(false); setTagInput(""); }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setIsAddingTag(true)}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Tag
+              </Button>
+            )}
+          </div>
+        </SectionCard>
+      )}
 
       {/* Recent Events (on overview) */}
       {deviceEvents.length > 0 && (

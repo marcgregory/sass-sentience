@@ -4,6 +4,35 @@ All notable changes to the Sentience IoT Platform.
 
 ---
 
+## v1.7.0 — 2026-07-16
+
+### Fleet Management: Device Tags & Groups
+
+**Added**
+
+- **Device Groups CRUD API** — `GET/POST/PATCH/DELETE /api/device-groups` with RBAC enforcement (admin/support for mutations, authenticated read). Database table `device_groups` with UUID primary key, name, description, device_ids array, and device_count.
+- **Groups list page** — `/groups` with card grid, search, create dialog, delete confirmation with device-count warning.
+- **Group detail page** — `/groups/[id]` with group metadata, scoped device table, edit dialog, add/remove devices via searchable multi-select.
+- **Device Groups nav entry** — `/groups` in sidebar, visible to admin and support roles. Uses `FolderKanban` icon.
+- **Tag filter on device list** — `GET /api/devices?tags=` query parameter (comma-separated, OR logic). Tag filter chips on devices page, tags column in device table (max 3 badges + "+N").
+- **Tag editor on device detail** — Inline tag add/remove on Overview tab, persisted via `PATCH /api/devices/:id`. Text input with Enter-to-add and Escape-to-cancel.
+- **View device groups permission** — New `device-groups` resource in RBAC permission matrix. Admin: manage. Support: read/create/update/delete. Installer and Customer: no access.
+- **Dialog and AlertDialog UI components** — shadcn-style components built on `@radix-ui/react-dialog` and `@radix-ui/react-alert-dialog`.
+
+**Changed**
+
+- **Device list row type** — `DeviceListRow.tags` field added, populated from API data.
+- **`useDevices()` hook** — Returns `tags` array on every device row. Exposed `useUpdateDevice()` mutation.
+- **Device detail page** — `useUpdateDevice` mutation for tag editing.
+
+**Build**
+
+- TypeScript: ✅ Zero errors (9 packages)
+- Production build: ✅ 29/29 pages, shared JS 103 kB
+- New pages: `/groups` (5.39 kB), `/groups/[id]` (5.17 kB)
+
+---
+
 ## v1.6.0 — 2026-07-16
 
 ### Real Infrastructure E2E Validation

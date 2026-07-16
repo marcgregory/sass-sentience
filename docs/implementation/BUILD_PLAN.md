@@ -83,7 +83,8 @@ The infrastructure phase is complete. The current architecture supports all rema
 | 5 | **Reports** | Export a monthly report to CSV/PDF |
 | 6 | **User Management** | Log in as Customer vs Support vs Admin — different permissions |
 | 7 | **Admin** | Log in as Admin → manage feature flags, API keys, platform health |
-| 8 | **v1.0 RC1 (Backend API)** 🔄 | PostgreSQL + Fastify API — health, auth, CRUD, seed data |
+| 8 | **v1.0 RC1 (Backend API)** | PostgreSQL + Fastify API — health, auth, CRUD, seed data |
+| 9 | **v1.7.0 Fleet Management** | Add tags to devices, create groups, organize the fleet |
 
 ---
 
@@ -586,3 +587,52 @@ The infrastructure phase is complete. The current architecture supports all rema
 ### Completed
 
 2026-07-03 — RC3 Phase 6 delivered. All documentation aligned with implementation. Production Readiness Report generated. Final build verification passed.
+
+---
+
+## Sprint 9: v1.7.0 — Fleet Management (Device Tags & Groups)
+
+> **Demo:** Open the devices page → see tags in the table. Add a tag to a device on its detail page. Filter devices by tag. Create a device group, add devices to it, view the group's scoped device table. The Groups nav item appears for admin/support roles.
+
+**Goal:** Give operators the ability to organize devices into meaningful collections — tags for ad-hoc labeling, groups for explicit managed collections.
+
+**Scope:** Tags UI (device list + detail inline editor + API filter). Device Groups (DB schema, full CRUD API, list page, detail page with member device table, RBAC). Dialog/AlertDialog UI components added.
+
+**Non-Goals:** Bulk operations, dynamic (filter-based) groups, standalone tags management page, batch diagnostics, notification routing by group, fleet exports.
+
+### Tasks
+
+- [x] Define `DeviceGroup` type in `@sentience/types`
+- [x] Create `device_groups` database schema and migration 0008
+- [x] Build device-groups CRUD API routes with RBAC (admin/support for mutations)
+- [x] Add `?tags=` filter to `GET /api/devices` (comma-separated, OR logic)
+- [x] Create frontend API layer (`lib/device-groups.ts`) and TanStack Query hooks (`hooks/use-device-groups.ts`)
+- [x] Add `device-groups` resource to RBAC permission matrix
+- [x] Add tags column and tag filter chips to device list page
+- [x] Add inline tag editor (add/remove) to device detail page Overview tab
+- [x] Build Groups list page (`/groups`) with card grid, search, create dialog, delete confirmation
+- [x] Build Group detail page (`/groups/[id]`) with metadata, member device table, edit, add/remove devices
+- [x] Add `/groups` nav entry to sidebar (admin/support)
+- [x] Create shadcn-style Dialog and AlertDialog UI components
+- [x] Create `useUpdateDevice()` mutation for tag persistence
+- [x] `pnpm lint` — Zero errors
+- [x] `pnpm build` — 29/29 pages, shared JS 103 kB
+- [x] Update ROADMAP.md, CHANGELOG.md, BUILD_PLAN.md
+
+### Acceptance Criteria
+
+1. [x] Tags visible in device table (max 3 badges + "+N")
+2. [x] Tag filter chips on devices page, filterable by OR logic
+3. [x] Tag editor on device detail — add/remove persisted via API
+4. [x] `GET /api/devices?tags=foo,bar` returns matching devices
+5. [x] Device Groups CRUD API with RBAC
+6. [x] Groups list page — card grid, search, create, delete
+7. [x] Group detail page — scoped device table, edit, add/remove devices
+8. [x] `/groups` in sidebar for admin/support roles only
+9. [x] All data-driven views handle loading, error, and empty states
+10. [x] Dark mode renders correctly on all new/edited pages
+11. [x] TypeScript clean, production build clean
+
+### Completed
+
+2026-07-16 — v1.7.0 delivered. Device tags (list display, filter, inline editor) and device groups (full CRUD, list/detail pages, RBAC). Dialog/AlertDialog UI components added. TypeScript zero errors, 29/29 pages, shared JS 103 kB.

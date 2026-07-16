@@ -9,6 +9,7 @@ export type Resource =
   | "estates"
   | "sites"
   | "devices"
+  | "device-groups"
   | "alerts"
   | "events"
   | "reports"
@@ -33,6 +34,7 @@ const permissionMatrix: Record<UserRole, Partial<Record<Resource, Action[]>>> = 
     estates: ["manage"],
     sites: ["manage"],
     devices: ["manage"],
+    "device-groups": ["manage"],
     alerts: ["manage"],
     events: ["manage"],
     reports: ["manage"],
@@ -51,6 +53,7 @@ const permissionMatrix: Record<UserRole, Partial<Record<Resource, Action[]>>> = 
     estates: ["read"],
     sites: ["read"],
     devices: ["read", "update"],
+    "device-groups": ["read", "create", "update", "delete"],
     alerts: ["read", "update"],
     events: ["read"],
     reports: ["read", "create", "delete"],
@@ -88,6 +91,7 @@ export const ALL_RESOURCES: Resource[] = [
   "estates",
   "sites",
   "devices",
+  "device-groups",
   "alerts",
   "events",
   "reports",
@@ -110,6 +114,7 @@ export const RESOURCE_LABELS: Record<Resource, string> = {
   estates: "Estates",
   sites: "Sites",
   devices: "Devices",
+  "device-groups": "Device Groups",
   alerts: "Alerts",
   events: "Events",
   reports: "Reports",

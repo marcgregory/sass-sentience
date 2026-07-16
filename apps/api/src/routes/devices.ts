@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db } from "../db";
 import { devices, sites, estates } from "../db/schema";
-import { eq, and, count, ilike, SQL, asc, desc, inArray } from "drizzle-orm";
+import { eq, and, count, ilike, SQL, asc, desc, inArray, sql } from "drizzle-orm";
 import { requireAuth, requireRole, customerScope, type JwtPayload } from "../middleware/auth";
 import { logAuditEvent } from "../lib/audit";
 
@@ -28,6 +28,7 @@ export async function deviceRoutes(app: FastifyInstance) {
       estate_id?: string;
       status?: string;
       type?: string;
+      tags?: string;
       search?: string;
       page?: string;
       limit?: string;
@@ -69,6 +70,19 @@ export async function deviceRoutes(app: FastifyInstance) {
       conditions.push(
         ilike(devices.name, `%${query.search}%`) as SQL,
       );
+    }
+
+    if (query.tags) {
+      const tagList = query.tags.split(",").map((t) => t.trim()).filter(Boolean);
+      if (tagList.length > 0) {
+        // Filter where tags JSONB array contains ANY of the requested tags
+        const tagConditions = tagList.map(
+          (tag) => sql`${devices.tags} ? ${tag}`,
+        );
+        // Combine with OR using reduce
+        const combined = tagConditions.reduce((acc, curr) => sql`${acc} OR ${curr}`);
+        conditions.push(combined);
+      }
     }
 
     // ── Customer data isolation ────────────────────────────────────────

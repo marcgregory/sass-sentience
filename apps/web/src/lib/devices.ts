@@ -5,7 +5,7 @@
  * Used by TanStack Query hooks — never call these directly from components.
  */
 
-import { get } from "./api-client";
+import { get, patch } from "./api-client";
 import type { DeviceStatus } from "@sentience/types";
 
 // ─── API Response Types ───────────────────────────────────────────────────
@@ -63,6 +63,7 @@ export interface DevicesParams {
   estate_id?: string;
   status?: string;
   type?: string;
+  tags?: string;
   search?: string;
   page?: number;
   limit?: number;
@@ -93,4 +94,28 @@ export async function getDevice(
   id: string,
 ): Promise<DeviceDetailResponse> {
   return get<DeviceDetailResponse>(`/devices/${id}`);
+}
+
+export interface UpdateDevicePayload {
+  name?: string;
+  status?: string;
+  notes?: string;
+  tags?: string[];
+  lastMaintenance?: string;
+  firmwareVersion?: string;
+  firmwareBuild?: string;
+  firmwareReleasedAt?: string;
+  firmwareInstalledAt?: string;
+  deviceConfig?: Record<string, unknown>;
+  deviceIo?: Record<string, unknown>;
+}
+
+/**
+ * Update a device's fields. Sends a PATCH to the backend.
+ */
+export async function updateDevice(
+  id: string,
+  payload: UpdateDevicePayload,
+): Promise<DeviceApiItem> {
+  return patch<DeviceApiItem>(`/devices/${id}`, payload);
 }

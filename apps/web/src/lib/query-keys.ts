@@ -133,4 +133,11 @@ export const queryKeys = {
     results: (params?: Record<string, unknown>) => ["diagnostics", "results", params] as const,
     resultDetail: (id: string) => ["diagnostics", "results", id] as const,
   },
+
+  /** Device Groups */
+  deviceGroups: {
+    all: ["deviceGroups"] as const,
+    list: (params?: Record<string, unknown>) => ["deviceGroups", "list", params] as const,
+    detail: (id: string) => ["deviceGroups", "detail", id] as const,
+  },
 } as const;
