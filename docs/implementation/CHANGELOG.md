@@ -31,6 +31,27 @@ All notable changes to the Sentience IoT Platform.
 - Production build: ✅ 29/29 pages, shared JS 103 kB
 - New pages: `/groups` (5.39 kB), `/groups/[id]` (5.17 kB)
 
+**Validation Notes**
+
+v1.7.0 has been validated end-to-end against real infrastructure. All 6 gates passed. See `docs/release/VALIDATION_v1.7.0.md` for full results.
+
+| Gate | Result |
+|------|--------|
+| Gate 0 — Repository Baseline | ✅ Clean commit `a05533f`, lint + build pass, 29/29 pages |
+| Gate 1 — Docker Build | ✅ 5/5 images built, no path drift |
+| Gate 2 — Stack Startup | ✅ 6/6 services healthy |
+| Gate 3 — Readiness | ✅ `/api/ready` returns `{"status":"ready"}` |
+| Gate 4 — Real E2E Tests | ✅ **16/16 tests pass in 15.3s** — zero regressions |
+| Gate 5 — Failure Modes | ✅ MQTT, Bridge, DB failure all detected and recovered |
+
+**Key validation outcomes:**
+- All v1.6.0 validation fixes remained durable — no Dockerfile drift, no healthcheck issues, no test regressions
+- New Groups/Tags functionality did not break any existing integration or deployment behavior
+- 3/3 failure-mode scenarios confirmed (MQTT outage, Bridge disconnect, DB failure)
+- Zero new issues discovered during validation
+
+**Release:** Tagged `v1.7.0`. Release decision: ✅ Approved.
+
 ---
 
 ## v1.6.0 — 2026-07-16

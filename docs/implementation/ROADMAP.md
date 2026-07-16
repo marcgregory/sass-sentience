@@ -564,29 +564,20 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 | **TypeScript check** | ✅ Passed | Zero errors across all 9 packages |
 | **Production build** | ✅ Passed | 29/29 pages, shared JS 103 kB |
 
-**Summary of validation (see `docs/release/VALIDATION_v1.6.0.md`):**
+**Summary of validation (see `docs/release/VALIDATION_v1.7.0.md`):**
 
 | Gate | Result | Key Evidence |
 |------|--------|-------------|
-| Gate 0 — Repository Baseline | ✅ | Commit `9e69571`, clean tree, lint + build pass |
-| Gate 1 — Docker Build | ✅ | 5/5 images built, digests recorded |
+| Gate 0 — Repository Baseline | ✅ | Commit `a05533f`, clean tree, lint + build pass, **29/29 pages** |
+| Gate 1 — Docker Build | ✅ | 5/5 images built, no drift from v1.6.0 fixes |
 | Gate 2 — Stack Startup | ✅ | 6/6 services running, all healthy |
-| Gate 3 — Readiness | ✅ | `{"status":"ready"}` at `/api/ready` |
-| Gate 4 — Real E2E Tests | ✅ | 16/16 tests pass in 14.4s |
+| Gate 3 — Readiness | ✅ | `{"status":"ready"}` at `/api/ready`, migration 0008 applied |
+| Gate 4 — Real E2E Tests | ✅ | **16/16 tests pass in 15.3s** — zero regressions |
 | Gate 5 — Failure Modes | ✅ | MQTT, Bridge, DB failure all detected and recovered |
 
-**Highest-value achievement:** Full telemetry pipeline proven end-to-end: Simulator → MQTT → Bridge → Socket.IO → Browser UI. Failure resilience proven across 3 dependency outage scenarios.
+**Highest-value achievement:** All v1.6.0 validation fixes remained durable. No new issues introduced by Groups/Tags. Zero regressions across 16 E2E tests. Validation completed on first pass with no gate failures.
 
-**Key fixes during validation:**
-- Playwright base image tag resolution
-- Dockerfile stale path corrections
-- CORS and `NEXT_PUBLIC_API_URL` service-name resolution
-- Healthcheck bash-isms replaced with `nc` for Alpine
-- IPv6 `localhost` → `127.0.0.1` in healthchecks
-- Orphan migration `0006` journal entry fix
-- Next.js standalone output path correction
-- 16 test-specific fixes (selectors, localStorage keys, API routing)
-
+**Release decision:** ✅ Approved. Tagged `v1.7.0`.
 
 ---
 

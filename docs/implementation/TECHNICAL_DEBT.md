@@ -1,7 +1,7 @@
 # Technical Debt
 
 > Items intentionally deferred or known to need cleanup.
-> Last updated: 2026-07-16 (v1.6.0 — validated and released)
+> Last updated: 2026-07-16 (v1.7.0 — validated and released)
 
 ---
 
@@ -19,6 +19,13 @@
 ---
 
 ## Data Layer
+
+### Device group membership uses a uuid[] array column
+The `device_groups` table stores member device UUIDs in a `device_ids` array column rather than a normalized join table. This works for current fleet sizes (tens of devices per group) but has three limitations: (1) queries for "which groups does device X belong to?" require `@>` containment operators on every group row, (2) atomic add/remove requires reading and rewriting the full array, and (3) PATCH race conditions are possible when two clients modify device membership concurrently.
+
+**Impact:** As groups grow to hundreds of devices, array-based membership becomes harder to query efficiently and more susceptible to concurrent update collisions.
+
+**Resolution:** Normalize to a many-to-many join table (`device_group_memberships`) with device_id + group_id + joined_at. Add a GIN index on device_ids if array approach is retained for read-heavy workloads.
 
 ### Audit log filtering, searching, sorting, and pagination is client-side
 The audit log page fetches the first 200 API entries as a client-side working set. Search, filter, sort, and pagination all operate in the browser over this set.
