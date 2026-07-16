@@ -51,6 +51,19 @@ export const DEVICE_TYPES = [
   { value: "camera", label: "Camera" },
 ] as const;
 
+export const FIRMWARE_STATUS_COLORS = {
+  active: {
+    badge: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-400",
+    dot: "bg-emerald-500",
+    label: "Active",
+  },
+  deprecated: {
+    badge: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-400",
+    dot: "bg-amber-500",
+    label: "Deprecated",
+  },
+} as const;
+
 export const ALERT_CATEGORIES = [
   "device_offline",
   "device_fault",

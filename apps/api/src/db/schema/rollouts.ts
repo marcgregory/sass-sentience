@@ -4,6 +4,9 @@ import { users } from "./users";
 import { devices } from "./devices";
 
 // ─── Firmware Packages ───────────────────────────────────────────────────────
+//
+// Phase B (Sprint 11): Added status lifecycle (active/deprecated),
+// created_by for audit attribution, and metadata JSONB for extensibility.
 
 export const firmwarePackages = pgTable(
   "firmware_packages",
@@ -15,12 +18,16 @@ export const firmwarePackages = pgTable(
     releaseNotes: text("release_notes"),
     fileHash: text("file_hash"),
     fileSize: integer("file_size"),
+    status: text("status", { enum: ["active", "deprecated"] }).notNull().default("active"),
+    createdBy: uuid("created_by").references(() => users.id),
+    metadata: jsonb("metadata").default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
     nameIdx: index("firmware_packages_name_idx").on(table.name),
     versionIdx: index("firmware_packages_version_idx").on(table.version),
+    statusIdx: index("firmware_packages_status_idx").on(table.status),
   }),
 );
 

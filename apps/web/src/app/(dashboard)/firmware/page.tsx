@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import {
   Card,
@@ -40,6 +41,7 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  Circle,
 } from "lucide-react";
 import { formatRelativeTime } from "@sentience/utils";
 import { useFirmwarePackages, useCreateFirmwarePackage, useDeleteFirmwarePackage } from "@/hooks/use-firmware";
@@ -49,14 +51,27 @@ import type { CreateFirmwarePackagePayload } from "@/lib/firmware";
 
 const PAGE_SIZE = 20;
 
+const STATUS_OPTIONS = [
+  { value: "", label: "All" },
+  { value: "active", label: "Active" },
+  { value: "deprecated", label: "Deprecated" },
+] as const;
+
+const STATUS_BADGE: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; label: string }> = {
+  active: { variant: "default", label: "Active" },
+  deprecated: { variant: "secondary", label: "Deprecated" },
+};
+
 export default function FirmwarePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const initialPage = Math.max(1, parseInt(searchParams.get("page") ?? "1"));
   const initialSearch = searchParams.get("search") ?? "";
+  const initialStatus = searchParams.get("status") ?? "";
 
   const [searchQuery, setSearchQuery] = useState(initialSearch);
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [page, setPage] = useState(initialPage);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteName, setDeleteName] = useState("");
@@ -73,6 +88,7 @@ export default function FirmwarePage() {
     page,
     limit: PAGE_SIZE,
     search: searchQuery || undefined,
+    status: (statusFilter as "active" | "deprecated") || undefined,
   });
 
   const createMutation = useCreateFirmwarePackage();
@@ -81,6 +97,11 @@ export default function FirmwarePage() {
   // ─── Handlers ─────────────────────────────────────────────────────────────
   const handleSearch = (value: string) => {
     setSearchQuery(value);
+    setPage(1);
+  };
+
+  const handleStatusFilter = (value: string) => {
+    setStatusFilter(value);
     setPage(1);
   };
 
@@ -229,8 +250,8 @@ export default function FirmwarePage() {
         }
       />
 
-      {/* Search */}
-      <div className="flex items-center gap-4">
+      {/* Search & Filter */}
+      <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
@@ -239,6 +260,19 @@ export default function FirmwarePage() {
             onChange={(e) => handleSearch(e.target.value)}
             className="flex h-9 w-full rounded-md border border-input bg-transparent pl-9 pr-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
+        </div>
+        <div className="flex items-center gap-1">
+          {STATUS_OPTIONS.map((opt) => (
+            <Button
+              key={opt.value}
+              variant={statusFilter === opt.value ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleStatusFilter(opt.value)}
+            >
+              {opt.value && <Circle className={`mr-1.5 h-2 w-2 fill-current ${opt.value === "active" ? "text-emerald-500" : "text-amber-500"}`} />}
+              {opt.label}
+            </Button>
+          ))}
         </div>
         <Button variant="outline" size="icon" onClick={() => refetch()}>
           <RefreshCw className="h-4 w-4" />
@@ -278,12 +312,14 @@ export default function FirmwarePage() {
               icon={Package}
               title="No firmware packages"
               description={
-                searchQuery
-                  ? "No packages match your search. Try a different query."
+                searchQuery || statusFilter
+                  ? "No packages match your filters. Try a different query."
                   : "Create your first firmware package to start managing device updates."
               }
               action={
-                searchQuery ? undefined : { label: "Add Package", onClick: () => setCreateOpen(true) }
+                searchQuery || statusFilter
+                  ? { label: "Clear Filters", onClick: () => { setSearchQuery(""); setStatusFilter(""); } }
+                  : { label: "Add Package", onClick: () => setCreateOpen(true) }
               }
             />
           </CardContent>
@@ -291,46 +327,54 @@ export default function FirmwarePage() {
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {data?.data.map((pkg) => (
-              <Card
-                key={pkg.id}
-                className="cursor-pointer hover:border-primary/50 transition-colors"
-                onClick={() => router.push(`/firmware/${pkg.id}`)}
-              >
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Package className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="truncate">{pkg.name}</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-1 text-sm text-muted-foreground">
-                    <p>Version: <span className="font-medium text-foreground">{pkg.version}</span></p>
-                    <p>
-                      Devices:{" "}
-                      <span className="font-medium text-foreground">
-                        {pkg.deviceType.join(", ")}
-                      </span>
-                    </p>
-                    <p>Created {formatRelativeTime(pkg.createdAt)}</p>
-                  </div>
-                  <div className="mt-3 flex justify-end">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteId(pkg.id);
-                        setDeleteName(`${pkg.name} v${pkg.version}`);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            {data?.data.map((pkg) => {
+              const statusStyle = STATUS_BADGE[pkg.status] ?? STATUS_BADGE.active;
+              return (
+                <Card
+                  key={pkg.id}
+                  className="cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => router.push(`/firmware/${pkg.id}`)}
+                >
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="text-base flex items-center gap-2 min-w-0">
+                        <Package className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="truncate">{pkg.name}</span>
+                      </CardTitle>
+                      <Badge variant={statusStyle.variant} className="shrink-0 text-[10px] px-1.5 py-0">
+                        {statusStyle.label}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-1 text-sm text-muted-foreground">
+                      <p>Version: <span className="font-medium text-foreground">{pkg.version}</span></p>
+                      <p>
+                        Devices:{" "}
+                        <span className="font-medium text-foreground">
+                          {pkg.deviceType.join(", ")}
+                        </span>
+                      </p>
+                      <p>Created {formatRelativeTime(pkg.createdAt)}</p>
+                    </div>
+                    <div className="mt-3 flex justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteId(pkg.id);
+                          setDeleteName(`${pkg.name} v${pkg.version}`);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
           {/* Pagination */}

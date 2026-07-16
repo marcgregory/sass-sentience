@@ -11,6 +11,9 @@ export type ExecutionStatus = "pending" | "running" | "succeeded" | "failed" | "
 /** Discriminator for the generic rollouts table — today firmware, tomorrow diagnostics/automation. */
 export type RolloutJobType = "firmware" | "diagnostics" | "automation";
 
+/** Firmware package lifecycle status. */
+export type FirmwarePackageStatus = "active" | "deprecated";
+
 export interface FirmwarePackage {
   id: string;
   name: string;
@@ -19,6 +22,9 @@ export interface FirmwarePackage {
   releaseNotes: string | null;
   fileHash: string | null;
   fileSize: number | null;
+  status: FirmwarePackageStatus;
+  createdBy: string | null;
+  metadata: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,7 +1,7 @@
 /**
  * TanStack Query hooks for firmware package and rollout data.
  *
- * Provides list, detail, create, and lifecycle mutation hooks
+ * Provides list, detail, create, update, lifecycle, and mutation hooks
  * with proper query key management and cache invalidation.
  */
 
@@ -11,6 +11,9 @@ import {
   getFirmwarePackages,
   getFirmwarePackage,
   createFirmwarePackage,
+  updateFirmwarePackage,
+  deprecateFirmwarePackage,
+  activateFirmwarePackage,
   deleteFirmwarePackage,
   getRollouts,
   getRollout,
@@ -21,6 +24,7 @@ import {
   getRolloutDevices,
   type FirmwarePackageListParams,
   type CreateFirmwarePackagePayload,
+  type UpdateFirmwarePackagePayload,
   type RolloutListParams,
   type CreateRolloutPayload,
   type ExecutionStatus,
@@ -49,6 +53,43 @@ export function useCreateFirmwarePackage() {
   return useMutation({
     mutationFn: (payload: CreateFirmwarePackagePayload) => createFirmwarePackage(payload),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.firmware.all });
+    },
+  });
+}
+
+export function useUpdateFirmwarePackage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateFirmwarePackagePayload }) =>
+      updateFirmwarePackage(id, payload),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.firmware.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.firmware.all });
+    },
+  });
+}
+
+export function useDeprecateFirmwarePackage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => deprecateFirmwarePackage(id),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.firmware.detail(id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.firmware.all });
+    },
+  });
+}
+
+export function useActivateFirmwarePackage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => activateFirmwarePackage(id),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.firmware.detail(id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.firmware.all });
     },
   });

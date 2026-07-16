@@ -5,7 +5,7 @@
  * Used by TanStack Query hooks — never call these directly from components.
  */
 
-import { get, post, del } from "./api-client";
+import { get, post, del, patch } from "./api-client";
 
 // ─── Firmware Package Types ──────────────────────────────────────────────────
 
@@ -17,6 +17,9 @@ export interface FirmwarePackageApiItem {
   releaseNotes: string | null;
   fileHash: string | null;
   fileSize: number | null;
+  status: "active" | "deprecated";
+  createdBy: string | null;
+  metadata: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -37,6 +40,7 @@ export interface FirmwarePackageListParams {
   limit?: number;
   sort?: string;
   order?: string;
+  status?: "active" | "deprecated";
 }
 
 export interface CreateFirmwarePackagePayload {
@@ -46,6 +50,16 @@ export interface CreateFirmwarePackagePayload {
   releaseNotes?: string | null;
   fileHash?: string | null;
   fileSize?: number | null;
+}
+
+export interface UpdateFirmwarePackagePayload {
+  name?: string;
+  version?: string;
+  deviceType?: string[];
+  releaseNotes?: string | null;
+  fileHash?: string | null;
+  fileSize?: number | null;
+  metadata?: Record<string, unknown>;
 }
 
 // ─── Rollout Types ───────────────────────────────────────────────────────────
@@ -153,6 +167,25 @@ export async function createFirmwarePackage(
   payload: CreateFirmwarePackagePayload,
 ): Promise<FirmwarePackageApiItem> {
   return post<FirmwarePackageApiItem>("/firmware", payload);
+}
+
+export async function updateFirmwarePackage(
+  id: string,
+  payload: UpdateFirmwarePackagePayload,
+): Promise<FirmwarePackageApiItem> {
+  return patch<FirmwarePackageApiItem>(`/firmware/${id}`, payload);
+}
+
+export async function deprecateFirmwarePackage(
+  id: string,
+): Promise<FirmwarePackageApiItem> {
+  return post<FirmwarePackageApiItem>(`/firmware/${id}/deprecate`);
+}
+
+export async function activateFirmwarePackage(
+  id: string,
+): Promise<FirmwarePackageApiItem> {
+  return post<FirmwarePackageApiItem>(`/firmware/${id}/activate`);
 }
 
 export async function deleteFirmwarePackage(
