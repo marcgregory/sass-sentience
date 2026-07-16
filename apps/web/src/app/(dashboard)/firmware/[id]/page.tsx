@@ -31,12 +31,17 @@ import {
   ThumbsUp,
   ThumbsDown,
   Loader2,
+  CheckCircle2,
+  XCircle,
+  Ban,
+  Clock,
 } from "lucide-react";
-import { formatDateTime } from "@sentience/utils";
+import { formatDateTime, formatRelativeTime } from "@sentience/utils";
 import {
   useFirmwarePackage,
   useDeprecateFirmwarePackage,
   useActivateFirmwarePackage,
+  useRollouts,
 } from "@/hooks/use-firmware";
 
 // ─── Status Badge Config ──────────────────────────────────────────────────────
@@ -57,6 +62,14 @@ export default function FirmwarePackageDetailPage() {
   const { data: pkg, isLoading, isError, refetch } = useFirmwarePackage(id);
   const deprecateMutation = useDeprecateFirmwarePackage();
   const activateMutation = useActivateFirmwarePackage();
+
+  // ─── Rollout History ──────────────────────────────────────────────────────
+  const { data: rolloutHistory } = useRollouts({
+    firmwarePackageId: id,
+    limit: 10,
+    sort: "createdAt",
+    order: "desc",
+  });
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
@@ -278,11 +291,57 @@ export default function FirmwarePackageDetailPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <EmptyState
-            icon={Rocket}
-            title="No rollouts yet"
-            description="Rollout history for this firmware package will appear here once rollouts reference it."
-          />
+          {rolloutHistory && rolloutHistory.data.length === 0 ? (
+            <EmptyState
+              icon={Rocket}
+              title="No rollouts yet"
+              description="Rollout history for this firmware package will appear here once rollouts reference it."
+              action={{ label: "Create Rollout", onClick: () => router.push("/rollouts/create") }}
+            />
+          ) : rolloutHistory ? (
+            <div className="space-y-2">
+              {rolloutHistory.data.map((r) => (
+                <div
+                  key={r.id}
+                  className="flex items-center justify-between py-2 px-3 rounded-lg border hover:bg-muted/30 cursor-pointer transition-colors"
+                  onClick={() => router.push(`/rollouts/${r.id}`)}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm truncate">{r.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatRelativeTime(r.createdAt)}
+                      {r.targetGroupName ? ` → ${r.targetGroupName}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0 ml-4">
+                    <span className="text-sm text-muted-foreground">
+                      {r.completedCount + r.failedCount}/{r.deviceCount}
+                    </span>
+                    <Badge variant={
+                      r.status === "completed" ? "secondary" :
+                      r.status === "running" ? "default" :
+                      r.status === "failed" ? "destructive" :
+                      r.status === "cancelled" ? "outline" :
+                      "outline"
+                    }>
+                      {r.status === "running" && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                      {r.status === "completed" && <CheckCircle2 className="mr-1 h-3 w-3" />}
+                      {r.status === "failed" && <XCircle className="mr-1 h-3 w-3" />}
+                      {r.status === "cancelled" && <Ban className="mr-1 h-3 w-3" />}
+                      {r.status === "draft" && <Clock className="mr-1 h-3 w-3" />}
+                      {r.status.charAt(0).toUpperCase() + r.status.slice(1)}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-12 bg-muted rounded animate-pulse" />
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 

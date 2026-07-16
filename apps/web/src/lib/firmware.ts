@@ -105,6 +105,7 @@ export interface RolloutListParams {
   sort?: string;
   order?: string;
   status?: RolloutStatus;
+  firmwarePackageId?: string;
 }
 
 export interface CreateRolloutPayload {

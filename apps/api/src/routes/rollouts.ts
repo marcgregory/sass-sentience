@@ -21,6 +21,7 @@ const listRolloutQuerySchema = z.object({
   sort: z.enum(["name", "status", "createdAt"]).optional().default("createdAt"),
   order: z.enum(["asc", "desc"]).optional().default("desc"),
   status: z.enum(["draft", "running", "completed", "failed", "cancelled"]).optional(),
+  firmwarePackageId: z.string().uuid().optional(),
 });
 
 const deviceStatusQuerySchema = z.object({
@@ -159,6 +160,10 @@ export async function rolloutRoutes(app: FastifyInstance) {
 
     if (query.status) {
       conditions.push(eq(rollouts.status, query.status));
+    }
+
+    if (query.firmwarePackageId) {
+      conditions.push(eq(rollouts.firmwarePackageId, query.firmwarePackageId));
     }
 
     const where = conditions.length > 0 ? (and(...conditions) as SQL) : undefined;
