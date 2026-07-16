@@ -49,25 +49,26 @@ Establishes that the repository itself is in a valid state before Docker validat
 **Required evidence:**
 ```bash
 git log --oneline -1
-# → 6239361 Add E2E test suite for Firmware Packages & Rollouts
+# → 841ee18 docs: finalize RELEASE_GATES.md and VALIDATION_v1.9.0.md
 
 git status --short
-# → <empty — working tree clean>
+# → (empty — working tree clean)
 
 git tag --points-at HEAD
-# → (optional — recorded as informational; tag creation deferred to post-approval per RELEASE_PROCESS.md Section 6)
+# → v1.9.0-rc2
+#   (v1.9.0-rc1 preserved immutable at 6bf907a)
 
 pnpm install --frozen-lockfile
 # → Already up to date
 
 pnpm lint
-# → 8 successful, 8 total
+# → 8 successful, 8 total — zero errors (TURBO cached)
 
 pnpm build
-# → 32/32 pages
+# → 32/32 pages, shared JS 103 kB (TURBO cached)
 ```
 
-**Status:** `⏳ Pending / ✅ Passed / ❌ Failed`
+**Status:** `✅ Passed`
 
 ---
 
