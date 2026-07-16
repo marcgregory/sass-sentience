@@ -14,6 +14,7 @@ import {
   updateDeviceGroup,
   deleteDeviceGroup,
   getGroupDevices,
+  removeDeviceFromGroup,
   type DeviceGroupListParams,
   type CreateDeviceGroupPayload,
   type UpdateDeviceGroupPayload,
@@ -84,6 +85,30 @@ export function useGroupDevices(
     ),
     queryFn: () => getGroupDevices(groupId, params),
     enabled: !!groupId,
+  });
+}
+
+// ─── useRemoveDeviceFromGroup ─────────────────────────────────────────────
+
+/**
+ * Remove a device from a device group.
+ * Invalidates group devices, device group membership, group detail, and
+ * device detail caches to keep all views consistent.
+ */
+export function useRemoveDeviceFromGroup() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ groupId, deviceId }: { groupId: string; deviceId: string }) =>
+      removeDeviceFromGroup(groupId, deviceId),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.devices.detail(variables.deviceId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.deviceGroupMembership.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.deviceGroups.detail(variables.groupId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.deviceGroups.all });
+      // Invalidate all group device queries (any page/search combination)
+      queryClient.invalidateQueries({ queryKey: ["deviceGroups", "devices", variables.groupId] });
+    },
   });
 }
 

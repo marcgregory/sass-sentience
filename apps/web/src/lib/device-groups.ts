@@ -138,3 +138,14 @@ export async function getGroupDevices(
     params: params as Record<string, string | number | boolean | undefined>,
   });
 }
+
+/**
+ * Remove a device from a device group.
+ * Atomic operation — uses PostgreSQL array_remove().
+ */
+export async function removeDeviceFromGroup(
+  groupId: string,
+  deviceId: string,
+): Promise<{ success: boolean }> {
+  return del<{ success: boolean }>(`/device-groups/${groupId}/devices/${deviceId}`);
+}

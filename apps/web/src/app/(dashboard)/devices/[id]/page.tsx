@@ -31,6 +31,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -40,6 +50,7 @@ import {
 import { StatusDot, StatusBadge } from "@/components/shared/status-dot";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useDevice, useDeviceGroupMembership } from "@/hooks/use-devices";
+import { useRemoveDeviceFromGroup } from "@/hooks/use-device-groups";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
 import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 import {
@@ -254,6 +265,10 @@ export default function DeviceDetailPage() {
   const [tagInput, setTagInput] = useState("");
   const [isAddingTag, setIsAddingTag] = useState(false);
   const updateDevice = useUpdateDevice();
+
+  // ── Remove from group ─────────────────────────────────────────────
+  const removeFromGroup = useRemoveDeviceFromGroup();
+  const [groupToRemove, setGroupToRemove] = useState<{ id: string; name: string } | null>(null);
 
   // API data source
   const { device, apiDevice, isLoading, isError } = useDevice(deviceId);
@@ -589,20 +604,32 @@ export default function DeviceDetailPage() {
         ) : deviceGroups && deviceGroups.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {deviceGroups.map((g) => (
-              <button
+              <div
                 key={g.id}
-                type="button"
-                onClick={() => router.push(`/groups/${g.id}`)}
-                className="inline-flex items-center gap-1.5 rounded-full border bg-muted/50 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                className="inline-flex items-center gap-1 rounded-full border bg-muted/50 px-3 py-1.5 text-xs font-medium"
               >
-                <FolderKanban className="h-3 w-3" />
-                {g.name}
-                {g.deviceCount > 1 && (
-                  <span className="text-[10px] text-muted-foreground/70">
-                    ({g.deviceCount})
-                  </span>
-                )}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => router.push(`/groups/${g.id}`)}
+                  className="flex items-center gap-1.5 hover:text-foreground transition-colors"
+                >
+                  <FolderKanban className="h-3 w-3 text-muted-foreground" />
+                  {g.name}
+                  {g.deviceCount > 1 && (
+                    <span className="text-[10px] text-muted-foreground/70">
+                      ({g.deviceCount})
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGroupToRemove({ id: g.id, name: g.name })}
+                  className="ml-0.5 text-muted-foreground/50 hover:text-red-500 transition-colors"
+                  aria-label={`Remove from ${g.name}`}
+                >
+                  <XIcon className="h-3 w-3" />
+                </button>
+              </div>
             ))}
           </div>
         ) : (
@@ -612,6 +639,42 @@ export default function DeviceDetailPage() {
           </div>
         )}
       </SectionCard>
+
+      {/* Remove from Group — Confirmation Dialog */}
+      <AlertDialog
+        open={!!groupToRemove}
+        onOpenChange={(open) => { if (!open) setGroupToRemove(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove from Group</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove <strong>{device?.name}</strong> from{" "}
+              <strong>{groupToRemove?.name}</strong>?
+              <span className="block mt-2 text-muted-foreground">
+                This device will no longer belong to this group. Other group
+                memberships are not affected.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!groupToRemove) return;
+                removeFromGroup.mutate(
+                  { groupId: groupToRemove.id, deviceId },
+                  { onSuccess: () => setGroupToRemove(null) },
+                );
+              }}
+              disabled={removeFromGroup.isPending}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {removeFromGroup.isPending ? "Removing..." : "Remove"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Tags */}
       {!simulatorMode && apiDevice && (

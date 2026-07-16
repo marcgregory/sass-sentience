@@ -276,6 +276,58 @@ export async function deviceGroupRoutes(app: FastifyInstance) {
     return reply.send(updated);
   });
 
+  // ─── Remove device from group ──────────────────────────────────────────
+  /**
+   * Atomic removal of a device from a group's deviceIds array using
+   * PostgreSQL array_remove() — no read-modify-write race condition.
+   */
+  app.delete("/:groupId/devices/:deviceId", { preHandler: [requireAuth, requireRole("admin", "support")] }, async (request, reply) => {
+    const { groupId, deviceId } = z
+      .object({ groupId: z.string().uuid(), deviceId: z.string().uuid() })
+      .parse(request.params);
+
+    // Verify group exists
+    const [group] = await db
+      .select({ id: deviceGroups.id, name: deviceGroups.name })
+      .from(deviceGroups)
+      .where(eq(deviceGroups.id, groupId))
+      .limit(1);
+
+    if (!group) {
+      return reply.status(404).send({ message: "Group not found", code: "NOT_FOUND" });
+    }
+
+    // Atomically remove deviceId from the array
+    const [updated] = await db
+      .update(deviceGroups)
+      .set({
+        deviceIds: sql`array_remove(${deviceGroups.deviceIds}, ${deviceId}::uuid)`,
+        deviceCount: sql`(SELECT COALESCE(array_length(array_remove(${deviceGroups.deviceIds}, ${deviceId}::uuid), 1), 0))`,
+        updatedAt: new Date(),
+      })
+      .where(eq(deviceGroups.id, groupId))
+      .returning({ id: deviceGroups.id, name: deviceGroups.name, deviceCount: deviceGroups.deviceCount });
+
+    if (!updated) {
+      return reply.status(404).send({ message: "Group not found", code: "NOT_FOUND" });
+    }
+
+    const user = request.user as JwtPayload;
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "update",
+      resource: "DeviceGroup",
+      resourceId: groupId,
+      description: `Device ${deviceId} removed from group "${group.name}"`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
+
+    return reply.send({ success: true });
+  });
+
   // ─── Delete group ─────────────────────────────────────────────────────
   app.delete("/:id", { preHandler: [requireAuth, requireRole("admin", "support")] }, async (request, reply) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
