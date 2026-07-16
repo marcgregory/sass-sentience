@@ -2,7 +2,7 @@
 
 > **Engineering execution.** Details each sprint's goal, scope, tasks, and definition of done.
 > Product backlog (what/why) lives in `ROADMAP.md`.
-> Last updated: 2026-07-16 (v1.7.0 delivered, v1.8.0 planned)
+> Last updated: 2026-07-16 (v1.8.0 delivered)
 
 ---
 ## Sprint 8: v1.0 RC1 — Backend API + PostgreSQL
@@ -656,53 +656,57 @@ The infrastructure phase is complete. The current architecture supports all rema
 ### Tasks
 
 #### 1. Bulk Tag Operations
-- [ ] **Backend: GET /api/device-groups/:id/devices endpoint** — Returns paginated device list for a group (replaces client-side filtering of all devices)
-- [ ] **Backend: POST /api/device-groups/:id/tags endpoint** — Apply tags to all devices in a group (accepts `{tags: string[], action: "add" | "remove"}`)
-- [ ] **Backend: Audit logging for bulk tag operations** — Log bulk tag operations with affected device count
-- [ ] **Frontend: Bulk tag dialog** — "Tag All Devices" / "Remove Tag" action on group detail page with confirmation
-- [ ] **Frontend: Device count preview** — Show affected device count before confirming bulk operation
-- [ ] **Frontend: Success/failure feedback** — Toast notification with count of devices updated
+- [x] **Backend: GET /api/device-groups/:id/devices endpoint** — Returns paginated device list for a group (replaces client-side filtering of all devices)
+- [x] **Backend: POST /api/device-groups/:id/tags endpoint** — Apply tags to all devices in a group (accepts `{tags: string[], action: "add" | "remove"}`)
+- [x] **Backend: Audit logging for bulk tag operations** — Log bulk tag operations with affected device count
+- [x] **Frontend: Bulk tag dialog** — "Tag All Devices" / "Remove Tag" action on group detail page with confirmation
+- [x] **Frontend: Device count preview** — Show affected device count before confirming bulk operation
+- [x] **Frontend: Success/failure feedback** — Toast notification with count of devices updated
 
 #### 2. Device ↔ Group Relationship
-- [ ] **Backend: GET /api/devices/:id/groups endpoint** — Returns groups a device belongs to
-- [ ] **Frontend: Group badges on device detail** — Show group badges (max 3 + "+N") on device detail page Overview tab
-- [ ] **Frontend: Jump-to-group link** — Click group badge → navigate to `/groups/[id]`
-- [ ] **Frontend: Add/remove group from device page** — Searchable multi-select to manage device group membership
-- [ ] **Frontend: Group count display** — Show "N groups" on device detail header
+- [x] **Backend: GET /api/devices/:id/groups endpoint** — Returns groups a device belongs to
+- [x] **Frontend: Group badges on device detail** — Show group badges (max 3 + "+N") on device detail page Overview tab
+- [x] **Frontend: Jump-to-group link** — Click group badge → navigate to `/groups/[id]`
+- [x] **Frontend: Add/remove group from device page** — Searchable multi-select to manage device group membership
+- [x] **Frontend: Group count display** — Show "N groups" on device detail header
 
 #### 3. Group Management Polish
-- [ ] **Backend: POST /api/device-groups/:id/duplicate endpoint** — Duplicate a group (copy name + devices, append "(Copy)")
-- [ ] **Backend: POST /api/device-groups/:id/archive and restore** — Archive/restore group (soft-delete pattern)
-- [ ] **Backend: Pagination support on group list** — `?page=&pageSize=` on `GET /api/device-groups`
-- [ ] **Frontend: Duplicate group action** — Context menu or action button on group card/detail
-- [ ] **Frontend: Archive/restore UI** — Archive button on group detail, restore on searchable archived list
-- [ ] **Frontend: Improved search/filter** — Search by name, filter by status (active/archived)
-- [ ] **Frontend: Paginated group list** — Page navigation for large fleets
-- [ ] **Frontend: Member count everywhere** — Display device count on group cards, list rows, detail header
+- [x] **Backend: POST /api/device-groups/:id/duplicate endpoint** — Duplicate a group (copy name + devices, append "(Copy)")
+- [x] **Backend: POST /api/device-groups/:id/archive and restore** — Archive/restore group (soft-delete pattern with `archivedAt` column)
+- [x] **Backend: Pagination support on group list** — `?page=&pageSize=` on `GET /api/device-groups`
+- [x] **Frontend: Duplicate group action** — Context menu or action button on group card/detail
+- [x] **Frontend: Archive/restore UI** — Archive button on group detail, restore on searchable archived list
+- [x] **Frontend: Improved search/filter** — Search by name, filter by status (active/archived)
+- [x] **Frontend: Paginated group list** — Page navigation for large fleets
+- [x] **Frontend: Member count everywhere** — Display device count on group cards, list rows, detail header
 
 #### 4. E2E Testing (Playwright)
-- [ ] **Groups CRUD E2E tests** — Create, read, update, delete groups via the UI
-- [ ] **Tag filter E2E tests** — Filter devices by tags, verify correct filtering across pages
-- [ ] **Tag editor E2E tests** — Add/remove tags on device detail, verify persistence
-- [ ] **Device/group relationship E2E tests** — Add device to group from device page, verify group detail reflects membership
-- [ ] **Bulk tag operation E2E tests** — Apply/remove tags to group devices, verify all members updated
-- [ ] **Archive/restore E2E tests** — Archive a group, verify it's hidden, restore it, verify it reappears
+- [x] **Groups CRUD E2E tests** — Create, read, update, delete groups via the UI
+- [x] **Tag filter E2E tests** — Filter devices by tags, verify correct filtering across pages
+- [x] **Tag editor E2E tests** — Add/remove tags on device detail, verify persistence
+- [x] **Device/group relationship E2E tests** — Add device to group from device page, verify group detail reflects membership
+- [x] **Bulk tag operation E2E tests** — Apply/remove tags to group devices, verify all members updated
+- [x] **Archive/restore E2E tests** — Archive a group, verify it's hidden, restore it, verify it reappears
 
 ### Acceptance Criteria
 
-1. [ ] Bulk tags can be applied to all devices in a group with one action
-2. [ ] Bulk tags can be removed from all devices in a group with one action
-3. [ ] Affected device count is shown before confirming bulk operations
-4. [ ] Audit logs record bulk tag operations
-5. [ ] Device detail page shows group badges (max 3 + "+N")
-6. [ ] Group badge click navigates to group detail page
-7. [ ] Device membership can be added/removed from the device detail page
-8. [ ] Group can be duplicated (name + member list)
-9. [ ] Group can be archived and restored (soft-delete)
-10. [ ] Group list supports search, filter by status, and pagination
-11. [ ] Device count shown on all group representations (cards, list rows, detail header)
-12. [ ] All new E2E tests pass alongside existing 16 tests
-13. [ ] All data-driven views handle loading, error, and empty states
-14. [ ] Dark mode renders correctly on all new/edited pages
-15. [ ] Responsive at 375px, 768px, and 1280px+
-16. [ ] TypeScript clean, production build clean, E2E suite passes
+1. [x] Bulk tags can be applied to all devices in a group with one action
+2. [x] Bulk tags can be removed from all devices in a group with one action
+3. [x] Affected device count is shown before confirming bulk operations
+4. [x] Audit logs record bulk tag operations
+5. [x] Device detail page shows group badges (max 3 + "+N")
+6. [x] Group badge click navigates to group detail page
+7. [x] Device membership can be added/removed from the device detail page
+8. [x] Group can be duplicated (name + member list)
+9. [x] Group can be archived and restored (soft-delete)
+10. [x] Group list supports search, filter by status, and pagination
+11. [x] Device count shown on all group representations (cards, list rows, detail header)
+12. [x] All new E2E tests pass alongside existing 16 tests
+13. [x] All data-driven views handle loading, error, and empty states
+14. [x] Dark mode renders correctly on all new/edited pages
+15. [x] Responsive at 375px, 768px, and 1280px+
+16. [x] TypeScript clean, production build clean, E2E suite passes
+
+### Completed
+
+2026-07-16 — v1.8.0 delivered. Sprint 10 complete across all 5 phases (Phase A: scalable server-side queries with pagination/search; Phase B: relationship management with device↔group membership; Phase C: fleet-wide bulk tag operations; Phase D: lifecycle management with archive/restore/duplicate and UX polish; Phase E: 35 Playwright E2E tests for Groups and Tags). All 16 acceptance criteria met. TypeScript zero errors, production build clean.

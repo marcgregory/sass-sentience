@@ -2,7 +2,7 @@
 
 > **Product backlog.** Tracks what is completed, in progress, next, and blocked.
 > Engineering sprint details live in `BUILD_PLAN.md`.
-> Last updated: 2026-07-15
+> Last updated: 2026-07-16 (v1.8.0 delivered)
 
 ---
 
@@ -581,7 +581,7 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 
 ---
 
-## In Progress — v1.8.0 — Fleet Operations Foundation (2026-07)
+## ✅ Completed — v1.8.0 — Fleet Operations Foundation (2026-07-16)
 
 **Theme:** Complete the operator workflow around Groups and Tags before moving into fleet automation.
 
@@ -612,12 +612,21 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
    - Tag filter tests
    - Tag editor tests
    - Device/group relationship tests
+   - Bulk tag operation tests
+   - Archive/restore tests
 
-### E2E Release Gate
+### Architectural Highlights
 
-> **Every new user-facing feature introduced in a release must have at least one end-to-end Playwright scenario before the release is considered complete.**
+- **Server-driven data** — Scoped backend queries (`GET /api/device-groups/:id/devices`) replaced client-side filtering, establishing a reusable pattern.
+- **Atomic mutations** — PostgreSQL array operations (`array_append`, `array_remove`) avoided read-modify-write races on device membership.
+- **Bulk operations** — Server-side tag updates execute directly rather than N+1 frontend loops, scaling with fleet size.
+- **Consistent cache invalidation** — Comprehensive query key invalidation keeps Device and Group views synchronized after mutations.
+- **Auditability** — Bulk operations, archive/restore, duplication, and membership changes all captured in audit events.
 
-v1.7.0 added Groups and Tags — the v1.8.0 release must include Playwright E2E tests exercising those workflows alongside the existing 16 tests.
+### Test Coverage
+
+- **35 Playwright tests** across 8 major areas (CRUD, tag filter, tag editor, device/group relationship, bulk tags, archive/restore).
+- All pass against mocked APIs in the E2E regression suite.
 
 ### Non-Goals (deferred to v1.9.0+)
 
@@ -627,6 +636,9 @@ v1.7.0 added Groups and Tags — the v1.8.0 release must include Playwright E2E 
 - Configuration push
 - Progress tracking with partial failures
 - Filter-based dynamic groups
+- Standalone tags management
+- Notification routing by group
+- Fleet exports
 
 Diagnostics and fleet automation (batch actions with progress/retry/cancellation) are deferred until fleet organization is mature. See v1.9.0.
 

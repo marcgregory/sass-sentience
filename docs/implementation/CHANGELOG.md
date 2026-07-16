@@ -4,6 +4,57 @@ All notable changes to the Sentience IoT Platform.
 
 ---
 
+## v1.8.0 — 2026-07-16
+
+### Fleet Operations Foundation
+
+Sprint 10 delivered the complete operator workflow around Device Groups and Tags — bulk operations, bidirectional device↔group relationship, lifecycle management (archive/restore/duplicate), and comprehensive Playwright E2E coverage.
+
+The sprint followed a coherent architectural progression: scalable server-side queries → relationship management → fleet-wide operations → lifecycle & UX polish → end-to-end validation.
+
+**Architecture improvements:**
+- **Server-driven data** — Scoped backend queries (`GET /api/device-groups/:id/devices`) replaced client-side filtering, establishing a reusable pattern for the platform.
+- **Atomic mutations** — PostgreSQL array operations (`array_append`, `array_remove`) on device membership avoided read-modify-write races.
+- **Bulk operations** — Server-side tag updates execute directly (not N+1 frontend loops), scaling with fleet size.
+- **Consistent cache invalidation** — TanStack Query key invalidation keeps Device and Group views synchronized after all mutations.
+- **Auditability** — All operations (bulk tags, membership changes, archive/restore, duplication) captured in audit events.
+
+**Added**
+
+- **Bulk tag operations** — `POST /api/device-groups/:id/tags` applies/removes tags to all devices in a group atomically. Audit logging with affected device count. Frontend: "Tag All Devices" / "Remove Tag" dialog with device count preview and success/failure toast feedback.
+- **Device ↔ Group relationship** — `GET /api/devices/:id/groups` returns groups a device belongs to. Device detail page (Overview tab) now shows group badges (max 3 + "+N") with jump-to-group links, group count in header, and searchable multi-select to add/remove group membership. Removal confirmation dialog.
+- **Group lifecycle management** — Archive/restore (soft-delete with `archivedAt` column) and duplicate (copies name + devices, appends "(Copy)"). Archive button on group detail, restore on searchable archived list.
+- **Group list pagination** — `GET /api/device-groups` supports `?page=&pageSize=&status=active|archived&search=`. Frontend: paginated group cards with page navigation, search by name, filter by active/archived status.
+- **Member count everywhere** — Device count displayed on group cards, list rows, and detail header.
+- **Playwright E2E suite (35 tests)** — Groups CRUD, tag filter, tag editor, device/group relationship, bulk tag operations, archive/restore — all pass against mocked APIs alongside existing tests.
+
+**Changed**
+
+- **Device detail page** — Rewritten Overview tab header area to include group membership badges, count, and management controls. New API integration for group membership.
+- **Group detail page** — Enhanced with bulk tag actions, archive/restore/duplicate buttons, paginated device table with search.
+- **Groups list page** — Enhanced with pagination, archive/restore, duplicate actions, status filter, search by name.
+- **PageHeader component** — Subject to minor styling refinements to accommodate archive/restore flow.
+- **`device_groups` table** — Added `archivedAt` timestamp column (nullable). Device count on group list now reflects actual query rather than cached property.
+- **`useDevices()` hook** — Extended with `useDeviceGroups()` for group membership display.
+
+**Build**
+
+- TypeScript: ✅ Zero errors (9 packages)
+- Production build: ✅ Passed
+- Playwright E2E (mocked): ✅ 35 tests pass
+
+**Validation notes**
+
+Release candidate `v1.8.0-rc1` recommended. Full-stack validation against real infrastructure (Docker Compose + real PostgreSQL) is the recommended next step before final release tagging. Key checks:
+- API contracts match frontend assumptions
+- Database migrations (`archivedAt` and related changes) apply cleanly
+- Audit events persist correctly
+- Bulk tag SQL behaves as expected with real data volumes
+- Pagination and archive filters operate correctly against PostgreSQL
+- Authentication and authorization behave correctly without mocks
+
+---
+
 ## v1.7.0 — 2026-07-16
 
 ### Fleet Management: Device Tags & Groups

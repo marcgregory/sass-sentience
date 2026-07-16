@@ -148,7 +148,7 @@ function jsonFulfill(status: number, body: unknown) {
   };
 }
 
-function paginated(data: unknown[], page = 1, limit = 20) {
+function paginated<T = unknown>(data: T[], page = 1, limit = 20) {
   return {
     data,
     pagination: {
@@ -422,6 +422,307 @@ export async function mockRoleRoutes(page: Page) {
   });
 }
 
+// ─── Device Group mock data ────────────────────────────────────────────
+
+interface MockDeviceGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  deviceIds: string[];
+  deviceCount: number;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const MOCK_DEVICE_GROUPS: MockDeviceGroup[] = [
+  {
+    id: "group-1",
+    name: "Building A Sensors",
+    description: "All temperature and humidity sensors in Building A",
+    deviceIds: ["dev-1", "dev-2"],
+    deviceCount: 2,
+    archivedAt: null,
+    createdAt: "2026-06-01T08:00:00Z",
+    updatedAt: "2026-06-15T10:00:00Z",
+  },
+  {
+    id: "group-2",
+    name: "Critical Infrastructure",
+    description: "Mission-critical devices requiring immediate attention",
+    deviceIds: ["dev-4"],
+    deviceCount: 1,
+    archivedAt: null,
+    createdAt: "2026-06-05T09:00:00Z",
+    updatedAt: "2026-06-10T12:00:00Z",
+  },
+  {
+    id: "group-3",
+    name: "Riverside Fleet",
+    description: "All devices deployed at Riverside Park estate",
+    deviceIds: ["dev-4", "dev-5"],
+    deviceCount: 2,
+    archivedAt: null,
+    createdAt: "2026-06-10T07:00:00Z",
+    updatedAt: "2026-06-12T14:00:00Z",
+  },
+  {
+    id: "group-4",
+    name: "Legacy Deployment",
+    description: "Decommissioned devices from the 2025 rollout",
+    deviceIds: [],
+    deviceCount: 0,
+    archivedAt: "2026-07-01T00:00:00Z",
+    createdAt: "2025-12-01T08:00:00Z",
+    updatedAt: "2026-07-01T00:00:00Z",
+  },
+  {
+    id: "group-5",
+    name: "Warehouse Zone A",
+    description: "Devices monitoring the north wing of Warehouse A",
+    deviceIds: ["dev-1"],
+    deviceCount: 1,
+    archivedAt: null,
+    createdAt: "2026-06-20T10:00:00Z",
+    updatedAt: "2026-06-20T10:00:00Z",
+  },
+];
+
+// Map group -> device list for the group-devices endpoint
+const GROUP_DEVICES_MAP: Record<string, typeof MOCK_DEVICES> = {
+  "group-1": [MOCK_DEVICES[0], MOCK_DEVICES[1]],
+  "group-2": [MOCK_DEVICES[3]],
+  "group-3": [MOCK_DEVICES[3], MOCK_DEVICES[4]],
+  "group-4": [],
+  "group-5": [MOCK_DEVICES[0]],
+};
+
+/** Clone a group object so POST/PATCH don't mutate the seed data. */
+function cloneGroup(g: MockDeviceGroup): MockDeviceGroup {
+  return JSON.parse(JSON.stringify(g)) as MockDeviceGroup;
+}
+
+/** Filter groups by archive state. */
+function filterGroupsByArchive(
+  groups: MockDeviceGroup[],
+  filter: string | null,
+): MockDeviceGroup[] {
+  if (filter === "true") return groups.filter((g) => !!g.archivedAt);
+  if (filter === "false") return groups.filter((g) => !g.archivedAt);
+  return groups; // "all"
+}
+
+/** In-memory mutable groups store for tests to mutate. */
+let mockGroups: MockDeviceGroup[];
+
+export function resetMockGroups() {
+  mockGroups = MOCK_DEVICE_GROUPS.map((g) => cloneGroup(g));
+}
+
+export async function mockDeviceGroupRoutes(page: Page) {
+  await page.route("**/api/device-groups**", async (route, request) => {
+    const url = new URL(request.url());
+    const path = url.pathname;
+
+    // ── POST /api/device-groups — create ──────────────────────────────
+    if (request.method() === "POST") {
+      // Check for action sub-routes first
+      const postMatch = path.match(
+        /\/api\/device-groups\/([^/]+)\/(archive|restore|duplicate)$/,
+      );
+      if (postMatch) {
+        const gid = postMatch[1];
+        const action = postMatch[2];
+        const group = mockGroups.find((g) => g.id === gid);
+        if (!group)
+          return route.fulfill(jsonFulfill(404, { message: "Group not found" }));
+
+        if (action === "archive") {
+          group.archivedAt = new Date().toISOString();
+          return route.fulfill(
+            jsonFulfill(200, { success: true, name: group.name }),
+          );
+        }
+        if (action === "restore") {
+          group.archivedAt = null;
+          return route.fulfill(
+            jsonFulfill(200, { success: true, name: group.name }),
+          );
+        }
+        if (action === "duplicate") {
+          const dup = {
+            ...cloneGroup(group),
+            id: `group-dup-${Date.now()}`,
+            name: `${group.name} (Copy)`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          mockGroups.push(dup);
+          return route.fulfill(jsonFulfill(201, dup));
+        }
+      }
+
+      // Handle add device: POST /api/device-groups/:id/devices
+      const addDevMatch = path.match(
+        /\/api\/device-groups\/([^/]+)\/devices$/,
+      );
+      if (addDevMatch) {
+        const gid = addDevMatch[1];
+        const body = request.postDataJSON();
+        const group = mockGroups.find((g) => g.id === gid);
+        if (!group)
+          return route.fulfill(jsonFulfill(404, { message: "Group not found" }));
+        if (!group.deviceIds.includes(body.deviceId)) {
+          group.deviceIds.push(body.deviceId);
+          group.deviceCount = group.deviceIds.length;
+        }
+        return route.fulfill(
+          jsonFulfill(200, {
+            success: true,
+            deviceName: "Mock Device",
+            groupName: group.name,
+          }),
+        );
+      }
+
+      // Plain POST /api/device-groups — create group
+      const body = request.postDataJSON();
+      const newGroup = {
+        id: `group-new-${Date.now()}`,
+        name: body.name,
+        description: body.description ?? null,
+        deviceIds: [],
+        deviceCount: 0,
+        archivedAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      mockGroups.push(newGroup);
+      return route.fulfill(jsonFulfill(201, newGroup));
+    }
+
+    // ── PATCH /api/device-groups/:id — update ─────────────────────────
+    if (request.method() === "PATCH") {
+      const id = path.match(/\/api\/device-groups\/([^/]+)$/)?.[1];
+      const group = mockGroups.find((g) => g.id === id);
+      if (!group)
+        return route.fulfill(jsonFulfill(404, { message: "Group not found" }));
+      const patchBody = request.postDataJSON();
+      Object.assign(group, patchBody);
+      group.updatedAt = new Date().toISOString();
+      return route.fulfill(jsonFulfill(200, cloneGroup(group)));
+    }
+
+    // ── DELETE /api/device-groups/:id — delete ────────────────────────
+    if (request.method() === "DELETE") {
+      // Check for remove device: DELETE /api/device-groups/:id/devices/:deviceId
+      const removeDevMatch = path.match(
+        /\/api\/device-groups\/([^/]+)\/devices\/([^/]+)$/,
+      );
+      if (removeDevMatch) {
+        const gid = removeDevMatch[1];
+        const did = removeDevMatch[2];
+        const group = mockGroups.find((g) => g.id === gid);
+        if (!group)
+          return route.fulfill(jsonFulfill(404, { message: "Group not found" }));
+        group.deviceIds = group.deviceIds.filter((id) => id !== did);
+        group.deviceCount = group.deviceIds.length;
+        return route.fulfill(jsonFulfill(200, { success: true }));
+      }
+
+      // Check for bulk remove tags: DELETE /api/device-groups/:id/tags
+      const bulkRemoveMatch = path.match(
+        /\/api\/device-groups\/([^/]+)\/tags$/,
+      );
+      if (bulkRemoveMatch) {
+        const gid = bulkRemoveMatch[1];
+        const body = request.postDataJSON();
+        const removedTags: string[] = body?.tags ?? [];
+        return route.fulfill(
+          jsonFulfill(200, {
+            success: true,
+            affectedCount: 2,
+            removedTags,
+          }),
+        );
+      }
+
+      // Plain DELETE /api/device-groups/:id — delete group
+      const id = path.match(/\/api\/device-groups\/([^/]+)$/)?.[1];
+      const idx = mockGroups.findIndex((g) => g.id === id);
+      if (idx === -1)
+        return route.fulfill(jsonFulfill(404, { message: "Group not found" }));
+      mockGroups.splice(idx, 1);
+      return route.fulfill(jsonFulfill(200, { success: true }));
+    }
+
+    // ── GET handlers below ─────────────────────────────────────────────
+
+    // GET /api/device-groups/:id/tag-preview
+    const previewMatch = path.match(
+      /\/api\/device-groups\/([^/]+)\/tag-preview$/,
+    );
+    if (previewMatch) {
+      const gid = previewMatch[1];
+      const group = mockGroups.find((g) => g.id === gid);
+      const devices = group ? GROUP_DEVICES_MAP[group.id] ?? [] : [];
+      return route.fulfill(
+        jsonFulfill(200, {
+          deviceCount: devices.length,
+          sampleDevices: devices.slice(0, 3).map((d) => ({
+            id: d.id,
+            name: d.name,
+          })),
+        }),
+      );
+    }
+
+    // GET /api/device-groups/:id/devices — paginated group devices
+    const devicesMatch = path.match(
+      /\/api\/device-groups\/([^/]+)\/devices$/,
+    );
+    if (devicesMatch) {
+      const gid = devicesMatch[1];
+      const search = url.searchParams.get("search")?.toLowerCase() ?? "";
+      const page = parseInt(url.searchParams.get("page") ?? "1");
+      const limit = parseInt(url.searchParams.get("limit") ?? "20");
+      let devices = GROUP_DEVICES_MAP[gid] ?? [];
+      if (search) {
+        devices = devices.filter(
+          (d) =>
+            d.name.toLowerCase().includes(search) ||
+            d.serialNumber.toLowerCase().includes(search),
+        );
+      }
+      return route.fulfill(jsonFulfill(200, paginated(devices, page, limit)));
+    }
+
+    // GET /api/device-groups/:id — single group
+    const id = path.match(/\/api\/device-groups\/([^/]+)$/)?.[1];
+    if (id) {
+      const group = mockGroups.find((g) => g.id === id);
+      return group
+        ? route.fulfill(jsonFulfill(200, cloneGroup(group)))
+        : route.fulfill(jsonFulfill(404, { message: "Group not found" }));
+    }
+
+    // GET /api/device-groups — paginated list
+    const search = url.searchParams.get("search")?.toLowerCase() ?? "";
+    const archived = url.searchParams.get("archived") ?? "false";
+    const page = parseInt(url.searchParams.get("page") ?? "1");
+    const limit = parseInt(url.searchParams.get("limit") ?? "20");
+    let filtered = filterGroupsByArchive(mockGroups, archived);
+    if (search) {
+      filtered = filtered.filter(
+        (g) =>
+          g.name.toLowerCase().includes(search) ||
+          (g.description ?? "").toLowerCase().includes(search),
+      );
+    }
+    return route.fulfill(jsonFulfill(200, paginated(filtered, page, limit)));
+  });
+}
+
 export async function mockSettingRoutes(page: Page) {
   await page.route("**/api/settings**", async (route, request) => {
     if (request.method() === "PATCH") {
@@ -454,5 +755,7 @@ export async function mockAllRoutes(page: Page) {
   await mockAuditLogRoutes(page);
   await mockUserRoutes(page);
   await mockRoleRoutes(page);
+  await mockDeviceGroupRoutes(page);
   await mockSettingRoutes(page);
+  resetMockGroups();
 }

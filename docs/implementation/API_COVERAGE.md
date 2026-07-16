@@ -2,7 +2,7 @@
 
 > **Four-layer coverage tracker.** Maps every feature to its frontend, backend, database, and test implementation status.
 > Use this to track progress through the v1.5.x product completion milestones.
-> Last updated: 2026-07-06
+> Last updated: 2026-07-16 (v1.8.0 — Fleet Operations Foundation delivered)
 
 ---
 
@@ -90,6 +90,14 @@ The layer does not apply to this feature (e.g. CSV/PDF export has no database ta
 | **Notifications** |
 | Notification List | ✅ | ✅ | ✅ | ✅ | Filters, pagination, mark read | v1.0.0 |
 | Real-time Feed | ✅ | ✅ | ✅ | 🔴 | Socket.IO + simulated merge | v1.0.0 |
+| **Tags & Groups** | | | | | |
+| Device Tags | ✅ | ✅ | ✅ | ✅ | Tags column, filter, inline editor | v1.7.0 |
+| Device Groups CRUD | ✅ | ✅ | ✅ | ✅ | List/detail pages with pagination, search, RBAC | v1.7.0 |
+| Group Device List | ✅ | ✅ | ✅ | ✅ | Server-side pagination, search within group | v1.8.0 |
+| Bulk Tag Operations | ✅ | ✅ | ✅ | ✅ | Apply/remove tags to all group members | v1.8.0 |
+| Group Membership | ✅ | ✅ | ✅ | ✅ | Bidirectional: device detail shows groups, add/remove | v1.8.0 |
+| Group Duplicate | ✅ | ✅ | ✅ | ✅ | Copy name + devices with "(Copy)" suffix | v1.8.0 |
+| Group Archive/Restore | ✅ | ✅ | ✅ | ✅ | Soft-delete with `archivedAt`, status filter | v1.8.0 |
 
 ---
 
@@ -97,16 +105,16 @@ The layer does not apply to this feature (e.g. CSV/PDF export has no database ta
 
 | Layer | Complete | Partial | Missing | N/A |
 |-------|----------|---------|---------|-----|
-| **Frontend** | 30 | 4 | 0 | 1 |
-| **Backend** | 29 | 2 | 2 | 1 |
-| **Database** | 26 | 0 | 6 | 1 |
-| **Tests** | 4 | 10 | 17 | 1 |
+| **Frontend** | 37 | 4 | 0 | 1 |
+| **Backend** | 36 | 2 | 2 | 1 |
+| **Database** | 33 | 0 | 6 | 1 |
+| **Tests** | 11 | 10 | 17 | 1 |
 
 ### Gap Analysis
 
 | Pattern | Count | Features |
 |---------|-------|----------|
-| All four layers complete (✅✅✅✅) | 3 | API Keys, Notification Rules, Audit Log |
+| All four layers complete (✅✅✅✅) | 10 | API Keys, Notification Rules, Audit Log, **Device Tags**, **Device Groups CRUD**, **Group Device List**, **Bulk Tag Operations**, **Group Membership**, **Group Duplicate**, **Group Archive/Restore** |
 | FE+BE+DB complete, tests partial/🔴 | 20 | Login, Device List, Device Detail, Dashboard, Alerts, Events, Reports, Users, Roles, Settings (3), Notifications, **Estates**, **Sites**, **Forgot Password**, **MFA**, **Password Reset**, **Profile**, **Change Password** |
 | FE partial, no backend | 4 | Dashboard Summary, Platform Health, Admin Overview, Tenant/Notification Settings |
 | Nothing implemented (🔴🔴🔴🔴) | 1 | Schedule Reports |

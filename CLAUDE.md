@@ -49,15 +49,9 @@ Only one sprint may be active at a time. See `docs/implementation/BUILD_PLAN.md`
 
 ## Current Phase
 
-**v1.6.0 — Full-Stack End-to-End Validation** (2026-07-16)
+**v1.8.0 — Fleet Operations Foundation** (2026-07-16)
 
-All 6 validation gates passed. Release tagged `v1.6.0`. The release validation framework is now proven: Repository Baseline → Docker Build → Stack Startup → Readiness → Real E2E Tests → Failure Modes.
-
-The platform has been validated end-to-end against real infrastructure with 16/16 E2E tests passing, 3 failure scenarios verified, and a repeatable release process established.
-
-The next phase is feature-focused — applying the validated release process to deliver product capabilities.
-
-See `docs/implementation/ROADMAP.md` for milestone tracking.
+Sprint 10 complete. Device Groups fully matured: bulk tag operations, bidirectional device↔group relationship management, archive/restore/duplicate lifecycle, and 35 Playwright E2E tests. See `docs/implementation/ROADMAP.md` for milestone tracking.
 
 | Milestone | Focus | Status |
 |-----------|-------|--------|
@@ -67,8 +61,10 @@ See `docs/implementation/ROADMAP.md` for milestone tracking.
 | **v1.5.3** | Account Management (Forgot Password, MFA, Profile) | ✅ Delivered |
 | **v1.5.4** | Platform Administration (Dashboard, Health, Settings) | ✅ Delivered |
 | **v1.6.0** | Full-Stack End-to-End Validation | ✅ Delivered |
+| **v1.7.0** | Fleet Management (Device Tags & Groups) | ✅ Delivered |
+| **v1.8.0** | Fleet Operations Foundation (Bulk Ops, Lifecycle, E2E) | ✅ Delivered |
 
-### Key Achievements (v1.0 through v1.5.0)
+### Key Achievements (v1.0 through v1.8.0)
 
 - **Real authentication** — Frontend login calls `POST /api/auth/login`, receives JWT, stores in Zustand (persisted). `api-client.ts` injects `Authorization: Bearer <token>`.
 - **Socket.IO authentication** — JWT verified during handshake, reconnects on login/logout.
