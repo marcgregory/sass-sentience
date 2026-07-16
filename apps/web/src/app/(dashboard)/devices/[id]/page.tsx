@@ -25,6 +25,7 @@ import {
   Play,
   Box,
   List,
+  FolderKanban,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,7 +39,7 @@ import {
 } from "@/components/ui/card";
 import { StatusDot, StatusBadge } from "@/components/shared/status-dot";
 import { EmptyState } from "@/components/shared/empty-state";
-import { useDevice } from "@/hooks/use-devices";
+import { useDevice, useDeviceGroupMembership } from "@/hooks/use-devices";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
 import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 import {
@@ -261,6 +262,9 @@ export default function DeviceDetailPage() {
   const simulatorMode = useSimulatorModeStore((s) => s.enabled);
   const liveDeviceEntry = useLiveDeviceStore((s) => s.devices[deviceId]);
   const recentEvents = useLiveDeviceStore((s) => s.recentEvents);
+
+  // Device group memberships
+  const { data: deviceGroups, isLoading: groupsLoading, isError: groupsError, refetch: refetchGroups } = useDeviceGroupMembership(deviceId);
 
   // Events from API
   const { data: eventsData } = useQuery({
@@ -555,6 +559,59 @@ export default function DeviceDetailPage() {
           </div>
         </SectionCard>
       </div>
+
+      {/* Groups */}
+      <SectionCard
+        title="Groups"
+        description="Device group memberships"
+      >
+        {groupsLoading ? (
+          <div className="flex gap-2 flex-wrap">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-8 w-32 animate-pulse rounded-full bg-muted"
+              />
+            ))}
+          </div>
+        ) : groupsError ? (
+          <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            Failed to load groups.
+            <button
+              type="button"
+              className="underline hover:no-underline"
+              onClick={() => refetchGroups()}
+            >
+              Retry
+            </button>
+          </div>
+        ) : deviceGroups && deviceGroups.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {deviceGroups.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => router.push(`/groups/${g.id}`)}
+                className="inline-flex items-center gap-1.5 rounded-full border bg-muted/50 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <FolderKanban className="h-3 w-3" />
+                {g.name}
+                {g.deviceCount > 1 && (
+                  <span className="text-[10px] text-muted-foreground/70">
+                    ({g.deviceCount})
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <HardDrive className="h-4 w-4 shrink-0" />
+            Not assigned to any group.
+          </div>
+        )}
+      </SectionCard>
 
       {/* Tags */}
       {!simulatorMode && apiDevice && (

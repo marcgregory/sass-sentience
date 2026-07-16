@@ -134,6 +134,12 @@ export const queryKeys = {
     resultDetail: (id: string) => ["diagnostics", "results", id] as const,
   },
 
+  /** Groups that a device belongs to */
+  deviceGroupMembership: {
+    all: ["deviceGroupMembership"] as const,
+    list: (deviceId: string) => ["deviceGroupMembership", "list", deviceId] as const,
+  },
+
   /** Device Groups */
   deviceGroups: {
     all: ["deviceGroups"] as const,

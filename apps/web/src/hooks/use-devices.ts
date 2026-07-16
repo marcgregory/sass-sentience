@@ -11,8 +11,8 @@
 
 import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getDevices, getDevice, updateDevice, type UpdateDevicePayload } from "@/lib/devices";
-import type { DeviceDetailResponse, DevicesParams } from "@/lib/devices";
+import { getDevices, getDevice, updateDevice, getDeviceGroups as getDeviceGroupList, type UpdateDevicePayload } from "@/lib/devices";
+import type { DeviceDetailResponse, DevicesParams, DeviceGroupRef } from "@/lib/devices";
 import { queryKeys } from "@/lib/query-keys";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
 import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
@@ -415,5 +415,20 @@ export function useUpdateDevice() {
       queryClient.invalidateQueries({ queryKey: queryKeys.devices.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.devices.detail(variables.id) });
     },
+  });
+}
+
+// ─── useDeviceGroupMembership ─────────────────────────────────────────────
+
+/**
+ * Fetch all device groups that contain the given device.
+ * Returns lightweight group refs (id, name, description, deviceCount).
+ */
+export function useDeviceGroupMembership(deviceId: string) {
+  return useQuery({
+    queryKey: queryKeys.deviceGroupMembership.list(deviceId),
+    queryFn: () => getDeviceGroupList(deviceId),
+    enabled: !!deviceId,
+    select: (data) => data.data as DeviceGroupRef[],
   });
 }

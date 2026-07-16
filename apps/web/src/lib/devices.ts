@@ -111,6 +111,28 @@ export interface UpdateDevicePayload {
   deviceIo?: Record<string, unknown>;
 }
 
+// ─── Device-Group Relationship Types ───────────────────────────────────────
+
+export interface DeviceGroupRef {
+  id: string;
+  name: string;
+  description: string | null;
+  deviceCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DeviceGroupRefListResponse {
+  data: DeviceGroupRef[];
+}
+
+/**
+ * Fetch all device groups that contain a given device.
+ */
+export async function getDeviceGroups(deviceId: string): Promise<DeviceGroupRefListResponse> {
+  return get<DeviceGroupRefListResponse>(`/devices/${deviceId}/groups`);
+}
+
 /**
  * Update a device's fields. Sends a PATCH to the backend.
  */

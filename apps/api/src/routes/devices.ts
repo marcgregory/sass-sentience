@@ -196,6 +196,41 @@ export async function deviceRoutes(app: FastifyInstance) {
     });
   });
 
+  // ─── Device groups ──────────────────────────────────────────────────────
+  /**
+   * Fetch all device groups that contain this device.
+   * Returns group metadata without device IDs to keep responses lightweight.
+   */
+  app.get("/:id/groups", { preHandler: [requireAuth] }, async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+
+    // Verify the device exists (privacy: return 404 if not found)
+    const [device] = await db
+      .select({ id: devices.id })
+      .from(devices)
+      .where(eq(devices.id, id))
+      .limit(1);
+
+    if (!device) {
+      return reply.status(404).send({ message: "Device not found", code: "NOT_FOUND" });
+    }
+
+    const result = await db
+      .select({
+        id: deviceGroups.id,
+        name: deviceGroups.name,
+        description: deviceGroups.description,
+        deviceCount: deviceGroups.deviceCount,
+        createdAt: deviceGroups.createdAt,
+        updatedAt: deviceGroups.updatedAt,
+      })
+      .from(deviceGroups)
+      .where(sql`${deviceGroups.deviceIds} @> ARRAY[${id}::uuid]`)
+      .orderBy(asc(deviceGroups.name));
+
+    return reply.send({ data: result });
+  });
+
   app.patch("/:id", { preHandler: [requireAuth, requireRole("admin", "support")] }, async (request, reply) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const body = updateDeviceSchema.parse(request.body);
