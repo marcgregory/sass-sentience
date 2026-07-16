@@ -1,8 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db } from "../db";
-import { deviceGroups } from "../db/schema";
-import { eq, ilike, and, or, count, asc, desc, type SQL } from "drizzle-orm";
+import { deviceGroups, devices, sites, estates } from "../db/schema";
+import { eq, ilike, and, or, count, asc, desc, inArray, sql, type SQL } from "drizzle-orm";
 import { requireAuth, requireRole, type JwtPayload } from "../middleware/auth";
 import { logAuditEvent } from "../lib/audit";
 
@@ -26,6 +26,14 @@ const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
   sort: z.enum(["name", "createdAt"]).optional().default("createdAt"),
   order: z.enum(["asc", "desc"]).optional().default("desc"),
+});
+
+const groupDeviceQuerySchema = z.object({
+  search: z.string().optional(),
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+  sort: z.enum(["name", "status", "type", "createdAt"]).optional().default("name"),
+  order: z.enum(["asc", "desc"]).optional().default("asc"),
 });
 
 export async function deviceGroupRoutes(app: FastifyInstance) {
@@ -84,6 +92,117 @@ export async function deviceGroupRoutes(app: FastifyInstance) {
     }
 
     return reply.send(group);
+  });
+
+  // ─── Group devices (paginated, searchable, sortable) ──────────────────
+  app.get("/:id/devices", { preHandler: [requireAuth] }, async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const query = groupDeviceQuerySchema.parse(request.query);
+
+    // Verify group exists
+    const [group] = await db
+      .select({ deviceIds: deviceGroups.deviceIds })
+      .from(deviceGroups)
+      .where(eq(deviceGroups.id, id))
+      .limit(1);
+
+    if (!group) {
+      return reply.status(404).send({ message: "Group not found", code: "NOT_FOUND" });
+    }
+
+    const page = query.page;
+    const limit = query.limit;
+    const offset = (page - 1) * limit;
+
+    // If group has no devices, return empty result immediately
+    if (group.deviceIds.length === 0) {
+      return reply.send({
+        data: [],
+        pagination: { page, limit, total: 0, totalPages: 0 },
+      });
+    }
+
+    const conditions: SQL[] = [inArray(devices.id, group.deviceIds)];
+
+    if (query.search) {
+      conditions.push(
+        ilike(devices.name, `%${query.search}%`) as SQL,
+      );
+    }
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [{ total }] = await db
+      .select({ total: count() })
+      .from(devices)
+      .where(where);
+
+    const sortField =
+      query.sort === "status" ? devices.status :
+      query.sort === "type" ? devices.type :
+      query.sort === "createdAt" ? devices.createdAt :
+      devices.name;
+    const orderBy = query.order === "desc" ? desc(sortField) : asc(sortField);
+
+    const result = await db
+      .select({
+        id: devices.id,
+        serialNumber: devices.serialNumber,
+        name: devices.name,
+        type: devices.type,
+        status: devices.status,
+        battery: devices.battery,
+        signalStrength: devices.signalStrength,
+        temperature: devices.temperature,
+        uptime: devices.uptime,
+        lastHeartbeat: devices.lastHeartbeat,
+        siteId: devices.siteId,
+        tags: devices.tags,
+        createdAt: devices.createdAt,
+        updatedAt: devices.updatedAt,
+      })
+      .from(devices)
+      .where(where)
+      .orderBy(orderBy)
+      .limit(limit)
+      .offset(offset);
+
+    // Enrich with site/estate names
+    const siteIds = [...new Set(result.map((d) => d.siteId))];
+    const siteRows = siteIds.length > 0
+      ? await db
+          .select({
+            id: sites.id,
+            name: sites.name,
+            estateId: sites.estateId,
+          })
+          .from(sites)
+          .where(inArray(sites.id, siteIds))
+      : [];
+    const siteMap = new Map(siteRows.map((s) => [s.id, s]));
+
+    const estateIds = [...new Set(siteRows.filter((s) => s.estateId).map((s) => s.estateId))];
+    const estateRows = estateIds.length > 0
+      ? await db
+          .select({ id: estates.id, name: estates.name })
+          .from(estates)
+          .where(inArray(estates.id, estateIds))
+      : [];
+    const estateNameMap = new Map(estateRows.map((e) => [e.id, e.name]));
+
+    const enriched = result.map((d) => {
+      const site = siteMap.get(d.siteId);
+      return {
+        ...d,
+        siteName: site?.name ?? null,
+        estateName: site ? estateNameMap.get(site.estateId) ?? null : null,
+      };
+    });
+
+    return reply.send({
+      data: enriched,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   });
 
   // ─── Create group ─────────────────────────────────────────────────────

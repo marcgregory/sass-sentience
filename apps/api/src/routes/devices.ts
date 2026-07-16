@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db } from "../db";
-import { devices, sites, estates } from "../db/schema";
+import { devices, sites, estates, deviceGroups } from "../db/schema";
 import { eq, and, count, ilike, SQL, asc, desc, inArray, sql } from "drizzle-orm";
 import { requireAuth, requireRole, customerScope, type JwtPayload } from "../middleware/auth";
 import { logAuditEvent } from "../lib/audit";
@@ -26,6 +26,7 @@ export async function deviceRoutes(app: FastifyInstance) {
     const query = request.query as {
       site_id?: string;
       estate_id?: string;
+      group_id?: string;
       status?: string;
       type?: string;
       tags?: string;
@@ -64,6 +65,24 @@ export async function deviceRoutes(app: FastifyInstance) {
       if (siteIds.length > 0) {
         conditions.push(inArray(devices.siteId, siteIds));
       }
+    }
+
+    if (query.group_id) {
+      // Find devices that belong to this group
+      const [group] = await db
+        .select({ deviceIds: deviceGroups.deviceIds })
+        .from(deviceGroups)
+        .where(eq(deviceGroups.id, query.group_id))
+        .limit(1);
+
+      if (group && group.deviceIds.length > 0) {
+        conditions.push(inArray(devices.id, group.deviceIds));
+      } else if (group) {
+        // Group exists but has no devices — return empty set
+        conditions.push(eq(devices.id, "00000000-0000-0000-0000-000000000000"));
+      }
+      // If group_id doesn't match any group, the filter silently returns
+      // no results (IN with empty array is a SQL error, so push impossible-id)
     }
 
     if (query.search) {

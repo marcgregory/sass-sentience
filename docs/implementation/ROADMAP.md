@@ -581,11 +581,68 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 
 ---
 
-## 🔮 Future (v1.8.0+)
+## In Progress — v1.8.0 — Fleet Operations Foundation (2026-07)
 
-- **Bulk operations** — Apply actions (rename, retag, diagnostics, firmware) to multiple devices at once, including group-scoped operations
-- **Filter-based dynamic groups** — Groups defined by query rules (e.g. "all offline sensors in Building A") instead of explicit membership
-- **Standalone tags management** — UI to create/manage/rename tags independently, not just inline
-- **Notification routing by group** — Route alert notifications to specific channels based on device group membership
+**Theme:** Complete the operator workflow around Groups and Tags before moving into fleet automation.
+
+### Sprint Scope
+
+1. **Bulk tag operations**
+   - Apply tags to all devices in a group
+   - Remove tags from all devices in a group
+   - Preview affected device count
+   - Confirmation dialog
+   - Audit logging
+
+2. **Device ↔ Group relationship**
+   - Show group badges on the device detail page
+   - Jump directly to a group from device detail
+   - Remove/add group membership from the device page
+   - Display group count on device detail
+
+3. **Group management polish**
+   - Duplicate group
+   - Archive/restore group (instead of hard delete)
+   - Member count everywhere
+   - Better search/filter
+   - Pagination for large fleets
+
+4. **Close the testing gap**
+   - Groups CRUD Playwright tests
+   - Tag filter tests
+   - Tag editor tests
+   - Device/group relationship tests
+
+### E2E Release Gate
+
+> **Every new user-facing feature introduced in a release must have at least one end-to-end Playwright scenario before the release is considered complete.**
+
+v1.7.0 added Groups and Tags — the v1.8.0 release must include Playwright E2E tests exercising those workflows alongside the existing 16 tests.
+
+### Non-Goals (deferred to v1.9.0+)
+
+- Batch diagnostics
+- Firmware rollout
+- Restart devices
+- Configuration push
+- Progress tracking with partial failures
+- Filter-based dynamic groups
+
+Diagnostics and fleet automation (batch actions with progress/retry/cancellation) are deferred until fleet organization is mature. See v1.9.0.
+
+---
+
+## 🔮 Future (v1.9.0+) — Fleet Actions
+
+Fleet automation features that build on the Groups foundation:
+
+- **Run diagnostics across a group** — Trigger diagnostics on all devices in a group, aggregate results
+- **Firmware rollout** — Push firmware updates to selected devices or groups
+- **Restart devices** — Remote restart with confirmation and progress
+- **Configuration push** — Apply configuration changes to multiple devices at once
+- **Progress tracking** — Job queue with progress, partial failures, retry
+- **Retry failed devices** — Selective retry for failed operations in a batch
+- **Filter-based dynamic groups** — Groups defined by query rules (e.g. "all offline sensors in Building A")
+- **Standalone tags management** — UI to create/manage/rename tags independently
+- **Notification routing by group** — Route alert notifications based on device group membership
 - **Fleet exports** — Export device data by group to CSV
-- **Batch diagnostics** — Run diagnostics across all devices in a group

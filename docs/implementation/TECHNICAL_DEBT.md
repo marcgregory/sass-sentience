@@ -1,7 +1,7 @@
 # Technical Debt
 
 > Items intentionally deferred or known to need cleanup.
-> Last updated: 2026-07-16 (v1.7.0 — validated and released)
+> Last updated: 2026-07-16 (v1.8.0 — Fleet Operations Foundation planned)
 
 ---
 
@@ -186,6 +186,13 @@ The `socket-client.ts` module handles reconnection via Socket.IO's built-in back
 **Impact:** Reconnection edge cases (token expiry, server restart, network flap) are unverified.
 
 **Resolution:** Add integration tests when backend is available.
+
+### E2E Release Gate: E2E coverage required per release
+Starting with v1.8.0, every new user-facing feature must have at least one end-to-end Playwright scenario before the release is considered complete. v1.7.0 added Groups and Tags but these workflows lack E2E test coverage. See `docs/implementation/BUILD_PLAN.md` (Definition of Done) and `docs/implementation/ROADMAP.md` (In Progress — v1.8.0, E2E Release Gate section).
+
+**Impact:** New features lack validation against real infrastructure until E2E tests are added.
+
+**Resolution:** v1.8.0 sprint includes dedicated E2E testing tasks for Groups CRUD, tag filter, tag editor, device/group relationship, bulk tag operations, and archive/restore workflows.
 
 ---
 

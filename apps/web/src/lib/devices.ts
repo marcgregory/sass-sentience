@@ -61,6 +61,7 @@ export interface DeviceDetailResponse extends DeviceApiItem {
 export interface DevicesParams {
   site_id?: string;
   estate_id?: string;
+  group_id?: string;
   status?: string;
   type?: string;
   tags?: string;

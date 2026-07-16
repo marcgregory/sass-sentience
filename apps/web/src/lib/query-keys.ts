@@ -139,5 +139,7 @@ export const queryKeys = {
     all: ["deviceGroups"] as const,
     list: (params?: Record<string, unknown>) => ["deviceGroups", "list", params] as const,
     detail: (id: string) => ["deviceGroups", "detail", id] as const,
+    devices: (groupId: string, params?: Record<string, unknown>) =>
+      ["deviceGroups", "devices", groupId, params] as const,
   },
 } as const;

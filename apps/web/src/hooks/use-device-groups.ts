@@ -13,9 +13,11 @@ import {
   createDeviceGroup,
   updateDeviceGroup,
   deleteDeviceGroup,
+  getGroupDevices,
   type DeviceGroupListParams,
   type CreateDeviceGroupPayload,
   type UpdateDeviceGroupPayload,
+  type GroupDeviceListParams,
 } from "@/lib/device-groups";
 
 // ─── useDeviceGroups ───────────────────────────────────────────────────────
@@ -61,6 +63,27 @@ export function useUpdateDeviceGroup() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.deviceGroups.all });
     },
+  });
+}
+
+// ─── useGroupDevices ───────────────────────────────────────────────────────
+
+/**
+ * Fetch paginated devices belonging to a device group.
+ * Replaces the client-side `useDevices(1)` pattern with a proper server-side
+ * query that only returns devices in the group.
+ */
+export function useGroupDevices(
+  groupId: string,
+  params?: GroupDeviceListParams,
+) {
+  return useQuery({
+    queryKey: queryKeys.deviceGroups.devices(
+      groupId,
+      params as Record<string, unknown>,
+    ),
+    queryFn: () => getGroupDevices(groupId, params),
+    enabled: !!groupId,
   });
 }
 

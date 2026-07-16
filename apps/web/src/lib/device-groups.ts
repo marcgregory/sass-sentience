@@ -83,3 +83,58 @@ export async function deleteDeviceGroup(
 ): Promise<void> {
   return del<void>(`/device-groups/${id}`);
 }
+
+// ─── Group Devices API ────────────────────────────────────────────────────
+
+/**
+ * Response item for a device within a group context.
+ * Mirrors the backend's enriched device DTO.
+ */
+export interface GroupDeviceItem {
+  id: string;
+  serialNumber: string;
+  name: string;
+  type: string;
+  status: string;
+  battery: number | null;
+  signalStrength: number | null;
+  temperature: number | null;
+  uptime: number | null;
+  lastHeartbeat: string | null;
+  siteId: string;
+  siteName: string | null;
+  estateName: string | null;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GroupDeviceListResponse {
+  data: GroupDeviceItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface GroupDeviceListParams {
+  search?: string;
+  page?: number;
+  limit?: number;
+  sort?: string;
+  order?: string;
+}
+
+/**
+ * Fetch paginated devices belonging to a specific device group.
+ */
+export async function getGroupDevices(
+  groupId: string,
+  params?: GroupDeviceListParams,
+): Promise<GroupDeviceListResponse> {
+  return get<GroupDeviceListResponse>(`/device-groups/${groupId}/devices`, {
+    params: params as Record<string, string | number | boolean | undefined>,
+  });
+}
