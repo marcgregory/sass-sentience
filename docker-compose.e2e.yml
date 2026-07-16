@@ -65,6 +65,7 @@ services:
       PORT: 3001
       HOST: 0.0.0.0
       CORS_ORIGIN: "http://web:3000"
+      MQTT_HOST: mosquitto
       REALTIME_WS_URL: http://realtime:3002
       APP_URL: http://web:3000
       RATE_LIMIT_MAX: 1000

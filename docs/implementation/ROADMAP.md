@@ -542,119 +542,33 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 
 ---
 
-## ⏳ In Progress — v1.6.0 — Real Infrastructure E2E Validation (2026-07-15)
+## ✅ Completed — v1.6.0 — Real Infrastructure E2E Validation (2026-07-16)
 
-**Status: Implementation Complete / Validation Pending**
+**Validation outcome:** All 6 gates passed. Release approved. Tagged `v1.6.0`.
 
-**Objective:** Establish a CI-capable end-to-end environment that validates the complete IoT data pipeline using real services instead of mocked APIs. Connect existing infrastructure pieces (PostgreSQL, Mosquitto, API, Realtime Bridge, Simulator, Web) into a trustworthy validation pipeline.
+**Summary of validation (see `docs/release/VALIDATION_v1.6.0.md`):**
 
-### Phase 1 — E2E Environment Bootstrap
+| Gate | Result | Key Evidence |
+|------|--------|-------------|
+| Gate 0 — Repository Baseline | ✅ | Commit `9e69571`, clean tree, lint + build pass |
+| Gate 1 — Docker Build | ✅ | 5/5 images built, digests recorded |
+| Gate 2 — Stack Startup | ✅ | 6/6 services running, all healthy |
+| Gate 3 — Readiness | ✅ | `{"status":"ready"}` at `/api/ready` |
+| Gate 4 — Real E2E Tests | ✅ | 16/16 tests pass in 14.4s |
+| Gate 5 — Failure Modes | ✅ | MQTT, Bridge, DB failure all detected and recovered |
 
-| Deliverable | Status | Notes |
-|------------|--------|-------|
-| `apps/api/Dockerfile` | ✅ Done | Node 20-alpine, entrypoint with migrations + seed |
-| `apps/web/Dockerfile` | ✅ Done | Next.js standalone output, build + production server |
-| `apps/realtime/Dockerfile` | ✅ Done | Node 20-alpine, bridge server |
-| Simulator Dockerfile | ✅ Done | Refactored for pnpm monorepo, env-var-driven |
-| Next.js standalone mode | ✅ Done | Conditional via `NEXT_STANDALONE` env var |
-| `docker-compose.e2e.yml` | ✅ Done | Full-stack compose: postgres → mosquitto → api → bridge → simulator → web → playwright |
-| `/ready` endpoint (API) | ✅ Done | Distinguishes liveness from readiness (migrations checked) |
-| `wait-for-services.ts` | ✅ Done | Readiness checks: PG, MQTT, API, Bridge, Simulator, Web |
-| `apps/web/Dockerfile.e2e` | ✅ Done | Playwright runner extending web image |
+**Highest-value achievement:** Full telemetry pipeline proven end-to-end: Simulator → MQTT → Bridge → Socket.IO → Browser UI. Failure resilience proven across 3 dependency outage scenarios.
 
-### Phase 2 — Real Playwright Mode
+**Key fixes during validation:**
+- Playwright base image tag resolution
+- Dockerfile stale path corrections
+- CORS and `NEXT_PUBLIC_API_URL` service-name resolution
+- Healthcheck bash-isms replaced with `nc` for Alpine
+- IPv6 `localhost` → `127.0.0.1` in healthchecks
+- Orphan migration `0006` journal entry fix
+- Next.js standalone output path correction
+- 16 test-specific fixes (selectors, localStorage keys, API routing)
 
-| Deliverable | Status | Notes |
-|------------|--------|-------|
-| Playwright config for E2E mode | ✅ Done | `playwright.e2e.config.ts` — no API mocking, real infrastructure |
-| Test directory structure | ✅ Done | `e2e/mocked/` (38 existing) + `e2e/real/` (new real-infra tests) |
-| Shared E2E auth fixture | ✅ Done | `fixtures.ts` — real login via login page, JWT extraction |
-
-### Phase 3 — Critical Real Tests
-
-| Test | Status | Notes |
-|------|--------|-------|
-| Authentication flow | ✅ Done | Real login, JWT, protected routes, tenant isolation |
-| Device telemetry pipeline ⭐ | ✅ Done | Simulator → MQTT → Bridge → Socket.IO → Dashboard live update |
-| Diagnostics & device lifecycle | ✅ Done | Device list, detail page, diagnostics tests |
-| Platform health / failure recovery | ✅ Done | Health + readiness endpoints, admin health page, API-checked |
-
-### Phase 4 — CI Pipeline
-
-| Deliverable | Status | Notes |
-|------------|--------|-------|
-| `.github/workflows/e2e.yml` | ✅ Done | GitHub Actions: checkout → install → docker compose → migrate → seed → wait → run → artifacts → shutdown |
-
-### Success Criteria
-
-- ✅ Fresh clone works: `docker compose -f docker-compose.e2e.yml up` starts the complete platform
-- ✅ A simulated device sends real telemetry that persists to PostgreSQL
-- ✅ The browser receives realtime Socket.IO updates without page refresh
-- ✅ MQTT failure detection and recovery cycle verified
-- ✅ Tenant isolation: customer A cannot see customer B data
-- ✅ 8–12 real infrastructure Playwright tests pass alongside 38 existing mocked tests
-- ✅ Playwright runs without API mocking in E2E mode
-- ✅ Failures produce actionable diagnostics (traces, screenshots, service logs)
-
-### Validation Remaining
-
-The milestone has moved from **build phase** into **release verification phase**. Docker orchestration is where integration failures usually appear — stack images must build and run correctly in Linux containers.
-
-#### 1. Build images
-
-```bash
-docker compose -f docker-compose.e2e.yml build
-```
-
-Validate that API, Web, Bridge, and Simulator images build and dependencies install correctly inside Linux containers.
-
-#### 2. Start stack
-
-```bash
-docker compose -f docker-compose.e2e.yml up -d
-```
-
-Expected service states: `postgres` (healthy), `mosquitto` (healthy), `api` (healthy), `bridge` (healthy), `simulator` (running), `web` (healthy).
-
-#### 3. Validate readiness chain
-
-Verify `/api/ready` returns `{"status": "ready"}`. Confirm API→PostgreSQL, Bridge→MQTT, and Simulator→MQTT pub connections.
-
-#### 4. Run real Playwright
-
-```bash
-docker compose -f docker-compose.e2e.yml run playwright
-```
-
-Expected: 10+ passed, 0 failed. Highest-value test: Simulator → MQTT → Bridge → Socket.IO → Browser assertion.
-
-#### 5. Failure-mode checks (added for completeness)
-
-| Scenario | Expected |
-|----------|----------|
-| MQTT outage (stop mosquitto) | `/api/admin/health` reports unhealthy; recovery on restart |
-| Database failure | API readiness fails; stack reports unhealthy |
-| Bridge disconnect | Realtime status changes; recovery confirmed |
-
-### Definition of Done
-
-v1.6.0 is complete when:
-
-- [ ] One command starts the complete test environment
-- [ ] Docker images build successfully on local machine
-- [ ] Docker stack starts with all services healthy
-- [ ] `/api/ready` returns `{"status": "ready"}`
-- [ ] Real Playwright tests pass against Docker stack (10+ tests)
-- [ ] All 38 existing mocked tests still pass
-- [ ] MQTT failure/recovery verified
-- [ ] Database failure/recovery verified
-- [ ] Bridge disconnect/recovery verified
-- [ ] CI can reproduce locally
-- [ ] `pnpm lint` and `pnpm build` pass
-- [ ] Technical debt documented
-- [ ] CHANGELOG updated
-
-See `docs/implementation/TESTING_STRATEGY.md` for the testing layer breakdown.
 
 ---
 

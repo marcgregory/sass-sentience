@@ -22,7 +22,7 @@
 
 | Version | Release Date | Commit | Tag | Decision | Validation |
 |---------|-------------|--------|-----|----------|------------|
-| v1.6.0 | _tbd_ | `45941df` | — | 🟡 Pending Validation | [`VALIDATION_v1.6.0.md`](./VALIDATION_v1.6.0.md) |
+| v1.6.0 | 2026-07-16 | `9e69571` | `v1.6.0` | 🟢 Validated / Released | [`VALIDATION_v1.6.0.md`](./VALIDATION_v1.6.0.md) |
 | v1.3.0 | 2026-07-05 | `b8f9e39` | `v1.3.0` | ⚪ Pre-process | — |
 | v1.2.0 | 2026-07-05 | `b9079ee` | `v1.2.0` | ⚪ Pre-process | — |
 | v1.1.1 | 2026-07-05 | `f28b112` | `v1.1.1` | ⚪ Pre-process | — |

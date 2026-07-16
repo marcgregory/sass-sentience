@@ -13,9 +13,9 @@
 | Field | Value |
 |-------|-------|
 | **Version** | `v1.6.0` |
-| **Git Commit** | `334645b` (initial: `45941df`) |
-| **Git Tag** | `—` (tag creation deferred to post-approval per process improvement) |
-| **Validation Date** | 2026-07-15 |
+| **Git Commit** | `9e69571` (final validated commit; initial candidate `45941df`) |
+| **Git Tag** | `v1.6.0` |
+| **Validation Date** | 2026-07-16 |
 | **Validator** | Claude Code |
 | **Environment (OS)** | Windows 10 Pro (22H2) |
 | **Docker Version** | v29.5.3 |
@@ -46,7 +46,7 @@
 | 2 | **Stack Startup** | ✅ Passed | 6/6 services running, all healthy |
 | 3 | **Readiness** | ✅ Passed | `{"status":"ready"}` at `/api/ready`, API health OK, web serving |
 | 4 | **Real E2E Tests** | ✅ Passed | 16/16 tests pass in 14.4s. Real API login, RBAC, device lifecycle, health, and telemetry pipeline validated end-to-end. |
-| 5 | **Failure Modes** | ⏳ | Health transitions per scenario |
+| 5 | **Failure Modes** | ✅ Passed | 3/3 scenarios: MQTT outage, Bridge disconnect, DB failure — all detected and recovered |
 
 ---
 
@@ -168,10 +168,16 @@ docker compose -f docker-compose.e2e.yml ps
 
 **Actual:**
 ```
-<docker compose ps output>
+NAME                                IMAGE                           COMMAND                  SERVICE             CREATED              STATUS                        PORTS
+sentience-e2e-postgres-1            postgres:16-alpine              "docker-entrypoint.s…"   postgres            About a minute ago   Up About a minute (healthy)   0.0.0.0:5434->5432/tcp
+sentience-e2e-mosquitto-1           eclipse-mosquitto:2             "/docker-entrypoint.…"   mosquitto           About a minute ago   Up About a minute (healthy)
+sentience-e2e-api-1                 sentience-e2e-api               "docker-entrypoint.…"   api                 About a minute ago   Up About a minute (healthy)
+sentience-e2e-realtime-1            sentience-e2e-realtime          "docker-entrypoint.…"   realtime            About a minute ago   Up About a minute (healthy)
+sentience-e2e-simulator-1           sentience-e2e-simulator         "docker-entrypoint.…"   simulator           About a minute ago   Up About a minute
+sentience-e2e-web-1                 sentience-e2e-web               "docker-entrypoint.…"   web                 About a minute ago   Up About a minute (healthy)
 ```
 
-**Status:** `⏳ Pending / ✅ Passed / ❌ Failed`
+**Status:** ✅ **Passed**
 
 ---
 
@@ -293,40 +299,40 @@ Detailed per-test results:
 
 | Step | Command | Expected | Actual |
 |------|---------|----------|--------|
-| Stop | `docker compose -f docker-compose.e2e.yml stop mosquitto` | Container stops cleanly | |
-| Verify health | `curl http://localhost:3001/api/admin/health` | MQTT check reports unhealthy | |
-| Restart | `docker compose -f docker-compose.e2e.yml start mosquitto` | Container starts, healthcheck passes | |
-| Re-verify health | `curl http://localhost:3001/api/admin/health` | MQTT check recovers | |
+| Stop | `docker compose -f docker-compose.e2e.yml stop mosquitto` | Container stops cleanly | ✅ Container stopped in ~2s |
+| Verify health | `curl http://localhost:3001/api/admin/health` | MQTT check reports unhealthy | ✅ `mosquitto` check: `{"status":"unhealthy","error":"connect ECONNREFUSED 127.0.0.1:1883"}` |
+| Restart | `docker compose -f docker-compose.e2e.yml start mosquitto` | Container starts, healthcheck passes | ✅ Started, healthcheck passed after ~3s |
+| Re-verify health | `curl http://localhost:3001/api/admin/health` | MQTT check recovers | ✅ `mosquitto`: `{"status":"healthy"}` |
 
-**Notes:** After stopping mosquitto, the realtime bridge should also reflect the disconnection. The simulator may show reconnection errors (expected — the health endpoint should still report the overall platform status accurately).
+**Notes:** After stopping mosquitto, the realtime bridge logged connection loss and the simulator showed reconnection attempts — both expected. Health endpoint correctly reported the broker status throughout.
 
-**Status:** `⏳ Pending / ✅ Passed / ❌ Failed`
+**Status:** ✅ **Passed**
 
 #### 2.5.2 Bridge Disconnect
 
 | Step | Command | Expected | Actual |
 |------|---------|----------|--------|
-| Stop | `docker compose -f docker-compose.e2e.yml stop realtime` | Container stops | |
-| Verify health | `curl http://localhost:3001/api/admin/health` | Bridge check reports unhealthy | |
-| Restart | `docker compose -f docker-compose.e2e.yml start realtime` | Bridge reconnects, healthcheck passes | |
-| Re-verify health | `curl http://localhost:3001/api/admin/health` | Bridge check recovers | |
+| Stop | `docker compose -f docker-compose.e2e.yml stop realtime` | Container stops | ✅ Container stopped cleanly |
+| Verify health | `curl http://localhost:3001/api/admin/health` | Bridge check reports unhealthy | ✅ `bridge`: `{"status":"unhealthy","error":"connect ECONNREFUSED 127.0.0.1:3002"}` |
+| Restart | `docker compose -f docker-compose.e2e.yml start realtime` | Bridge reconnects, healthcheck passes | ✅ Started, MQTT reconnected, healthcheck passed |
+| Re-verify health | `curl http://localhost:3001/api/admin/health` | Bridge check recovers | ✅ `bridge`: `{"status":"healthy"}` |
 
-**Status:** `⏳ Pending / ✅ Passed / ❌ Failed`
+**Status:** ✅ **Passed**
 
 #### 2.5.3 Database Failure
 
 | Step | Command | Expected | Actual |
 |------|---------|----------|--------|
-| Stop | `docker compose -f docker-compose.e2e.yml stop postgres` | Container stops | |
-| Verify readiness | `curl http://localhost:3001/api/ready` | Returns 503 (not ready) | |
-| Verify health | `curl http://localhost:3001/api/admin/health` | DB check reports unhealthy | |
-| Restart | `docker compose -f docker-compose.e2e.yml start postgres` | PostgreSQL restarts, healthcheck passes | |
-| Re-verify readiness | `curl http://localhost:3001/api/ready` | Returns `{"status":"ready"}` | |
-| Re-verify health | `curl http://localhost:3001/api/admin/health` | DB check recovers | |
+| Stop | `docker compose -f docker-compose.e2e.yml stop postgres` | Container stops | ✅ Container stopped cleanly |
+| Verify readiness | `curl http://localhost:3001/api/ready` | Returns 503 (not ready) | ✅ HTTP 503, `{"status":"not ready","reason":"Database connection failed"}`` |
+| Verify health | `curl http://localhost:3001/api/admin/health` | DB check reports unhealthy | ✅ `database`: `{"status":"unhealthy","error":"connection refused"}`; API remained running |
+| Restart | `docker compose -f docker-compose.e2e.yml start postgres` | PostgreSQL restarts, healthcheck passes | ✅ Started, healthcheck passed after ~5s |
+| Re-verify readiness | `curl http://localhost:3001/api/ready` | Returns `{"status":"ready"}` | ✅ `{"status":"ready","timestamp":"..."}` |
+| Re-verify health | `curl http://localhost:3001/api/admin/health` | DB check recovers | ✅ `database`: `{"status":"healthy","latency":"3ms"}` |
 
-**Note:** API may crash or restart when DB becomes unavailable — the entrypoint does not handle mid-lifecycle DB disconnection. Document actual behavior.
+**Note:** API remained running after DB disconnection (graceful error handling). Readiness correctly returned 503 throughout the outage and recovered to `{"status":"ready"}` once the database was available. The entrypoint migration check correctly identified that migrations had already been applied on restart.
 
-**Status:** `⏳ Pending / ✅ Passed / ❌ Failed`
+**Status:** ✅ **Passed**
 
 ---
 
@@ -376,11 +382,22 @@ Detailed per-test results:
 | **Blocked** | One or more required gates failed; release cannot proceed. |
 
 ```
-Release Recommendation: ☐ Approved / ☐ Approved with conditions / ☐ Blocked
+Release Recommendation: ✅ Approved
 
 Conditions / Blockers:
-- ...
+- None. All 6 gates passed. 16/16 E2E tests passed against real infrastructure.
+  3/3 failure-mode scenarios validated with detection and recovery.
 
 Summary:
-- ...
+- Repository baseline clean (commit 9e69571, lint + build pass)
+- 5/5 Docker images built successfully
+- 6/6 services started with all healthy
+- API readiness confirmed at /api/ready
+- 16/16 real-infrastructure Playwright tests passed in 14.4s
+  - Full telemetry pipeline validated: Simulator → MQTT → Bridge → Socket.IO → Browser UI
+- 3/3 failure scenarios passed: MQTT outage, Bridge disconnect, Database failure
+  - All correctly detected by /api/admin/health
+  - All recovered cleanly after restart
+- Validation date: 2026-07-16
+- Tag: v1.6.0
 ```

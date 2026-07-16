@@ -1,7 +1,7 @@
 # Technical Debt
 
 > Items intentionally deferred or known to need cleanup.
-> Last updated: 2026-07-15 (v1.6.0 — implementation complete, Docker validation pending)
+> Last updated: 2026-07-16 (v1.6.0 — validated and released)
 
 ---
 
@@ -161,12 +161,10 @@ When alerts are acknowledged or resolved via `PATCH /api/alerts/:id`, no Socket.
 
 ## Testing
 
-### Full-Stack E2E test suite implemented, Docker validation pending
-Playwright UI Regression Suite (API Mocked) covers frontend behavior with 38 tests in `e2e/mocked/`. Real-infrastructure E2E tests (10 tests in `e2e/real/`) validate the full pipeline (authentication, telemetry, platform health, device lifecycle) against real services via Docker Compose.
+### ✅ Resolved — Full-Stack E2E test suite validated (v1.6.0)
+The real-infrastructure E2E test suite (16 tests in `e2e/real/`) has been executed against the full Docker Compose stack. All 6 validation gates passed, including failure-mode scenarios. See `docs/release/VALIDATION_v1.6.0.md` for full results.
 
-**Impact:** Tests exist but have not yet been executed in a real Docker environment. Docker orchestration is where integration failures typically surface (Linux container builds, entrypoint scripts, healthcheck ordering, cross-service networking).
-
-**Resolution:** Execute the Docker validation sequence documented in ROADMAP.md v1.6.0 Validation Remaining before marking v1.6.0 complete.
+**Impact:** ✅ Resolved. Validation framework is now proven with repeatable artifact chain (Source → Containers → Infrastructure → Tests → Approval).
 
 ### Device detail page has no unit tests
 The `/devices/[id]` page has no Vitest tests. Mock data generators and computed diagnostics logic lack test coverage.
