@@ -623,10 +623,20 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 - **Consistent cache invalidation** — Comprehensive query key invalidation keeps Device and Group views synchronized after mutations.
 - **Auditability** — Bulk operations, archive/restore, duplication, and membership changes all captured in audit events.
 
-### Test Coverage
+### Validation Results
 
-- **35 Playwright tests** across 8 major areas (CRUD, tag filter, tag editor, device/group relationship, bulk tags, archive/restore).
-- All pass against mocked APIs in the E2E regression suite.
+All 6 gates passed. See `docs/release/VALIDATION_v1.8.0.md` for full results.
+
+| Gate | Result |
+|------|--------|
+| Gate 0 — Repository Baseline | ✅ Commit `5742a97`, clean tree, lint + build pass, 29/29 pages |
+| Gate 1 — Docker Build | ✅ 5/5 images built, exit 0 |
+| Gate 2 — Stack Startup | ✅ 7/7 services running, migration 0009 applied |
+| Gate 3 — Readiness | ✅ `{"status":"ready"}` at `/api/ready` |
+| Gate 4 — Real E2E Tests | ✅ **16/16 pass in 32.3s** — zero regressions |
+| Gate 5 — Failure Modes | ✅ MQTT, Bridge, DB — all detected and recovered |
+
+**Issue:** Missing migration 0009 (`archivedAt`) discovered pre-gate and resolved.
 
 ### Non-Goals (deferred to v1.9.0+)
 
