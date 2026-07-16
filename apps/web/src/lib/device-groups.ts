@@ -5,7 +5,7 @@
  * Used by TanStack Query hooks — never call these directly from components.
  */
 
-import { get, post, patch, del } from "./api-client";
+import { get, post, patch, del, request } from "./api-client";
 
 // ─── API Response Types ───────────────────────────────────────────────────
 
@@ -162,4 +162,55 @@ export async function addDeviceToGroup(
     `/device-groups/${groupId}/devices`,
     { deviceId },
   );
+}
+
+// ─── Bulk Tag API ─────────────────────────────────────────────────────────
+
+export interface BulkTagPreviewResponse {
+  deviceCount: number;
+  sampleDevices: { id: string; name: string }[];
+}
+
+export interface BulkTagResponse {
+  success: boolean;
+  affectedCount: number;
+  addedTags?: string[];
+  removedTags?: string[];
+}
+
+/**
+ * Preview a bulk tag operation on a device group.
+ * Returns the number of affected devices and a sample without
+ * enumerating the full device list.
+ */
+export async function getBulkTagPreview(
+  groupId: string,
+): Promise<BulkTagPreviewResponse> {
+  return get<BulkTagPreviewResponse>(`/device-groups/${groupId}/tag-preview`);
+}
+
+/**
+ * Apply tags to all devices in a group.
+ * Server-side operation — no client enumeration.
+ * Merges tags with deduplication.
+ */
+export async function bulkAssignTags(
+  groupId: string,
+  tags: string[],
+): Promise<BulkTagResponse> {
+  return post<BulkTagResponse>(`/device-groups/${groupId}/tags`, { tags });
+}
+
+/**
+ * Remove tags from all devices in a group.
+ * Server-side operation — no client enumeration.
+ */
+export async function bulkRemoveTags(
+  groupId: string,
+  tags: string[],
+): Promise<BulkTagResponse> {
+  return request<BulkTagResponse>(`/device-groups/${groupId}/tags`, {
+    method: "DELETE",
+    body: JSON.stringify({ tags }),
+  });
 }

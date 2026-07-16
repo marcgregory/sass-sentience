@@ -403,6 +403,168 @@ export async function deviceGroupRoutes(app: FastifyInstance) {
     return reply.send({ success: true });
   });
 
+  // ─── Bulk Tag: Preview ──────────────────────────────────────────────────
+  /**
+   * Preview the impact of a bulk tag operation.
+   * Returns the device count and a sample of device names — without
+   * enumerating the full device list to the client.
+   */
+  app.get("/:id/tag-preview", { preHandler: [requireAuth, requireRole("admin", "support")] }, async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+
+    const [group] = await db
+      .select({ deviceIds: deviceGroups.deviceIds })
+      .from(deviceGroups)
+      .where(eq(deviceGroups.id, id))
+      .limit(1);
+
+    if (!group) {
+      return reply.status(404).send({ message: "Group not found", code: "NOT_FOUND" });
+    }
+
+    if (group.deviceIds.length === 0) {
+      return reply.send({ deviceCount: 0, sampleDevices: [] });
+    }
+
+    // Fetch first 5 device names for the preview sample
+    const sampleDevices = await db
+      .select({ id: devices.id, name: devices.name })
+      .from(devices)
+      .where(inArray(devices.id, group.deviceIds))
+      .limit(5);
+
+    return reply.send({
+      deviceCount: group.deviceIds.length,
+      sampleDevices,
+    });
+  });
+
+  // ─── Bulk Tag: Assign ──────────────────────────────────────────────────
+  /**
+   * Apply tags to all devices in a group.
+   * Uses a single server-side UPDATE — no client enumeration.
+   * Merges tags with deduplication using JSONB operations.
+   */
+  app.post("/:id/tags", { preHandler: [requireAuth, requireRole("admin", "support")] }, async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const body = z.object({ tags: z.array(z.string().min(1)).min(1).max(50) }).parse(request.body);
+
+    const [group] = await db
+      .select({ id: deviceGroups.id, name: deviceGroups.name, deviceIds: deviceGroups.deviceIds })
+      .from(deviceGroups)
+      .where(eq(deviceGroups.id, id))
+      .limit(1);
+
+    if (!group) {
+      return reply.status(404).send({ message: "Group not found", code: "NOT_FOUND" });
+    }
+
+    if (group.deviceIds.length === 0) {
+      return reply.send({ success: true, affectedCount: 0, addedTags: body.tags });
+    }
+
+    // Atomic bulk update: merge tags into each device's tags JSONB array, deduplicating
+    const result = await db.execute(sql`
+      UPDATE ${devices}
+      SET
+        tags = (
+          SELECT COALESCE(
+            jsonb_agg(DISTINCT v ORDER BY v),
+            '[]'::jsonb
+          )
+          FROM jsonb_array_elements_text(
+            CASE
+              WHEN ${devices.tags} IS NULL OR ${devices.tags} = '[]'::jsonb
+              THEN to_jsonb(${body.tags}::text[])
+              ELSE ${devices.tags} || to_jsonb(${body.tags}::text[])
+            END
+          ) AS v
+        ),
+        updated_at = NOW()
+      WHERE ${devices.id} = ANY(${group.deviceIds}::uuid[])
+    `);
+
+    const user = request.user as JwtPayload;
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "update",
+      resource: "DeviceGroup",
+      resourceId: id,
+      description: `Bulk assigned ${body.tags.length} tag(s) to ${group.deviceIds.length} device(s) in group "${group.name}"`,
+      details: { addedTags: body.tags, affectedCount: group.deviceIds.length },
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
+
+    return reply.send({
+      success: true,
+      affectedCount: group.deviceIds.length,
+      addedTags: body.tags,
+    });
+  });
+
+  // ─── Bulk Tag: Remove ──────────────────────────────────────────────────
+  /**
+   * Remove tags from all devices in a group.
+   * Uses a single server-side UPDATE — no client enumeration.
+   */
+  app.delete("/:id/tags", { preHandler: [requireAuth, requireRole("admin", "support")] }, async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+    const body = z.object({ tags: z.array(z.string().min(1)).min(1).max(50) }).parse(request.body);
+
+    const [group] = await db
+      .select({ id: deviceGroups.id, name: deviceGroups.name, deviceIds: deviceGroups.deviceIds })
+      .from(deviceGroups)
+      .where(eq(deviceGroups.id, id))
+      .limit(1);
+
+    if (!group) {
+      return reply.status(404).send({ message: "Group not found", code: "NOT_FOUND" });
+    }
+
+    if (group.deviceIds.length === 0) {
+      return reply.send({ success: true, affectedCount: 0, removedTags: body.tags });
+    }
+
+    // Atomic bulk update: filter out specified tags from each device's JSONB array
+    const result = await db.execute(sql`
+      UPDATE ${devices}
+      SET
+        tags = (
+          SELECT COALESCE(
+            jsonb_agg(v ORDER BY v),
+            '[]'::jsonb
+          )
+          FROM jsonb_array_elements_text(${devices.tags}) AS v
+          WHERE NOT (v = ANY(${body.tags}::text[]))
+        ),
+        updated_at = NOW()
+      WHERE ${devices.id} = ANY(${group.deviceIds}::uuid[])
+    `);
+
+    const user = request.user as JwtPayload;
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "update",
+      resource: "DeviceGroup",
+      resourceId: id,
+      description: `Bulk removed ${body.tags.length} tag(s) from ${group.deviceIds.length} device(s) in group "${group.name}"`,
+      details: { removedTags: body.tags, affectedCount: group.deviceIds.length },
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
+
+    return reply.send({
+      success: true,
+      affectedCount: group.deviceIds.length,
+      removedTags: body.tags,
+    });
+  });
+
   // ─── Delete group ─────────────────────────────────────────────────────
   app.delete("/:id", { preHandler: [requireAuth, requireRole("admin", "support")] }, async (request, reply) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);

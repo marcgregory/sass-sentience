@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -50,15 +50,18 @@ import {
   HardDrive,
   ChevronLeft,
   ChevronRight,
+  Tags,
 } from "lucide-react";
 import {
   formatRelativeTime,
   deriveDeviceHealth,
 } from "@sentience/utils";
-import { useDeviceGroup, useUpdateDeviceGroup, useDeleteDeviceGroup, useGroupDevices } from "@/hooks/use-device-groups";
+import { useDeviceGroup, useUpdateDeviceGroup, useDeleteDeviceGroup, useGroupDevices, useBulkAssignTags, useBulkRemoveTags } from "@/hooks/use-device-groups";
 import { useDevices } from "@/hooks/use-devices";
 import type { UpdateDeviceGroupPayload } from "@/lib/device-groups";
-import type { GroupDeviceItem } from "@/lib/device-groups";
+import type { GroupDeviceItem, BulkTagPreviewResponse, BulkTagResponse } from "@/lib/device-groups";
+import { getBulkTagPreview } from "@/lib/device-groups";
+import { useQuery } from "@tanstack/react-query";
 import type { DeviceStatus, StatusReason } from "@sentience/types";
 import type { DeviceEntry } from "@sentience/utils";
 import type { DeviceListRow } from "@/hooks/use-devices";
@@ -146,6 +149,45 @@ export default function GroupDetailPage() {
 
   const totalGroupDevices = groupDevicesQuery.data?.pagination?.total ?? 0;
   const totalGroupPages = groupDevicesQuery.data?.pagination?.totalPages ?? 0;
+
+  // ── Bulk Tag Dialog state ─────────────────────────────────────────────
+  const bulkAssign = useBulkAssignTags();
+  const bulkRemove = useBulkRemoveTags();
+  const [bulkTagOpen, setBulkTagOpen] = useState(false);
+  const [addTagInput, setAddTagInput] = useState("");
+  const [removeTagInput, setRemoveTagInput] = useState("");
+  const [addTags, setAddTags] = useState<string[]>([]);
+  const [removeTags, setRemoveTags] = useState<string[]>([]);
+  const addTagRef = useRef<HTMLInputElement>(null);
+
+  const { data: tagPreview } = useQuery({
+    queryKey: ["deviceGroups", "tagPreview", groupId],
+    queryFn: () => getBulkTagPreview(groupId),
+    enabled: !!groupId && bulkTagOpen,
+  });
+
+  const resetBulkTagState = () => {
+    setAddTags([]);
+    setRemoveTags([]);
+    setAddTagInput("");
+    setRemoveTagInput("");
+  };
+
+  const handleAddTagKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && addTagInput.trim() && !addTags.includes(addTagInput.trim())) {
+      e.preventDefault();
+      setAddTags((prev) => [...prev, addTagInput.trim()]);
+      setAddTagInput("");
+    }
+  };
+
+  const handleRemoveTagKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && removeTagInput.trim() && !removeTags.includes(removeTagInput.trim())) {
+      e.preventDefault();
+      setRemoveTags((prev) => [...prev, removeTagInput.trim()]);
+      setRemoveTagInput("");
+    }
+  };
 
   // ── Add Devices Dialog (will migrate to server search in Phase B.4) ──
   // TODO(Phase B.4): Replace useDevices(1) with a dedicated "search available
@@ -417,16 +459,26 @@ export default function GroupDetailPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Actions</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-2">
             <Button
               variant="outline"
               size="sm"
-              className="gap-2"
+              className="gap-2 w-full"
               onClick={() => setAddDevicesOpen(true)}
               disabled={devicesNotInGroup.length === 0}
             >
               <Plus className="h-4 w-4" />
               Add Devices
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 w-full"
+              onClick={() => { setBulkTagOpen(true); resetBulkTagState(); }}
+              disabled={!group || group.deviceCount === 0}
+            >
+              <Tags className="h-4 w-4" />
+              Bulk Tag Devices
             </Button>
           </CardContent>
         </Card>
@@ -487,6 +539,172 @@ export default function GroupDetailPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddDevicesOpen(false)}>
               Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Bulk Tag Dialog ─────────────────────────────────────────────── */}
+      <Dialog open={bulkTagOpen} onOpenChange={(open) => { if (!open) { setBulkTagOpen(false); resetBulkTagState(); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Bulk Tag Devices</DialogTitle>
+            <DialogDescription>
+              Apply or remove tags across all devices in <strong>{group?.name}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            {/* Preview */}
+            <div className="rounded-lg border bg-muted/30 p-4">
+              {!tagPreview ? (
+                <div className="space-y-2">
+                  <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+                  <div className="h-3 w-48 animate-pulse rounded bg-muted" />
+                </div>
+              ) : tagPreview.deviceCount === 0 ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <HardDrive className="h-4 w-4" />
+                  No devices in this group.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">
+                    {tagPreview.deviceCount} device{tagPreview.deviceCount !== 1 ? "s" : ""} will be affected
+                  </p>
+                  {tagPreview.sampleDevices.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Sample: {tagPreview.sampleDevices.map((d) => d.name).join(", ")}
+                      {tagPreview.deviceCount > tagPreview.sampleDevices.length && ", ..."}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Add tags */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Add Tags</label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {addTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2.5 py-1 text-xs font-medium"
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => setAddTags((prev) => prev.filter((t) => t !== tag))}
+                      className="hover:text-emerald-800 dark:hover:text-emerald-200 transition-colors"
+                      aria-label={`Remove tag ${tag}`}
+                    >
+                      <XIcon className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="relative">
+                <Plus className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  ref={addTagRef}
+                  type="text"
+                  value={addTagInput}
+                  onChange={(e) => setAddTagInput(e.target.value)}
+                  onKeyDown={handleAddTagKeyDown}
+                  placeholder="Type a tag and press Enter..."
+                  className="h-9 w-full rounded-md border bg-background pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+            </div>
+
+            {/* Remove tags */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Remove Tags</label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {removeTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 rounded-full bg-red-500/10 text-red-600 dark:text-red-400 px-2.5 py-1 text-xs font-medium"
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => setRemoveTags((prev) => prev.filter((t) => t !== tag))}
+                      className="hover:text-red-800 dark:hover:text-red-200 transition-colors"
+                      aria-label={`Remove tag ${tag}`}
+                    >
+                      <XIcon className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="relative">
+                <XIcon className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={removeTagInput}
+                  onChange={(e) => setRemoveTagInput(e.target.value)}
+                  onKeyDown={handleRemoveTagKeyDown}
+                  placeholder="Type a tag to remove and press Enter..."
+                  className="h-9 w-full rounded-md border bg-background pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+            </div>
+
+            {/* Summary */}
+            {(addTags.length > 0 || removeTags.length > 0) && (
+              <div className="rounded-lg border p-3 text-sm">
+                <p className="font-medium">Summary</p>
+                <ul className="mt-1 space-y-0.5 text-muted-foreground">
+                  {addTags.length > 0 && (
+                    <li className="text-emerald-600 dark:text-emerald-400">
+                      +{addTags.length} tag{addTags.length !== 1 ? "s" : ""} to add
+                    </li>
+                  )}
+                  {removeTags.length > 0 && (
+                    <li className="text-red-600 dark:text-red-400">
+                      -{removeTags.length} tag{removeTags.length !== 1 ? "s" : ""} to remove
+                    </li>
+                  )}
+                  {tagPreview && tagPreview.deviceCount > 0 && (
+                    <li className="text-muted-foreground">
+                      Affecting {tagPreview.deviceCount} device{tagPreview.deviceCount !== 1 ? "s" : ""}
+                    </li>
+                  )}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setBulkTagOpen(false); resetBulkTagState(); }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                // Apply add tags
+                const addPromise = addTags.length > 0
+                  ? bulkAssign.mutateAsync({ groupId, tags: addTags })
+                  : Promise.resolve(null);
+                // Apply remove tags
+                const removePromise = removeTags.length > 0
+                  ? bulkRemove.mutateAsync({ groupId, tags: removeTags })
+                  : Promise.resolve(null);
+
+                Promise.all([addPromise, removePromise]).then(() => {
+                  setBulkTagOpen(false);
+                  resetBulkTagState();
+                });
+              }}
+              disabled={
+                (addTags.length === 0 && removeTags.length === 0) ||
+                bulkAssign.isPending ||
+                bulkRemove.isPending ||
+                !tagPreview ||
+                tagPreview.deviceCount === 0
+              }
+            >
+              {bulkAssign.isPending || bulkRemove.isPending ? "Applying..." : "Apply"}
             </Button>
           </DialogFooter>
         </DialogContent>

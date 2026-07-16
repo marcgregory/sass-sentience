@@ -57,7 +57,7 @@ async function getAuthToken(): Promise<string | null> {
   }
 }
 
-async function request<T>(
+export async function request<T>(
   path: string,
   options: RequestInit & RequestConfig = {},
 ): Promise<T> {

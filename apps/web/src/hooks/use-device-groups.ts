@@ -16,6 +16,8 @@ import {
   getGroupDevices,
   removeDeviceFromGroup,
   addDeviceToGroup,
+  bulkAssignTags,
+  bulkRemoveTags,
   type DeviceGroupListParams,
   type CreateDeviceGroupPayload,
   type UpdateDeviceGroupPayload,
@@ -146,6 +148,48 @@ export function useDeleteDeviceGroup() {
     mutationFn: (id: string) => deleteDeviceGroup(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.deviceGroups.all });
+    },
+  });
+}
+
+// ─── useBulkAssignTags ──────────────────────────────────────────────────
+
+/**
+ * Apply tags to all devices in a device group.
+ * Server-side bulk operation — no client device enumeration.
+ * Invalidates device list and group detail caches.
+ */
+export function useBulkAssignTags() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ groupId, tags }: { groupId: string; tags: string[] }) =>
+      bulkAssignTags(groupId, tags),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.devices.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.deviceGroups.detail(variables.groupId) });
+      queryClient.invalidateQueries({ queryKey: ["deviceGroups", "devices", variables.groupId] });
+    },
+  });
+}
+
+// ─── useBulkRemoveTags ─────────────────────────────────────────────────
+
+/**
+ * Remove tags from all devices in a device group.
+ * Server-side bulk operation — no client device enumeration.
+ * Invalidates device list and group detail caches.
+ */
+export function useBulkRemoveTags() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ groupId, tags }: { groupId: string; tags: string[] }) =>
+      bulkRemoveTags(groupId, tags),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.devices.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.deviceGroups.detail(variables.groupId) });
+      queryClient.invalidateQueries({ queryKey: ["deviceGroups", "devices", variables.groupId] });
     },
   });
 }
