@@ -23,15 +23,20 @@ import {
   Clock,
   SkipForward,
   StopCircle,
+  User,
+  History,
+  Calendar,
 } from "lucide-react";
 import { formatRelativeTime, formatDateTime, cn } from "@sentience/utils";
 import {
   useRollout,
   useRolloutDevices,
+  useRolloutSummary,
   useStartRollout,
   useCancelRollout,
   useRetryRollout,
 } from "@/hooks/use-firmware";
+import { useAuditLogs } from "@/hooks/use-audit-logs";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -80,6 +85,15 @@ export default function RolloutDetailPage() {
     page: devicePage,
     limit: PAGE_SIZE,
     status: (deviceStatusFilter as "pending" | "running" | "succeeded" | "failed" | "skipped" | "cancelled") || undefined,
+  });
+
+  const { data: summary } = useRolloutSummary(id);
+  const { entries: auditEntries, isLoading: auditLoading } = useAuditLogs({
+    resource: "Rollout",
+    search: id,
+    limit: 10,
+    sort: "createdAt",
+    order: "desc",
   });
 
   const startMutation = useStartRollout();
@@ -197,12 +211,12 @@ export default function RolloutDetailPage() {
             </div>
           </div>
 
-          {/* Progress */}
-          <div className="mt-6">
+          {/* Progress bar */}
+          <div className="mt-6 mb-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-muted-foreground">Progress</span>
               <span className="text-sm font-medium">
-                {rollout.completedCount} succeeded, {rollout.failedCount} failed / {rollout.deviceCount} total
+                {rollout.completedCount + rollout.failedCount} / {rollout.deviceCount} devices
               </span>
             </div>
             <div className="h-2.5 bg-muted rounded-full overflow-hidden flex">
@@ -216,11 +230,55 @@ export default function RolloutDetailPage() {
               />
             </div>
             <div className="flex justify-between text-xs text-muted-foreground mt-1">
-              <span>{progress}% complete</span>
+              <span>
+                {rollout.deviceCount > 0
+                  ? Math.round(((rollout.completedCount + rollout.failedCount) / rollout.deviceCount) * 100)
+                  : 0}% complete
+              </span>
               {rollout.startedAt && <span>Started {formatRelativeTime(rollout.startedAt)}</span>}
               {rollout.completedAt && <span>Completed {formatRelativeTime(rollout.completedAt)}</span>}
               {rollout.cancelledAt && <span>Cancelled {formatRelativeTime(rollout.cancelledAt)}</span>}
             </div>
+          </div>
+
+          {/* Summary stat cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+            <Card>
+              <CardContent className="py-3 text-center">
+                <p className="text-2xl font-bold text-muted-foreground">{summary?.pending ?? 0}</p>
+                <p className="text-xs text-muted-foreground">Pending</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="py-3 text-center">
+                <p className="text-2xl font-bold text-primary">{summary?.running ?? 0}</p>
+                <p className="text-xs text-muted-foreground">Running</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="py-3 text-center">
+                <p className="text-2xl font-bold text-emerald-600">{summary?.succeeded ?? 0}</p>
+                <p className="text-xs text-muted-foreground">Succeeded</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="py-3 text-center">
+                <p className="text-2xl font-bold text-red-600">{summary?.failed ?? 0}</p>
+                <p className="text-xs text-muted-foreground">Failed</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="py-3 text-center">
+                <p className="text-2xl font-bold text-amber-600">{summary?.skipped ?? 0}</p>
+                <p className="text-xs text-muted-foreground">Skipped</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="py-3 text-center">
+                <p className="text-2xl font-bold text-muted-foreground">{summary?.cancelled ?? 0}</p>
+                <p className="text-xs text-muted-foreground">Cancelled</p>
+              </CardContent>
+            </Card>
           </div>
         </CardContent>
       </Card>
@@ -395,6 +453,63 @@ export default function RolloutDetailPage() {
                 </div>
               )}
             </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Audit Trail */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <History className="h-5 w-5" />
+            Audit Trail
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {auditLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-10 bg-muted rounded animate-pulse" />
+              ))}
+            </div>
+          ) : auditEntries.length === 0 ? (
+            <EmptyState
+              icon={History}
+              title="No audit entries"
+              description="Actions for this rollout will appear here."
+            />
+          ) : (
+            <div className="space-y-2">
+              {auditEntries.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex items-start gap-3 py-2 px-3 rounded-lg border hover:bg-muted/30 transition-colors"
+                >
+                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                    {entry.action === "firmware_rollout" && entry.description.toLowerCase().includes("created") ? (
+                      <Rocket className="h-4 w-4 text-primary" />
+                    ) : entry.description.toLowerCase().includes("cancel") ? (
+                      <Ban className="h-4 w-4 text-destructive" />
+                    ) : entry.description.toLowerCase().includes("retry") ? (
+                      <RotateCcw className="h-4 w-4 text-amber-500" />
+                    ) : entry.description.toLowerCase().includes("start") ? (
+                      <Play className="h-4 w-4 text-emerald-500" />
+                    ) : (
+                      <User className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{entry.description}</p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                      <User className="h-3 w-3" />
+                      {entry.userName}
+                      <Calendar className="h-3 w-3 ml-1" />
+                      {formatRelativeTime(entry.createdAt)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>

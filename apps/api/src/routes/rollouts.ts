@@ -597,4 +597,56 @@ export async function rolloutRoutes(app: FastifyInstance) {
       });
     },
   );
+
+  // ─── Progress summary ───────────────────────────────────────────────────
+  app.get(
+    "/:id/summary",
+    { preHandler: [requireAuth, requireRole("admin", "support")] },
+    async (request, reply) => {
+      const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+
+      const [rollout] = await db
+        .select({ id: rollouts.id })
+        .from(rollouts)
+        .where(eq(rollouts.id, id))
+        .limit(1);
+
+      if (!rollout) {
+        return reply.status(404).send({ message: "Rollout not found", code: "NOT_FOUND" });
+      }
+
+      // Aggregate device status counts in a single query
+      const counts = await db
+        .select({
+          status: rolloutDevices.status,
+          count: count(),
+        })
+        .from(rolloutDevices)
+        .where(eq(rolloutDevices.rolloutId, id))
+        .groupBy(rolloutDevices.status);
+
+      // Build a complete response with zeros for missing statuses
+      const statusMap: Record<string, number> = {
+        pending: 0,
+        running: 0,
+        succeeded: 0,
+        failed: 0,
+        skipped: 0,
+        cancelled: 0,
+      };
+
+      for (const row of counts) {
+        statusMap[row.status] = row.count;
+      }
+
+      return reply.send({
+        pending: statusMap.pending,
+        running: statusMap.running,
+        succeeded: statusMap.succeeded,
+        failed: statusMap.failed,
+        skipped: statusMap.skipped,
+        cancelled: statusMap.cancelled,
+      });
+    },
+  );
 }

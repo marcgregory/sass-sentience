@@ -163,5 +163,6 @@ export const queryKeys = {
     detail: (id: string) => ["rollouts", "detail", id] as const,
     devices: (rolloutId: string, params?: Record<string, unknown>) =>
       ["rollouts", "devices", rolloutId, params] as const,
+    summary: (rolloutId: string) => ["rollouts", "summary", rolloutId] as const,
   },
 } as const;

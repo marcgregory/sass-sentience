@@ -22,9 +22,13 @@ import {
   XCircle,
   Ban,
   Loader2,
+  Package,
+  FolderKanban,
 } from "lucide-react";
 import { formatRelativeTime, cn } from "@sentience/utils";
 import { useRollouts } from "@/hooks/use-firmware";
+import { useFirmwarePackages } from "@/hooks/use-firmware";
+import { useDeviceGroups } from "@/hooks/use-device-groups";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -48,6 +52,8 @@ export default function RolloutsPage() {
 
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [statusFilter, setStatusFilter] = useState(initialStatus);
+  const [firmwareFilter, setFirmwareFilter] = useState("");
+  const [groupFilter, setGroupFilter] = useState("");
   const [page, setPage] = useState(initialPage);
 
   // ─── Queries ──────────────────────────────────────────────────────────────
@@ -57,6 +63,12 @@ export default function RolloutsPage() {
     search: searchQuery || undefined,
     status: (statusFilter as "draft" | "running" | "completed" | "failed" | "cancelled") || undefined,
   });
+
+  // For filter dropdowns
+  const { data: packagesData } = useFirmwarePackages({ limit: 100 });
+  const { data: groupsData } = useDeviceGroups({ limit: 100 });
+  const allPackages = packagesData?.data ?? [];
+  const allGroups = groupsData?.data ?? [];
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
   const handleSearch = (value: string) => {
@@ -69,7 +81,26 @@ export default function RolloutsPage() {
     setPage(1);
   };
 
-  const totalPages = data ? Math.ceil(data.pagination.total / PAGE_SIZE) : 0;
+  const handleFirmwareFilter = (id: string) => {
+    setFirmwareFilter(id === firmwareFilter ? "" : id);
+    setPage(1);
+  };
+
+  const handleGroupFilter = (id: string) => {
+    setGroupFilter(id === groupFilter ? "" : id);
+    setPage(1);
+  };
+
+  // Rollouts filtered by firmware/group on the client side
+  const filteredRollouts = data?.data.filter((r) => {
+    if (firmwareFilter && r.firmwarePackageId !== firmwareFilter) return false;
+    if (groupFilter && r.targetGroupId !== groupFilter) return false;
+    return true;
+  }) ?? [];
+
+  const totalPages = data ? Math.ceil(
+    (firmwareFilter || groupFilter ? filteredRollouts.length : data.pagination.total) / PAGE_SIZE
+  ) : 0;
 
   return (
     <div className="space-y-6">
@@ -85,41 +116,86 @@ export default function RolloutsPage() {
       />
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            placeholder="Search rollouts..."
-            value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="flex h-9 w-full rounded-md border border-input bg-transparent pl-9 pr-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          />
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              placeholder="Search rollouts..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent pl-9 pr-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            {Object.entries(STATUS_CONFIG).map(([key, config]) => (
+              <Button
+                key={key}
+                variant={statusFilter === key ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleStatusFilter(key)}
+              >
+                {key === "running" ? (
+                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <config.icon className="mr-1 h-3.5 w-3.5" />
+                )}
+                {config.label}
+              </Button>
+            ))}
+            {statusFilter && (
+              <Button variant="ghost" size="sm" onClick={() => setStatusFilter("")}>
+                Clear
+              </Button>
+            )}
+          </div>
+          <Button variant="outline" size="icon" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
         </div>
+
+        {/* Firmware & Group filters */}
         <div className="flex gap-2 flex-wrap">
-          {Object.entries(STATUS_CONFIG).map(([key, config]) => (
-            <Button
-              key={key}
-              variant={statusFilter === key ? "default" : "outline"}
-              size="sm"
-              onClick={() => handleStatusFilter(key)}
+          {/* Firmware package filter */}
+          <div className="flex gap-1 items-center">
+            <Package className="h-4 w-4 text-muted-foreground" />
+            <select
+              value={firmwareFilter}
+              onChange={(e) => handleFirmwareFilter(e.target.value)}
+              className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
-              {key === "running" ? (
-                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <config.icon className="mr-1 h-3.5 w-3.5" />
-              )}
-              {config.label}
-            </Button>
-          ))}
-          {statusFilter && (
-            <Button variant="ghost" size="sm" onClick={() => setStatusFilter("")}>
-              Clear
+              <option value="">All Firmware</option>
+              {allPackages.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} v{p.version}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Device group filter */}
+          <div className="flex gap-1 items-center">
+            <FolderKanban className="h-4 w-4 text-muted-foreground" />
+            <select
+              value={groupFilter}
+              onChange={(e) => handleGroupFilter(e.target.value)}
+              className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <option value="">All Groups</option>
+              {allGroups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {(firmwareFilter || groupFilter) && (
+            <Button variant="ghost" size="sm" onClick={() => { setFirmwareFilter(""); setGroupFilter(""); }}>
+              Clear Filters
             </Button>
           )}
         </div>
-        <Button variant="outline" size="icon" onClick={() => refetch()}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
       </div>
 
       {/* Content */}
@@ -152,22 +228,32 @@ export default function RolloutsPage() {
               icon={Rocket}
               title="No rollouts found"
               description={
-                searchQuery || statusFilter
+                searchQuery || statusFilter || firmwareFilter || groupFilter
                   ? "No rollouts match your filters. Try different criteria."
                   : "Create your first rollout to start managing firmware deployments."
               }
               action={
-                searchQuery || statusFilter
+                searchQuery || statusFilter || firmwareFilter || groupFilter
                   ? undefined
                   : { label: "New Rollout", onClick: () => router.push("/rollouts/create") }
               }
             />
           </CardContent>
         </Card>
+      ) : filteredRollouts.length === 0 ? (
+        <Card>
+          <CardContent className="py-8">
+            <EmptyState
+              icon={Rocket}
+              title="No matching rollouts"
+              description="No rollouts match the selected firmware or group filter."
+            />
+          </CardContent>
+        </Card>
       ) : (
         <>
           <div className="space-y-3">
-            {data?.data.map((rollout) => {
+            {filteredRollouts.map((rollout) => {
               const statusCfg = STATUS_CONFIG[rollout.status] ?? STATUS_CONFIG.draft;
               const progress = rollout.deviceCount > 0
                 ? Math.round(((rollout.completedCount + rollout.failedCount) / rollout.deviceCount) * 100)

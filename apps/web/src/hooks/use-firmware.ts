@@ -22,6 +22,7 @@ import {
   cancelRollout,
   retryRollout,
   getRolloutDevices,
+  getRolloutSummary,
   type FirmwarePackageListParams,
   type CreateFirmwarePackagePayload,
   type UpdateFirmwarePackagePayload,
@@ -178,6 +179,14 @@ export function useRolloutDevices(
   return useQuery({
     queryKey: queryKeys.rollouts.devices(rolloutId, params as Record<string, unknown>),
     queryFn: () => getRolloutDevices(rolloutId, params),
+    enabled: !!rolloutId,
+  });
+}
+
+export function useRolloutSummary(rolloutId: string) {
+  return useQuery({
+    queryKey: queryKeys.rollouts.summary(rolloutId),
+    queryFn: () => getRolloutSummary(rolloutId),
     enabled: !!rolloutId,
   });
 }

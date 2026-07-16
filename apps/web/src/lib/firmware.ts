@@ -143,6 +143,15 @@ export interface EligibilityPreviewResponse {
   ineligibleDevices: Array<{ id: string; name: string; type: string; status: string; reason: string }>;
 }
 
+export interface RolloutSummary {
+  pending: number;
+  running: number;
+  succeeded: number;
+  failed: number;
+  skipped: number;
+  cancelled: number;
+}
+
 export interface RetryResponse {
   success: boolean;
   retriedCount: number;
@@ -257,4 +266,10 @@ export async function getGroupEligibility(
   return get<EligibilityPreviewResponse>(
     `/rollouts/eligibility/group/${groupId}/package/${firmwarePackageId}`,
   );
+}
+
+export async function getRolloutSummary(
+  id: string,
+): Promise<RolloutSummary> {
+  return get<RolloutSummary>(`/rollouts/${id}/summary`);
 }
