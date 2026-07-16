@@ -15,6 +15,7 @@ import {
   deleteDeviceGroup,
   getGroupDevices,
   removeDeviceFromGroup,
+  addDeviceToGroup,
   type DeviceGroupListParams,
   type CreateDeviceGroupPayload,
   type UpdateDeviceGroupPayload,
@@ -101,6 +102,30 @@ export function useRemoveDeviceFromGroup() {
   return useMutation({
     mutationFn: ({ groupId, deviceId }: { groupId: string; deviceId: string }) =>
       removeDeviceFromGroup(groupId, deviceId),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.devices.detail(variables.deviceId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.deviceGroupMembership.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.deviceGroups.detail(variables.groupId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.deviceGroups.all });
+      // Invalidate all group device queries (any page/search combination)
+      queryClient.invalidateQueries({ queryKey: ["deviceGroups", "devices", variables.groupId] });
+    },
+  });
+}
+
+// ─── useAddDeviceToGroup ─────────────────────────────────────────────────
+
+/**
+ * Add a device to a device group.
+ * Invalidates the same cache family as removeDeviceFromGroup to keep all
+ * relationship views consistent.
+ */
+export function useAddDeviceToGroup() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ groupId, deviceId }: { groupId: string; deviceId: string }) =>
+      addDeviceToGroup(groupId, deviceId),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.devices.detail(variables.deviceId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.deviceGroupMembership.all });

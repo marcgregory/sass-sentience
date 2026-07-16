@@ -149,3 +149,17 @@ export async function removeDeviceFromGroup(
 ): Promise<{ success: boolean }> {
   return del<{ success: boolean }>(`/device-groups/${groupId}/devices/${deviceId}`);
 }
+
+/**
+ * Add a device to a device group.
+ * Atomic operation — uses PostgreSQL array_append() with duplicate protection.
+ */
+export async function addDeviceToGroup(
+  groupId: string,
+  deviceId: string,
+): Promise<{ success: boolean; deviceName?: string; groupName?: string }> {
+  return post<{ success: boolean; deviceName?: string; groupName?: string }>(
+    `/device-groups/${groupId}/devices`,
+    { deviceId },
+  );
+}

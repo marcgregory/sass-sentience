@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -26,6 +26,7 @@ import {
   Box,
   List,
   FolderKanban,
+  Search,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from "@/components/ui/dialog";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -50,7 +60,7 @@ import {
 import { StatusDot, StatusBadge } from "@/components/shared/status-dot";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useDevice, useDeviceGroupMembership } from "@/hooks/use-devices";
-import { useRemoveDeviceFromGroup } from "@/hooks/use-device-groups";
+import { useRemoveDeviceFromGroup, useAddDeviceToGroup, useDeviceGroups } from "@/hooks/use-device-groups";
 import { useLiveDeviceStore } from "@/stores/live-device-store";
 import { useSimulatorModeStore } from "@/stores/simulator-mode-store";
 import {
@@ -269,6 +279,14 @@ export default function DeviceDetailPage() {
   // ── Remove from group ─────────────────────────────────────────────
   const removeFromGroup = useRemoveDeviceFromGroup();
   const [groupToRemove, setGroupToRemove] = useState<{ id: string; name: string } | null>(null);
+
+  // ── Add to group ──────────────────────────────────────────────────
+  const addToGroup = useAddDeviceToGroup();
+  const [addGroupOpen, setAddGroupOpen] = useState(false);
+  const [groupSearch, setGroupSearch] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const groupSearchRef = useRef<HTMLInputElement>(null);
+  const { data: allGroups } = useDeviceGroups({ search: groupSearch || undefined, limit: 50 });
 
   // API data source
   const { device, apiDevice, isLoading, isError } = useDevice(deviceId);
@@ -631,11 +649,29 @@ export default function DeviceDetailPage() {
                 </button>
               </div>
             ))}
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 rounded-full"
+              onClick={() => setAddGroupOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add to Group
+            </Button>
           </div>
         ) : (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <HardDrive className="h-4 w-4 shrink-0" />
             Not assigned to any group.
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-2 gap-1.5"
+              onClick={() => setAddGroupOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add to Group
+            </Button>
           </div>
         )}
       </SectionCard>
@@ -675,6 +711,119 @@ export default function DeviceDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Add to Group — Search Dialog */}
+      <Dialog open={addGroupOpen} onOpenChange={(open) => {
+        if (!open) { setAddGroupOpen(false); setGroupSearch(""); }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add to Group</DialogTitle>
+            <DialogDescription>
+              Search and select a group to add <strong>{device?.name}</strong> to.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Search input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                ref={groupSearchRef}
+                type="text"
+                value={groupSearch}
+                onChange={(e) => setGroupSearch(e.target.value)}
+                placeholder="Search groups..."
+                className="h-10 w-full rounded-md border bg-background pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+                autoFocus
+              />
+            </div>
+
+            {/* Group list */}
+            <div className="max-h-60 overflow-y-auto rounded-md border">
+              {!allGroups ? (
+                <div className="space-y-1 p-2">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="h-10 animate-pulse rounded bg-muted" />
+                  ))}
+                </div>
+              ) : allGroups.data.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-8 text-sm text-muted-foreground">
+                  <FolderKanban className="h-8 w-8 opacity-40" />
+                  <p>No groups found</p>
+                  <p className="text-xs">Try a different search term</p>
+                </div>
+              ) : (
+                <div className="p-1">
+                  {allGroups.data
+                    .filter((g) => !deviceGroups?.some((dg) => dg.id === g.id))
+                    .map((g) => {
+                      const isSelected = selectedGroupId === g.id;
+                      return (
+                        <button
+                          key={g.id}
+                          type="button"
+                          onClick={() => setSelectedGroupId(isSelected ? null : g.id)}
+                          className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors ${
+                            isSelected
+                              ? "bg-primary/10 text-primary"
+                              : "hover:bg-muted"
+                          }`}
+                        >
+                          <FolderKanban className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <div className="flex-1 text-left">
+                            <p className="font-medium">{g.name}</p>
+                            {g.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-1">
+                                {g.description}
+                              </p>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {g.deviceCount} device{g.deviceCount !== 1 ? "s" : ""}
+                          </span>
+                        </button>
+                      );
+                    })}
+
+                  {allGroups.data.filter((g) => !deviceGroups?.some((dg) => dg.id === g.id)).length === 0 && (
+                    <div className="flex flex-col items-center gap-2 py-8 text-sm text-muted-foreground">
+                      <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+                      <p>Device is already in all groups</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" onClick={() => setGroupSearch("")}>
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              onClick={() => {
+                if (!selectedGroupId) return;
+                addToGroup.mutate(
+                  { groupId: selectedGroupId, deviceId },
+                  {
+                    onSuccess: () => {
+                      setAddGroupOpen(false);
+                      setGroupSearch("");
+                      setSelectedGroupId(null);
+                    },
+                  },
+                );
+              }}
+              disabled={!selectedGroupId || addToGroup.isPending}
+            >
+              {addToGroup.isPending ? "Adding..." : "Add to Group"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Tags */}
       {!simulatorMode && apiDevice && (

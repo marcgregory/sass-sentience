@@ -276,6 +276,81 @@ export async function deviceGroupRoutes(app: FastifyInstance) {
     return reply.send(updated);
   });
 
+  // ─── Add device to group ────────────────────────────────────────────────
+  /**
+   * Atomically append a device to a group's deviceIds array using
+   * PostgreSQL array_append() — no read-modify-write race condition.
+   * Prevents duplicate entries via a NOT IN guard.
+   */
+  app.post("/:groupId/devices", { preHandler: [requireAuth, requireRole("admin", "support")] }, async (request, reply) => {
+    const { groupId } = z
+      .object({ groupId: z.string().uuid() })
+      .parse(request.params);
+
+    const body = z.object({ deviceId: z.string().uuid() }).parse(request.body);
+    const { deviceId } = body;
+
+    // Verify group exists
+    const [group] = await db
+      .select({ id: deviceGroups.id, name: deviceGroups.name, deviceIds: deviceGroups.deviceIds })
+      .from(deviceGroups)
+      .where(eq(deviceGroups.id, groupId))
+      .limit(1);
+
+    if (!group) {
+      return reply.status(404).send({ message: "Group not found", code: "NOT_FOUND" });
+    }
+
+    // Verify device exists
+    const [device] = await db
+      .select({ id: devices.id, name: devices.name })
+      .from(devices)
+      .where(eq(devices.id, deviceId))
+      .limit(1);
+
+    if (!device) {
+      return reply.status(404).send({ message: "Device not found", code: "NOT_FOUND" });
+    }
+
+    // Check for duplicate assignment
+    if (group.deviceIds.includes(deviceId)) {
+      return reply.status(409).send({
+        message: `Device "${device.name}" is already assigned to group "${group.name}"`,
+        code: "DUPLICATE_ASSIGNMENT",
+      });
+    }
+
+    // Atomically append deviceId to the array
+    const [updated] = await db
+      .update(deviceGroups)
+      .set({
+        deviceIds: sql`array_append(${deviceGroups.deviceIds}, ${deviceId}::uuid)`,
+        deviceCount: sql`(SELECT COALESCE(array_length(${deviceGroups.deviceIds}, 1), 0) + 1)`,
+        updatedAt: new Date(),
+      })
+      .where(eq(deviceGroups.id, groupId))
+      .returning({ id: deviceGroups.id, name: deviceGroups.name, deviceCount: deviceGroups.deviceCount });
+
+    if (!updated) {
+      return reply.status(404).send({ message: "Group not found", code: "NOT_FOUND" });
+    }
+
+    const user = request.user as JwtPayload;
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "update",
+      resource: "DeviceGroup",
+      resourceId: groupId,
+      description: `Device "${device.name}" (${deviceId}) added to group "${group.name}"`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
+
+    return reply.status(200).send({ success: true, deviceName: device.name, groupName: group.name });
+  });
+
   // ─── Remove device from group ──────────────────────────────────────────
   /**
    * Atomic removal of a device from a group's deviceIds array using
