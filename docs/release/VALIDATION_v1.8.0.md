@@ -265,6 +265,7 @@ Running 16 tests using 1 worker
 | # | Gate | Problem | Resolution | Follow-up |
 |---|------|---------|------------|-----------|
 | 1 | Pre-validation | Missing migration 0009 for `archivedAt` on `device_groups` — schema updated in Sprint 10, no migration generated | Generated via `drizzle-kit generate`, corrected to ALTER TABLE. Committed before Gate 0. | Add migration validation to pre-release checklist. |
+| 2 | Validation | Persistent Docker volume caused stale migration state — `archivedAt` was absent despite migration 0009 being in journal | Manual `ALTER TABLE ADD COLUMN` applied; confirmed `docker compose down -v` produces clean state | Use `-v` flag or document volume cleanup in release process. |
 
 ---
 
