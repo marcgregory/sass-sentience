@@ -15,6 +15,7 @@ export interface DeviceGroupApiItem {
   description: string | null;
   deviceIds: string[];
   deviceCount: number;
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -35,6 +36,7 @@ export interface DeviceGroupListParams {
   limit?: number;
   sort?: string;
   order?: string;
+  archived?: "true" | "false" | "all";
 }
 
 export interface CreateDeviceGroupPayload {
@@ -213,4 +215,39 @@ export async function bulkRemoveTags(
     method: "DELETE",
     body: JSON.stringify({ tags }),
   });
+}
+
+// ─── Archive / Restore / Duplicate API ───────────────────────────────────
+
+export interface ArchiveRestoreResponse {
+  success: boolean;
+  name: string;
+}
+
+/**
+ * Archive (soft-delete) a device group.
+ */
+export async function archiveGroup(
+  id: string,
+): Promise<ArchiveRestoreResponse> {
+  return post<ArchiveRestoreResponse>(`/device-groups/${id}/archive`);
+}
+
+/**
+ * Restore an archived device group.
+ */
+export async function restoreGroup(
+  id: string,
+): Promise<ArchiveRestoreResponse> {
+  return post<ArchiveRestoreResponse>(`/device-groups/${id}/restore`);
+}
+
+/**
+ * Duplicate a device group — copies name, description, and device IDs.
+ * Returns the created group for immediate navigation.
+ */
+export async function duplicateGroup(
+  id: string,
+): Promise<DeviceGroupApiItem> {
+  return post<DeviceGroupApiItem>(`/device-groups/${id}/duplicate`);
 }

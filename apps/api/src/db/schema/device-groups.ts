@@ -8,6 +8,7 @@ export const deviceGroups = pgTable(
     description: text("description"),
     deviceIds: uuid("device_ids").array().notNull().default([]),
     deviceCount: integer("device_count").notNull().default(0),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

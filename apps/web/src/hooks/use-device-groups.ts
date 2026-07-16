@@ -18,6 +18,9 @@ import {
   addDeviceToGroup,
   bulkAssignTags,
   bulkRemoveTags,
+  archiveGroup,
+  restoreGroup,
+  duplicateGroup,
   type DeviceGroupListParams,
   type CreateDeviceGroupPayload,
   type UpdateDeviceGroupPayload,
@@ -190,6 +193,55 @@ export function useBulkRemoveTags() {
       queryClient.invalidateQueries({ queryKey: queryKeys.devices.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.deviceGroups.detail(variables.groupId) });
       queryClient.invalidateQueries({ queryKey: ["deviceGroups", "devices", variables.groupId] });
+    },
+  });
+}
+
+// ─── useArchiveGroup ────────────────────────────────────────────────────
+
+/**
+ * Archive (soft-delete) a device group.
+ */
+export function useArchiveGroup() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => archiveGroup(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.deviceGroups.all });
+    },
+  });
+}
+
+// ─── useRestoreGroup ────────────────────────────────────────────────────
+
+/**
+ * Restore an archived device group.
+ */
+export function useRestoreGroup() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => restoreGroup(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.deviceGroups.all });
+    },
+  });
+}
+
+// ─── useDuplicateGroup ─────────────────────────────────────────────────
+
+/**
+ * Duplicate a device group.
+ * Returns the created group for immediate navigation.
+ */
+export function useDuplicateGroup() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => duplicateGroup(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.deviceGroups.all });
     },
   });
 }

@@ -51,12 +51,16 @@ import {
   ChevronLeft,
   ChevronRight,
   Tags,
+  Archive,
+  RotateCcw,
+  Copy,
 } from "lucide-react";
 import {
   formatRelativeTime,
   deriveDeviceHealth,
+  cn,
 } from "@sentience/utils";
-import { useDeviceGroup, useUpdateDeviceGroup, useDeleteDeviceGroup, useGroupDevices, useBulkAssignTags, useBulkRemoveTags } from "@/hooks/use-device-groups";
+import { useDeviceGroup, useUpdateDeviceGroup, useDeleteDeviceGroup, useGroupDevices, useBulkAssignTags, useBulkRemoveTags, useArchiveGroup, useRestoreGroup, useDuplicateGroup } from "@/hooks/use-device-groups";
 import { useDevices } from "@/hooks/use-devices";
 import type { UpdateDeviceGroupPayload } from "@/lib/device-groups";
 import type { GroupDeviceItem, BulkTagPreviewResponse, BulkTagResponse } from "@/lib/device-groups";
@@ -130,6 +134,9 @@ export default function GroupDetailPage() {
   const { data: group, isLoading, isError, error } = useDeviceGroup(groupId);
   const updateGroup = useUpdateDeviceGroup();
   const deleteGroup = useDeleteDeviceGroup();
+  const archiveGroupMutation = useArchiveGroup();
+  const restoreGroupMutation = useRestoreGroup();
+  const duplicateMutation = useDuplicateGroup();
 
   // ── Group Devices (server-scoped, paginated) ──────────────────────────
   // Phase B.1 — uses the new backend query instead of client-side filtering.
@@ -241,6 +248,12 @@ export default function GroupDetailPage() {
 
   const handleDelete = () => {
     deleteGroup.mutate(groupId, {
+      onSuccess: () => router.push("/groups"),
+    });
+  };
+
+  const handleArchive = () => {
+    archiveGroupMutation.mutate(groupId, {
       onSuccess: () => router.push("/groups"),
     });
   };
@@ -364,44 +377,117 @@ export default function GroupDetailPage() {
         </Button>
       </div>
       <PageHeader
-        title={group.name}
+        title={
+          <span className="flex items-center gap-3">
+            {group.name}
+            {!!group.archivedAt && (
+              <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Archived
+              </span>
+            )}
+          </span>
+        }
         description={group.description ?? `${group.deviceCount} device${group.deviceCount !== 1 ? "s" : ""} • Created ${formatRelativeTime(group.createdAt)}`}
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" onClick={openEditDialog} className="gap-2">
-              Edit Group
-            </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm" className="gap-2">
-                  <Trash2 className="h-4 w-4" />
-                  Delete
+            {!!group.archivedAt ? (
+              <>
+                <Button variant="outline" className="gap-2" onClick={() => restoreGroupMutation.mutate(groupId)} disabled={restoreGroupMutation.isPending}>
+                  <RotateCcw className="h-4 w-4" />
+                  {restoreGroupMutation.isPending ? "Restoring..." : "Restore"}
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Device Group</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Are you sure you want to delete <strong>{group.name}</strong>? This action cannot be undone. Devices in this group will not be affected.
-                    {group.deviceCount > 0 && (
-                      <span className="block mt-2 text-amber-600 dark:text-amber-400">
-                        This group contains {group.deviceCount} device{group.deviceCount !== 1 ? "s" : ""}.
-                      </span>
-                    )}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDelete}
-                    className="bg-red-600 hover:bg-red-700"
-                    disabled={deleteGroup.isPending}
-                  >
-                    {deleteGroup.isPending ? "Deleting..." : "Delete"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm" className="gap-2">
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Device Group</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete <strong>{group.name}</strong>? This permanently removes the group. Devices are not affected.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700" disabled={deleteGroup.isPending}>
+                        {deleteGroup.isPending ? "Deleting..." : "Delete"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={openEditDialog} className="gap-2">
+                  Edit Group
+                </Button>
+                <Button variant="outline" className="gap-2" onClick={() => {
+                  duplicateMutation.mutate(groupId, {
+                    onSuccess: (created) => router.push(`/groups/${created.id}`),
+                  });
+                }} disabled={duplicateMutation.isPending}>
+                  <Copy className="h-4 w-4" />
+                  {duplicateMutation.isPending ? "Duplicating..." : "Duplicate"}
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2 text-amber-600 hover:text-amber-700 border-amber-300 hover:border-amber-400">
+                      <Archive className="h-4 w-4" />
+                      Archive
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Archive Device Group</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Archive <strong>{group.name}</strong>?
+                        <span className="block mt-2 text-muted-foreground">
+                          The group will be hidden from normal views. All device
+                          relationships and audit history are preserved. You can
+                          restore it later.
+                        </span>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleArchive} className="bg-amber-600 hover:bg-amber-700" disabled={archiveGroupMutation.isPending}>
+                        {archiveGroupMutation.isPending ? "Archiving..." : "Archive"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm" className="gap-2">
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Device Group</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete <strong>{group.name}</strong>? This action cannot be undone. Devices in this group will not be affected.
+                        {group.deviceCount > 0 && (
+                          <span className="block mt-2 text-amber-600 dark:text-amber-400">
+                            This group contains {group.deviceCount} device{group.deviceCount !== 1 ? "s" : ""}.
+                          </span>
+                        )}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700" disabled={deleteGroup.isPending}>
+                        {deleteGroup.isPending ? "Deleting..." : "Delete"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            )}
           </div>
         }
       />

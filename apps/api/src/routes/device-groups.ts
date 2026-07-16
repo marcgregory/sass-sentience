@@ -26,6 +26,7 @@ const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
   sort: z.enum(["name", "createdAt"]).optional().default("createdAt"),
   order: z.enum(["asc", "desc"]).optional().default("desc"),
+  archived: z.enum(["true", "false", "all"]).optional().default("false"),
 });
 
 const groupDeviceQuerySchema = z.object({
@@ -56,6 +57,13 @@ export async function deviceGroupRoutes(app: FastifyInstance) {
         ) as SQL,
       );
     }
+
+    if (query.archived === "true") {
+      conditions.push(sql`${deviceGroups.archivedAt} IS NOT NULL`);
+    } else if (query.archived === "false") {
+      conditions.push(sql`${deviceGroups.archivedAt} IS NULL`);
+    }
+    // archived=all — no filter
 
     const where = conditions.length > 0 ? and(...conditions) as SQL : undefined;
 
@@ -401,6 +409,119 @@ export async function deviceGroupRoutes(app: FastifyInstance) {
     });
 
     return reply.send({ success: true });
+  });
+
+  // ─── Archive group ──────────────────────────────────────────────────────
+  /**
+   * Soft-delete a device group by setting archivedAt.
+   * Archived groups are excluded from normal list queries.
+   * All relationships (deviceIds, audit history) remain intact.
+   */
+  app.post("/:id/archive", { preHandler: [requireAuth, requireRole("admin", "support")] }, async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+
+    const [updated] = await db
+      .update(deviceGroups)
+      .set({ archivedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(deviceGroups.id, id), sql`${deviceGroups.archivedAt} IS NULL`))
+      .returning({ id: deviceGroups.id, name: deviceGroups.name });
+
+    if (!updated) {
+      return reply.status(404).send({ message: "Group not found or already archived", code: "NOT_FOUND" });
+    }
+
+    const user = request.user as JwtPayload;
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "update",
+      resource: "DeviceGroup",
+      resourceId: id,
+      description: `Device group "${updated.name}" archived`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
+
+    return reply.send({ success: true, name: updated.name });
+  });
+
+  // ─── Restore group ──────────────────────────────────────────────────────
+  /**
+   * Restore an archived device group.
+   */
+  app.post("/:id/restore", { preHandler: [requireAuth, requireRole("admin", "support")] }, async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+
+    const [updated] = await db
+      .update(deviceGroups)
+      .set({ archivedAt: null, updatedAt: new Date() })
+      .where(and(eq(deviceGroups.id, id), sql`${deviceGroups.archivedAt} IS NOT NULL`))
+      .returning({ id: deviceGroups.id, name: deviceGroups.name });
+
+    if (!updated) {
+      return reply.status(404).send({ message: "Group not found or not archived", code: "NOT_FOUND" });
+    }
+
+    const user = request.user as JwtPayload;
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "update",
+      resource: "DeviceGroup",
+      resourceId: id,
+      description: `Device group "${updated.name}" restored`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
+
+    return reply.send({ success: true, name: updated.name });
+  });
+
+  // ─── Duplicate group ─────────────────────────────────────────────────────
+  /**
+   * Duplicate a device group with its name, description, and device IDs.
+   * New group name gets " (Copy)" suffix.
+   * Returns the newly created group for immediate navigation.
+   */
+  app.post("/:id/duplicate", { preHandler: [requireAuth, requireRole("admin", "support")] }, async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
+
+    const [source] = await db
+      .select({ id: deviceGroups.id, name: deviceGroups.name, description: deviceGroups.description, deviceIds: deviceGroups.deviceIds, deviceCount: deviceGroups.deviceCount })
+      .from(deviceGroups)
+      .where(eq(deviceGroups.id, id))
+      .limit(1);
+
+    if (!source) {
+      return reply.status(404).send({ message: "Group not found", code: "NOT_FOUND" });
+    }
+
+    const [created] = await db
+      .insert(deviceGroups)
+      .values({
+        name: `${source.name} (Copy)`,
+        description: source.description,
+        deviceIds: source.deviceIds,
+        deviceCount: source.deviceCount,
+      })
+      .returning();
+
+    const user = request.user as JwtPayload;
+    await logAuditEvent({
+      userId: user.sub,
+      userName: user.name,
+      userRole: user.role,
+      action: "create",
+      resource: "DeviceGroup",
+      resourceId: created.id,
+      description: `Device group "${created.name}" duplicated from "${source.name}"`,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
+
+    return reply.status(201).send(created);
   });
 
   // ─── Bulk Tag: Preview ──────────────────────────────────────────────────

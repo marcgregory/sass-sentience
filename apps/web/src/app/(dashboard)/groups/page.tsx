@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -41,32 +41,91 @@ import {
   RefreshCw,
   X,
   HardDrive,
+  Archive,
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  Tag,
 } from "lucide-react";
-import { formatRelativeTime } from "@sentience/utils";
-import { useDeviceGroups, useCreateDeviceGroup, useDeleteDeviceGroup } from "@/hooks/use-device-groups";
+import { formatRelativeTime, cn } from "@sentience/utils";
+import { useDeviceGroups, useCreateDeviceGroup, useDeleteDeviceGroup, useArchiveGroup, useRestoreGroup } from "@/hooks/use-device-groups";
 import type { CreateDeviceGroupPayload } from "@/lib/device-groups";
+
+// ─── Constants ────────────────────────────────────────────────────────────
+
+const PAGE_SIZE = 20;
+
+type ArchiveFilter = "active" | "archived" | "all";
+
+const ARCHIVE_FILTERS: { value: ArchiveFilter; label: string }[] = [
+  { value: "active", label: "Active" },
+  { value: "archived", label: "Archived" },
+  { value: "all", label: "All" },
+];
 
 export default function GroupsPage() {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState("");
+  const searchParams = useSearchParams();
+
+  const initialPage = Math.max(1, parseInt(searchParams.get("page") ?? "1"));
+  const initialSearch = searchParams.get("search") ?? "";
+  const initialArchived = (searchParams.get("archived") as ArchiveFilter) ?? "active";
+
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
+  const [archivedFilter, setArchivedFilter] = useState<ArchiveFilter>(initialArchived);
+  const [page, setPage] = useState(initialPage);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [archiveId, setArchiveId] = useState<string | null>(null);
+  const [archiveName, setArchiveName] = useState("");
+  const [restoreId, setRestoreId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
 
-  const { data, isLoading, isError, error } = useDeviceGroups();
+  const { data, isLoading, isError, error } = useDeviceGroups({
+    search: searchQuery || undefined,
+    page,
+    limit: PAGE_SIZE,
+    archived: archivedFilter === "all" ? "all" : archivedFilter === "archived" ? "true" : "false",
+  });
   const createGroup = useCreateDeviceGroup();
   const deleteGroup = useDeleteDeviceGroup();
+  const archiveGroup = useArchiveGroup();
+  const restoreGroup = useRestoreGroup();
 
   const groups = data?.data ?? [];
+  const total = data?.pagination?.total ?? 0;
+  const totalPages = data?.pagination?.totalPages ?? 0;
 
-  const filteredGroups = searchQuery.trim()
-    ? groups.filter(
-        (g) =>
-          g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (g.description ?? "").toLowerCase().includes(searchQuery.toLowerCase()),
-      )
-    : groups;
+  // ── URL sync ─────────────────────────────────────────────────────────
+
+  const updateUrl = useCallback((p: number, s: string, a: ArchiveFilter) => {
+    const params = new URLSearchParams();
+    if (p > 1) params.set("page", String(p));
+    if (s) params.set("search", s);
+    if (a !== "active") params.set("archived", a);
+    const qs = params.toString();
+    router.replace(`/groups${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [router]);
+
+  const handleSearch = (value: string) => {
+    setSearchQuery(value);
+    setPage(1);
+    updateUrl(1, value, archivedFilter);
+  };
+
+  const handleArchiveFilter = (value: ArchiveFilter) => {
+    setArchivedFilter(value);
+    setPage(1);
+    updateUrl(page, searchQuery, value);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    updateUrl(newPage, searchQuery, archivedFilter);
+  };
+
+  // ── Handlers ──────────────────────────────────────────────────────────
 
   const handleCreate = () => {
     if (!newName.trim()) return;
@@ -87,6 +146,20 @@ export default function GroupsPage() {
     if (!deleteId) return;
     deleteGroup.mutate(deleteId, {
       onSuccess: () => setDeleteId(null),
+    });
+  };
+
+  const handleArchive = () => {
+    if (!archiveId) return;
+    archiveGroup.mutate(archiveId, {
+      onSuccess: () => { setArchiveId(null); setArchiveName(""); },
+    });
+  };
+
+  const handleRestore = () => {
+    if (!restoreId) return;
+    restoreGroup.mutate(restoreId, {
+      onSuccess: () => setRestoreId(null),
     });
   };
 
@@ -155,17 +228,36 @@ export default function GroupsPage() {
         }
       />
 
-      {/* Search bar */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          type="search"
-          aria-label="Search groups"
-          placeholder="Search by name or description..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full rounded-md border bg-background py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-ring"
-        />
+      {/* Search + filter bar */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="search"
+            aria-label="Search groups"
+            placeholder="Search by name or description..."
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+            className="w-full rounded-md border bg-background py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <div className="flex gap-1 rounded-lg border p-0.5 bg-muted/30">
+          {ARCHIVE_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => handleArchiveFilter(f.value)}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                archivedFilter === f.value
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Loading state */}
@@ -212,99 +304,210 @@ export default function GroupsPage() {
       )}
 
       {/* Empty state */}
-      {!isLoading && !isError && filteredGroups.length === 0 && (
+      {!isLoading && !isError && groups.length === 0 && (
         <EmptyState
           icon={FolderKanban}
-          title={searchQuery ? "No matching groups" : "No groups yet"}
+          title={
+            searchQuery
+              ? "No matching groups"
+              : archivedFilter === "archived"
+                ? "No archived groups"
+                : "No groups yet"
+          }
           description={
             searchQuery
               ? "No groups match your search. Try a different term."
-              : "Create your first device group to start organizing devices."
+              : archivedFilter === "archived"
+                ? "Archived groups will appear here after you archive them."
+                : "Create your first device group to start organizing devices."
           }
           action={
             searchQuery
-              ? { label: "Clear Search", onClick: () => setSearchQuery("") }
-              : { label: "Create Group", onClick: () => setCreateOpen(true) }
+              ? { label: "Clear Search", onClick: () => handleSearch("") }
+              : archivedFilter === "active" && !searchQuery
+                ? { label: "Create Group", onClick: () => setCreateOpen(true) }
+                : undefined
           }
         />
       )}
 
       {/* Group cards grid */}
-      {!isLoading && !isError && filteredGroups.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredGroups.map((group) => (
-            <Card
-              key={group.id}
-              className="cursor-pointer transition-colors hover:bg-muted/30"
-              onClick={() => router.push(`/groups/${group.id}`)}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <FolderKanban className="h-5 w-5 text-muted-foreground shrink-0" />
-                    <CardTitle className="text-base">{group.name}</CardTitle>
-                  </div>
-                  <AlertDialog open={deleteId === group.id} onOpenChange={(open) => !open && setDeleteId(null)}>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 shrink-0 text-muted-foreground hover:text-red-500"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteId(group.id);
-                        }}
-                        aria-label={`Delete group ${group.name}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Device Group</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete <strong>{group.name}</strong>? This action cannot be undone. Devices in this group will not be affected.
-                          {group.deviceCount > 0 && (
-                            <span className="block mt-2 text-amber-600 dark:text-amber-400">
-                              This group contains {group.deviceCount} device{group.deviceCount !== 1 ? "s" : ""}.
-                            </span>
-                          )}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
+      {!isLoading && !isError && groups.length > 0 && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {groups.map((group) => {
+              const isArchived = !!group.archivedAt;
+              return (
+                <Card
+                  key={group.id}
+                  className={cn(
+                    "cursor-pointer transition-colors hover:bg-muted/30",
+                    isArchived && "opacity-70",
+                  )}
+                  onClick={() => router.push(`/groups/${group.id}`)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FolderKanban className="h-5 w-5 text-muted-foreground shrink-0" />
+                        <CardTitle className="text-base truncate">{group.name}</CardTitle>
+                        {isArchived && (
+                          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                            Archived
+                          </span>
+                        )}
+                      </div>
+                      {/* Archived group: restore */}
+                      {isArchived ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 shrink-0 text-muted-foreground hover:text-emerald-500"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDelete();
+                            setRestoreId(group.id);
                           }}
-                          className="bg-red-600 hover:bg-red-700"
-                          disabled={deleteGroup.isPending}
+                          aria-label={`Restore group ${group.name}`}
                         >
-                          {deleteGroup.isPending ? "Deleting..." : "Delete"}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-                {group.description && (
-                  <CardDescription className="line-clamp-2 mt-1">
-                    {group.description}
-                  </CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span>
-                    <strong className="text-foreground">{group.deviceCount}</strong> device{group.deviceCount !== 1 ? "s" : ""}
-                  </span>
-                  <span>Created {formatRelativeTime(group.createdAt)}</span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 shrink-0 text-muted-foreground hover:text-amber-500"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setArchiveId(group.id);
+                            setArchiveName(group.name);
+                          }}
+                          aria-label={`Archive group ${group.name}`}
+                        >
+                          <Archive className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    {group.description && (
+                      <CardDescription className="line-clamp-2 mt-1">
+                        {group.description}
+                      </CardDescription>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <span>
+                        <strong className="text-foreground">{group.deviceCount}</strong> device{group.deviceCount !== 1 ? "s" : ""}
+                      </span>
+                      <span>Created {formatRelativeTime(group.createdAt)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>
+                Page {page} of {totalPages} ({total} group{total !== 1 ? "s" : ""})
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => handlePageChange(page - 1)}
+                  className="gap-1"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => handlePageChange(page + 1)}
+                  className="gap-1"
+                >
+                  Next
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
+
+      {/* Archive Confirmation Dialog */}
+      <AlertDialog open={!!archiveId} onOpenChange={(open) => { if (!open) setArchiveId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive Device Group</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to archive <strong>{archiveName}</strong>?
+              <span className="block mt-2 text-muted-foreground">
+                The group will be hidden from normal views but all relationships
+                and audit history are preserved. You can restore it later.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleArchive}
+              disabled={archiveGroup.isPending}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {archiveGroup.isPending ? "Archiving..." : "Archive"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Restore Confirmation Dialog */}
+      <AlertDialog open={!!restoreId} onOpenChange={(open) => { if (!open) setRestoreId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore Device Group</AlertDialogTitle>
+            <AlertDialogDescription>
+              Restore this archived group? It will become visible in normal views again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRestore}
+              disabled={restoreGroup.isPending}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              {restoreGroup.isPending ? "Restoring..." : "Restore"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Device Group</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the group. Devices are not affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleteGroup.isPending}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteGroup.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
