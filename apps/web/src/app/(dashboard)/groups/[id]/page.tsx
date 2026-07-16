@@ -48,13 +48,22 @@ import {
   Check,
   X as XIcon,
   HardDrive,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   formatRelativeTime,
+  deriveDeviceHealth,
 } from "@sentience/utils";
-import { useDeviceGroup, useUpdateDeviceGroup, useDeleteDeviceGroup } from "@/hooks/use-device-groups";
+import { useDeviceGroup, useUpdateDeviceGroup, useDeleteDeviceGroup, useGroupDevices } from "@/hooks/use-device-groups";
 import { useDevices } from "@/hooks/use-devices";
 import type { UpdateDeviceGroupPayload } from "@/lib/device-groups";
+import type { GroupDeviceItem } from "@/lib/device-groups";
+import type { DeviceStatus, StatusReason } from "@sentience/types";
+import type { DeviceEntry } from "@sentience/utils";
+import type { DeviceListRow } from "@/hooks/use-devices";
+
+// ─── Helpers ─────────────────────────────────────────────────────────────
 
 function formatUptime(seconds: number | null): string {
   if (seconds == null || seconds <= 0) return "N/A";
@@ -66,6 +75,50 @@ function formatUptime(seconds: number | null): string {
   return `${Math.max(1, minutes)}m`;
 }
 
+/**
+ * Map a GroupDeviceItem (from the server-scoped group devices API)
+ * to the DeviceListRow format used by the table renderer.
+ */
+function mapGroupDeviceToRow(d: GroupDeviceItem): DeviceListRow {
+  const entry: DeviceEntry = {
+    deviceId: d.id,
+    deviceType: d.type,
+    status: d.status as DeviceStatus,
+    telemetry:
+      d.battery != null && d.signalStrength != null && d.temperature != null
+        ? {
+            battery: d.battery,
+            voltage: 0,
+            temperature: d.temperature,
+            signalStrength: d.signalStrength,
+            timestamp: d.lastHeartbeat ?? d.updatedAt ?? new Date().toISOString(),
+          }
+        : null,
+    lastSeen: d.lastHeartbeat ?? d.updatedAt ?? new Date().toISOString(),
+    siteId: d.siteId,
+    siteName: d.siteName ?? undefined,
+    estateName: d.estateName ?? undefined,
+  };
+  const health = deriveDeviceHealth(entry);
+  return {
+    id: d.id,
+    name: d.name,
+    serial: d.serialNumber,
+    type: d.type.charAt(0).toUpperCase() + d.type.slice(1),
+    status: health.status,
+    reasons: health.reasons,
+    battery: d.battery,
+    signal: d.signalStrength ?? 0,
+    temp: d.temperature ?? 0,
+    site: d.siteName ?? `Site ${d.siteId.slice(0, 8)}`,
+    lastSeen: d.lastHeartbeat ?? d.updatedAt ?? new Date().toISOString(),
+    uptime: d.uptime,
+    tags: d.tags ?? [],
+  };
+}
+
+const PAGE_SIZE = 20;
+
 export default function GroupDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -75,44 +128,62 @@ export default function GroupDetailPage() {
   const updateGroup = useUpdateDeviceGroup();
   const deleteGroup = useDeleteDeviceGroup();
 
-  // Fetch all devices (we'll filter by group membership client-side)
-  const { devices, isLoading: devicesLoading } = useDevices(1);
-
-  // Edit dialog state
-  const [editOpen, setEditOpen] = useState(false);
-  const [editName, setEditName] = useState("");
-  const [editDescription, setEditDescription] = useState("");
-
-  // Add devices dialog state
-  const [addDevicesOpen, setAddDevicesOpen] = useState(false);
+  // ── Group Devices (server-scoped, paginated) ──────────────────────────
+  // Phase B.1 — uses the new backend query instead of client-side filtering.
+  const [devicePage, setDevicePage] = useState(1);
   const [deviceSearch, setDeviceSearch] = useState("");
+
+  const groupDevicesQuery = useGroupDevices(groupId, {
+    page: devicePage,
+    limit: PAGE_SIZE,
+    search: deviceSearch.trim() || undefined,
+  });
+
+  const groupDeviceRows = useMemo<DeviceListRow[]>(() => {
+    if (!groupDevicesQuery.data) return [];
+    return groupDevicesQuery.data.data.map(mapGroupDeviceToRow);
+  }, [groupDevicesQuery.data]);
+
+  const totalGroupDevices = groupDevicesQuery.data?.pagination?.total ?? 0;
+  const totalGroupPages = groupDevicesQuery.data?.pagination?.totalPages ?? 0;
+
+  // ── Add Devices Dialog (will migrate to server search in Phase B.4) ──
+  // TODO(Phase B.4): Replace useDevices(1) with a dedicated "search available
+  // devices" endpoint that excludes already-assigned devices server-side.
+  const { devices: allDevices, isLoading: allDevicesLoading } = useDevices(1);
+  const [addDevicesOpen, setAddDevicesOpen] = useState(false);
+  const [addDeviceSearch, setAddDeviceSearch] = useState("");
 
   // Devices not in group — candidate list for adding
   const devicesNotInGroup = useMemo(() => {
     if (!group) return [];
     const groupDeviceIds = new Set(group.deviceIds);
-    return devices.filter((d) => !groupDeviceIds.has(d.id));
-  }, [group, devices]);
+    return allDevices.filter((d) => !groupDeviceIds.has(d.id));
+  }, [group, allDevices]);
 
   // Filter candidates by search
   const candidateDevices = useMemo(() => {
-    if (!deviceSearch.trim()) return devicesNotInGroup;
-    const q = deviceSearch.toLowerCase();
+    if (!addDeviceSearch.trim()) return devicesNotInGroup;
+    const q = addDeviceSearch.toLowerCase();
     return devicesNotInGroup.filter(
       (d) =>
         d.name.toLowerCase().includes(q) ||
         d.serial.toLowerCase().includes(q),
     );
-  }, [devicesNotInGroup, deviceSearch]);
+  }, [devicesNotInGroup, addDeviceSearch]);
 
-  // Group member devices
-  const groupDevices = useMemo(() => {
-    if (!group) return [];
-    const groupDeviceIds = new Set(group.deviceIds);
-    return devices.filter((d) => groupDeviceIds.has(d.id));
-  }, [group, devices]);
+  // Redirect (for table-level only — add-device dialog uses addDeviceSearch)
+  const handleSearchChange = (value: string) => {
+    setDeviceSearch(value);
+    setDevicePage(1); // reset to first page on new search
+  };
 
-  // ── Handlers ─────────────────────────────────────────────────────────
+  // ── Edit dialog state ─────────────────────────────────────────────────
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+
+  // ── Handlers ──────────────────────────────────────────────────────────
 
   const handleEdit = () => {
     if (!group || !editName.trim()) return;
@@ -362,6 +433,8 @@ export default function GroupDetailPage() {
       </div>
 
       {/* Add Devices Dialog */}
+      {/* TODO(Phase B.4): Replace this client-side candidate list with a
+          server-side search endpoint that excludes already-assigned devices. */}
       <Dialog open={addDevicesOpen} onOpenChange={setAddDevicesOpen}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
@@ -376,15 +449,15 @@ export default function GroupDetailPage() {
               type="search"
               aria-label="Search devices to add"
               placeholder="Search by name or serial..."
-              value={deviceSearch}
-              onChange={(e) => setDeviceSearch(e.target.value)}
+              value={addDeviceSearch}
+              onChange={(e) => setAddDeviceSearch(e.target.value)}
               className="w-full rounded-md border bg-background py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
           <div className="max-h-64 overflow-y-auto space-y-1">
             {candidateDevices.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">
-                {deviceSearch ? "No devices match your search." : "All devices are already in this group."}
+                {addDeviceSearch ? "No devices match your search." : "All devices are already in this group."}
               </p>
             ) : (
               candidateDevices.map((d) => (
@@ -419,26 +492,32 @@ export default function GroupDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Group devices section */}
+      {/* ═══ Group Devices Section ═══════════════════════════════════════ */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <h2 className="text-lg font-semibold">Devices in this Group</h2>
-          <span className="text-sm text-muted-foreground">
-            {groupDevices.length} device{groupDevices.length !== 1 ? "s" : ""}
-          </span>
+          {!groupDevicesQuery.isLoading && totalGroupDevices > 0 && (
+            <span className="text-sm text-muted-foreground">
+              {totalGroupDevices} device{totalGroupDevices !== 1 ? "s" : ""}
+            </span>
+          )}
         </div>
 
-        {groupDevices.length === 0 ? (
-          <EmptyState
-            icon={HardDrive}
-            title="No devices in this group"
-            description="Add devices to this group to get started."
-            action={devicesNotInGroup.length > 0 ? {
-              label: "Add Devices",
-              onClick: () => setAddDevicesOpen(true),
-            } : undefined}
+        {/* Server-side search for group devices */}
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="search"
+            aria-label="Search devices in group"
+            placeholder="Search devices in this group..."
+            value={deviceSearch}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="w-full rounded-md border bg-background py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
-        ) : (
+        </div>
+
+        {/* Group Devices: Loading */}
+        {groupDevicesQuery.isLoading && (
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full">
               <thead>
@@ -454,50 +533,160 @@ export default function GroupDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {groupDevices.map((d) => (
-                  <tr
-                    key={d.id}
-                    className="border-b hover:bg-muted/30 transition-colors cursor-pointer"
-                    onClick={() => router.push(`/devices/${d.id}`)}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Monitor className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span className="text-sm font-medium">{d.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground font-mono">{d.serial}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={d.status} reasons={d.reasons} />
-                    </td>
-                    <td className="px-4 py-3 text-sm">{d.battery != null ? `${d.battery}%` : "N/A"}</td>
-                    <td className="px-4 py-3 text-sm">{d.signal !== 0 ? `${d.signal} dBm` : "N/A"}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
-                      {formatRelativeTime(d.lastSeen)}
-                    </td>
-                    <td className="px-4 py-3 text-sm font-medium whitespace-nowrap">
-                      {formatUptime(d.uptime)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-red-500"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveDevice(d.id);
-                        }}
-                        disabled={updateGroup.isPending}
-                        aria-label={`Remove ${d.name} from group`}
-                      >
-                        <XIcon className="h-4 w-4" />
-                      </Button>
-                    </td>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="border-b">
+                    {Array.from({ length: 8 }).map((_, j) => (
+                      <td key={j} className="px-4 py-3">
+                        <div className="h-4 w-full max-w-[100px] animate-pulse rounded bg-muted" />
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        )}
+
+        {/* Group Devices: Error */}
+        {groupDevicesQuery.isError && (
+          <Card className="border-red-200 dark:border-red-900">
+            <CardContent className="flex items-center gap-4 p-6">
+              <AlertTriangle className="h-8 w-8 text-red-500 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <CardTitle className="text-base">Failed to load group devices</CardTitle>
+                <CardDescription className="mt-0.5">
+                  {groupDevicesQuery.error instanceof Error
+                    ? groupDevicesQuery.error.message
+                    : "The API server may be offline."}
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 shrink-0"
+                onClick={() => groupDevicesQuery.refetch()}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Retry
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Group Devices: Empty */}
+        {!groupDevicesQuery.isLoading && !groupDevicesQuery.isError && groupDeviceRows.length === 0 && (
+          <EmptyState
+            icon={HardDrive}
+            title={deviceSearch ? "No matching devices" : "No devices in this group"}
+            description={
+              deviceSearch
+                ? "No devices match your search. Try a different term."
+                : "Add devices to this group to get started."
+            }
+            action={
+              deviceSearch
+                ? { label: "Clear Search", onClick: () => handleSearchChange("") }
+                : devicesNotInGroup.length > 0
+                  ? { label: "Add Devices", onClick: () => setAddDevicesOpen(true) }
+                  : undefined
+            }
+          />
+        )}
+
+        {/* Group Devices: Table */}
+        {!groupDevicesQuery.isLoading && !groupDevicesQuery.isError && groupDeviceRows.length > 0 && (
+          <>
+            <div className="overflow-x-auto rounded-lg border">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Device</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Serial</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Battery</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Signal</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Last Seen</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Uptime</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase w-16"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupDeviceRows.map((d) => (
+                    <tr
+                      key={d.id}
+                      className="border-b hover:bg-muted/30 transition-colors cursor-pointer"
+                      onClick={() => router.push(`/devices/${d.id}`)}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Monitor className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <span className="text-sm font-medium">{d.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground font-mono">{d.serial}</td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={d.status} reasons={d.reasons} />
+                      </td>
+                      <td className="px-4 py-3 text-sm">{d.battery != null ? `${d.battery}%` : "N/A"}</td>
+                      <td className="px-4 py-3 text-sm">{d.signal !== 0 ? `${d.signal} dBm` : "N/A"}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
+                        {formatRelativeTime(d.lastSeen)}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-medium whitespace-nowrap">
+                        {formatUptime(d.uptime)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-red-500"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveDevice(d.id);
+                          }}
+                          disabled={updateGroup.isPending}
+                          aria-label={`Remove ${d.name} from group`}
+                        >
+                          <XIcon className="h-4 w-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {totalGroupPages > 1 && (
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>
+                  Page {devicePage} of {totalGroupPages} ({totalGroupDevices} device{totalGroupDevices !== 1 ? "s" : ""})
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={devicePage <= 1}
+                    onClick={() => setDevicePage((p) => Math.max(1, p - 1))}
+                    className="gap-1"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={devicePage >= totalGroupPages}
+                    onClick={() => setDevicePage((p) => p + 1)}
+                    className="gap-1"
+                  >
+                    Next
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
