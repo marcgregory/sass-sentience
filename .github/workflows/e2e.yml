@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PNPM_VERSION: 10.14.0
+  NODE_VERSION: "22"
   DOCKER_COMPOSE_FILE: docker-compose.e2e.yml
 
 jobs:
@@ -33,16 +33,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Setup Node.js 20
+      - name: Setup Node.js with corepack
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: "pnpm"
+
+      - name: Enable corepack & activate pnpm
+        run: |
+          corepack enable
+          corepack install --global pnpm@latest
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
