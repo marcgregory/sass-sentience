@@ -1,7 +1,7 @@
 # Technical Debt
 
 > Items intentionally deferred or known to need cleanup.
-> Last updated: 2026-07-16 (v1.8.0 — Fleet Operations Foundation delivered)
+> Last updated: 2026-07-17 (v1.9.0 — Firmware Rollout delivered)
 
 ---
 

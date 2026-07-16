@@ -4,6 +4,48 @@ All notable changes to the Sentience IoT Platform.
 
 ---
 
+## v1.9.0 — 2026-07-17
+
+### Firmware Rollout & Execution Framework
+
+Sprint 11 delivered a complete firmware rollout system — package registry, rollout management, progress tracking, safety controls, and audit trails — built on a generic execution framework designed to be reused by Batch Diagnostics and Fleet Automation in subsequent sprints.
+
+**Architecture highlights:**
+- **Generic execution model** — `rollouts` table with `job_type` discriminator and `job_config` JSONB column. The same infrastructure (orchestration, state machine, per-device tracking, aggregate progress, audit) powers firmware today; diagnostics and automation will reuse it tomorrow.
+- **Polymorphic design** — Column semantics are generic, not firmware-specific. `rollout_devices` tracks execution status for any job type. The `firmware_package_id` FK is nullable, reserved for firmware-type jobs.
+- **Safety-first state machine** — Explicit transitions prevent invalid operations. Rollouts: draft → running → completed | failed | cancelled. Per-device: pending → running → succeeded | failed | skipped | cancelled.
+- **Server-driven progress** — Aggregate progress endpoint computes counts server-side, not by scanning the full per-device list client-side.
+- **Auditability** — Every lifecycle transition is captured in the audit log. Every rollout is fully reconstructable from persisted state and audit history.
+
+**Added**
+
+- **Firmware Package Registry** — `GET/POST/DELETE /api/firmware` endpoints with pagination, search, device type filtering. Package metadata: name, version, device type, release notes, file hash, file size. RBAC: admin manages, support reads.
+- **Rollout Management API** — `POST /api/rollouts` with eligibility validation (device type compatibility, firmware version check), `GET /api/rollouts` (paginated, filterable by status), `GET /api/rollouts/:id` with progress summary, `GET /api/rollouts/:id/devices` (per-device status, paginated, filterable), `POST /api/rollouts/:id/cancel`, `POST /api/rollouts/:id/retry`, `GET /api/rollouts/:id/eligibility`, `GET /api/rollouts/:id/summary`.
+- **Create Rollout Wizard** — 3-step wizard at `/rollouts/create`: select firmware → select target group → confirm eligibility preview (compatible/incompatible counts with reasons).
+- **Rollout List & Detail Pages** — `/rollouts` page with status cards, progress indicators, timing. `/rollouts/[id]` with summary stats ring, per-device status table (searchable, filterable), cancel/retry controls, audit trail timeline.
+- **DB schema: `firmware_packages`, `rollouts`, `rollout_devices` tables** — Polymorphic discriminator `job_type` (default `'firmware'`), JSONB `job_config`, full execution state machine, audit-ready timestamps.
+- **Drizzle migration `0010`** — Three new tables with indexes on `rollouts.status`, `rollout_devices.rollout_id`, `rollout_devices.device_id`.
+- **RBAC extensions** — `firmware` resource (`manage`/`view`) and `rollouts` resource (`create/update/delete`/`read`) in the permission matrix.
+- **Progress Summary endpoint** — `GET /api/rollouts/:id/summary` returns aggregate counts and percentage for the progress ring on the detail page.
+- **Audit trail on rollout detail page** — Timeline of lifecycle events (created, started, cancelled, retried, completed) with relative timestamps and actor information.
+- **Playwright E2E suite (50 tests)** — Firmware package CRUD, rollout list, create wizard validation, rollout detail with cancel/retry, progress tracking, audit trail display. All pass alongside existing 99 tests.
+
+**Changed**
+
+- **Sidebar navigation** — Added `/firmware` and `/rollouts` nav entries for admin/support roles.
+- **Permission matrix** — Added `firmware` (manage/view) and `rollouts` (create/update/delete/read) resources.
+- **`/rollouts/create` route** — New page added to Next.js routing.
+
+**Build**
+
+- TypeScript: ✅ Zero errors (9 packages)
+- Production build: ✅ 32/32 pages, shared JS 103 kB
+- Playwright E2E (mocked): ✅ 50 new tests pass alongside existing 99
+
+**Release candidate:** `v1.9.0-rc1` recommended. Full-stack validation against real infrastructure (Docker Compose + real PostgreSQL) is the recommended next step before final release tagging.
+
+---
+
 ## v1.8.0 — 2026-07-16
 
 ### Fleet Operations Foundation

@@ -2,7 +2,7 @@
 
 > **Product backlog.** Tracks what is completed, in progress, next, and blocked.
 > Engineering sprint details live in `BUILD_PLAN.md`.
-> Last updated: 2026-07-16 (v1.8.0 delivered)
+> Last updated: 2026-07-17 (v1.9.0 delivered)
 
 ---
 
@@ -581,6 +581,68 @@ All 9 domains integrated with the backend API. The frontend no longer relies on 
 
 ---
 
+## ✅ Completed — v1.9.0 — Firmware Rollout (2026-07-17)
+
+**Theme:** Deliver a reliable, auditable firmware rollout system enabling administrators to deploy firmware to device groups with progress tracking, safety controls, audit trails, and retry support.
+
+### Sprint Scope
+
+1. **Firmware Package Registry (Phase B)**
+   - List/create/delete firmware packages with metadata (name, version, device type, release notes, file hash, file size)
+   - RBAC: admin manages, support reads
+   - Toggle switches for device type compatibility
+
+2. **Rollout Management System (Phase C)**
+   - Drizzle schema: `rollouts` + `rollout_devices` tables with polymorphic `job_type` discriminator
+   - Generic execution model: rollouts (orchestration) → rollout_devices (per-device tracking)
+   - Full CRUD API for rollouts with Zod validation and RBAC
+   - Rollout state machine: draft → running → completed | failed | cancelled
+   - Per-device state machine: pending → running → succeeded | failed | skipped | cancelled
+
+3. **Create Rollout Wizard**
+   - 3-step wizard: select firmware → select target group → confirm eligibility
+   - Eligibility preview: compatible/incompatible device counts with reasons
+   - Device count display and version delta summary
+
+4. **Progress Dashboard & Rollout Detail**
+   - Rollout list page with status, target group, firmware version, progress %, timing
+   - Rollout detail page with summary stats (progress ring, counts), per-device status table with search/filter, cancel/retry controls, audit trail timeline
+
+5. **Rollout Execution & Lifecycle**
+   - Cancel rollout (stops pending devices; keeps completed/failed unchanged)
+   - Retry failed devices (resets failed → pending for re-execution)
+   - Audit logging for all lifecycle transitions (create, start, cancel, retry, complete)
+
+6. **E2E Testing**
+   - 50 Playwright tests covering firmware registry CRUD, rollout list, create wizard, detail page with retry/cancel, progress tracking, audit trail
+
+### Architectural Highlights
+
+- **Reusable execution framework** — Generic rollout/job model with polymorphic `job_type` discriminator. Execution state machine, per-device execution tracking, aggregate progress APIs. Foundation for Sprint 12 (Batch Diagnostics) and Sprint 14 (Fleet Automation).
+- **Server-driven progress** — Aggregate progress endpoint (`GET /api/rollouts/:id/summary`) computes counts server-side for accurate progress display.
+- **Safety-first state machine** — Explicit transitions prevent invalid operations (e.g., retry on completed rollouts, cancel on draft rollouts).
+- **Auditability** — Every lifecycle transition recorded in audit log for complete reconstructability.
+- **Generic column semantics** — The `rollouts` table uses `job_config` (JSONB) and `job_type` discriminator so non-firmware job types (diagnostics, automation) reuse the same infrastructure.
+
+### Validation Results
+
+| Gate | Status | Notes |
+|------|--------|-------|
+| TypeScript | ✅ | Zero errors across 9 packages |
+| Production Build | ✅ | 32/32 pages, shared JS 103 kB |
+| Playwright E2E (mocked) | ✅ | Existing 99 tests + 50 new firmware/rollout tests pass |
+| Documentation | ✅ | ROADMAP, CHANGELOG, BUILD_PLAN, SPRINT_11_CHARTER updated |
+
+### Next Milestone Roadmap
+
+| Sprint | Focus | Status |
+|--------|-------|--------|
+| 12 | Batch Diagnostics | 🔜 Next |
+| 13 | Dynamic / Rule-Based Groups | 📋 Planned |
+| 14 | Fleet Automation | 📋 Planned |
+
+---
+
 ## ✅ Completed — v1.8.0 — Fleet Operations Foundation (2026-07-16)
 
 **Theme:** Complete the operator workflow around Groups and Tags before moving into fleet automation.
@@ -654,17 +716,16 @@ Diagnostics and fleet automation (batch actions with progress/retry/cancellation
 
 ---
 
-## 🔮 Future (v1.9.0+) — Fleet Actions
+## 🔮 Next: Viability Phase — Batch Diagnostics (Sprint 12, v2.0.0)
 
-Fleet automation features that build on the Groups foundation:
+After Sprint 11's execution framework, Sprint 12 can now reuse the rollout/job model for Batch Diagnostics — replacing "firmware rollout" with "diagnostic run" while preserving the orchestration, progress tracking, and lifecycle patterns.
 
-- **Run diagnostics across a group** — Trigger diagnostics on all devices in a group, aggregate results
-- **Firmware rollout** — Push firmware updates to selected devices or groups
-- **Restart devices** — Remote restart with confirmation and progress
-- **Configuration push** — Apply configuration changes to multiple devices at once
-- **Progress tracking** — Job queue with progress, partial failures, retry
-- **Retry failed devices** — Selective retry for failed operations in a batch
-- **Filter-based dynamic groups** — Groups defined by query rules (e.g. "all offline sensors in Building A")
-- **Standalone tags management** — UI to create/manage/rename tags independently
-- **Notification routing by group** — Route alert notifications based on device group membership
-- **Fleet exports** — Export device data by group to CSV
+### Planned Milestones
+
+| Sprint | Focus | Target |
+|--------|-------|--------|
+| **12** | **Batch Diagnostics** | Reuse rollout framework for group-wide diagnostics |
+| 13 | Dynamic / Rule-Based Groups | Filter-based groups defined by query criteria |
+| 14 | Fleet Automation | Compose all prior primitives |
+
+These milestones are deferred until the viability phase is complete. See `docs/implementation/BUILD_PLAN.md` for the sprint activation rule.

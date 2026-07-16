@@ -86,6 +86,7 @@ The infrastructure phase is complete. The current architecture supports all rema
 | 8 | **v1.0 RC1 (Backend API)** | PostgreSQL + Fastify API — health, auth, CRUD, seed data |
 | 9 | **v1.7.0 Fleet Management** | Add tags to devices, create groups, organize the fleet |
 | 10 | **v1.8.0 Fleet Operations Foundation** | Bulk tag operations, device↔group relationship, group polish, E2E tests |
+| 11 | **v1.9.0 Firmware Rollout** | Firmware package registry, rollout wizard, progress dashboard, E2E tests |
 
 ---
 
@@ -710,3 +711,79 @@ The infrastructure phase is complete. The current architecture supports all rema
 ### Completed
 
 2026-07-16 — v1.8.0 delivered. Sprint 10 complete across all 5 phases (Phase A: scalable server-side queries with pagination/search; Phase B: relationship management with device↔group membership; Phase C: fleet-wide bulk tag operations; Phase D: lifecycle management with archive/restore/duplicate and UX polish; Phase E: 35 Playwright E2E tests for Groups and Tags). All 16 acceptance criteria met. TypeScript zero errors, production build clean.
+
+---
+
+## Sprint 11: v1.9.0 — Firmware Rollout & Execution Framework
+
+> **Demo:** Navigate to `/firmware` → view firmware packages, create a new one with device type compatibility. Navigate to `/rollouts/create` → select firmware, select a device group, review eligibility preview (device count, version delta, compatibility). Start the rollout. View progress at `/rollouts` with status cards and progress percentages. Open rollout detail at `/rollouts/[id]` → see summary ring, per-device status table, cancel/retry controls, audit trail timeline.
+
+**Goal:** Deliver a reliable, auditable firmware rollout system that enables administrators to deploy firmware to device groups with progress tracking, safety controls, and retry support — on a reusable execution framework.
+
+**Scope:** Firmware package registry (CRUD), rollout creation wizard, rollout execution with state machine, progress dashboard with per-device tracking, cancel/retry lifecycle, audit trails, and 50 Playwright E2E tests.
+
+**Dependencies:** Device Groups infrastructure (v1.8.0), existing shared components (PageHeader, EmptyState, StatusBadge, Badge), TanStack Query patterns, shadcn/ui Dialog components, existing RBAC permission matrix.
+
+### Tasks
+
+#### Phase B: Firmware Package Registry
+- [x] Define `FirmwarePackage` type in `@sentience/types`
+- [x] Create `firmware_packages` database schema and migration (name, version, device_type[], release_notes, file_hash, file_size)
+- [x] Build firmware package CRUD API routes: `GET/POST/DELETE /api/firmware` with pagination, search, device type filtering, RBAC (admin manages)
+- [x] Create frontend API layer (`lib/firmware.ts`) and TanStack Query hooks (`hooks/use-firmware.ts`)
+- [x] Add `firmware` resource to RBAC permission matrix (`manage` for admin, `view` for support)
+- [x] Build firmware package list page (`/firmware`) with toggle-switch device-type filter, create/delete dialogs
+- [x] Navigate to `/firmware` from sidebar (admin/support)
+
+#### Phase C: Rollout Management System
+- [x] Define `Rollout`, `RolloutDevice`, `RolloutStatus`, `ExecutionStatus` types in `@sentience/types`
+- [x] Create `rollouts` (generic job/orchestration model) and `rollout_devices` (per-device execution tracking) database schemas with polymorphic `job_type` discriminator
+- [x] Build rollout CRUD API routes with Zod validation, eligibility checks, RBAC
+- [x] Create frontend API layer (`lib/rollouts.ts`) and TanStack Query hooks (`hooks/use-rollouts.ts`)
+- [x] Add `rollouts` resource to RBAC permission matrix
+- [x] Implement rollout eligibility endpoint: device type compatibility, firmware version, online status checks
+- [x] Implement rollout state machine with explicit transition validation
+- [x] Implement cancel rollout (stops pending; leaves completed/failed unchanged)
+- [x] Implement retry failed devices (resets failed → pending; leaves succeeded untouched)
+- [x] Audit logging for all lifecycle transitions (create, start, cancel, retry, complete)
+
+#### Create Rollout Wizard
+- [x] Build 3-step wizard at `/rollouts/create`: select firmware → select target group → confirm eligibility preview
+- [x] Eligibility preview: compatible/incompatible device counts with reasons, version delta summary
+- [x] Device count display and confirmation before starting rollout
+
+#### Progress Dashboard & Rollout Detail
+- [x] Build rollout list page (`/rollouts`) with status cards, progress indicators, timing, target group, firmware version
+- [x] Build rollout detail page (`/rollouts/[id]`) with summary stats (progress ring, counts), per-device status table with search/filter
+- [x] Cancel/retry controls on rollout detail page with confirmation dialogs
+- [x] Progress summary endpoint (`GET /api/rollouts/:id/summary`) for aggregate progress display
+- [x] Audit trail timeline on rollout detail page (lifecycle events with timestamps and actor info)
+- [x] Loading, empty, and error states on all rollout views
+
+#### E2E Testing (Playwright)
+- [x] Firmware package CRUD E2E tests (list, create, delete, search)
+- [x] Rollout list page E2E tests (display, pagination, status filters)
+- [x] Create rollout wizard E2E tests (step navigation, firmware selection, group selection, eligibility preview, validation)
+- [x] Rollout detail page E2E tests (summary stats, per-device table, cancel, retry, audit trail)
+- [x] Progress tracking E2E tests (status transitions, progress percentage)
+- [x] 50 total new E2E tests for firmware/rollout features
+
+### Acceptance Criteria
+
+1. [x] Firmware packages can be created, listed, searched, and deleted
+2. [x] Rollout wizard guides through firmware selection → group selection → eligibility preview
+3. [x] Eligibility preview shows compatible/incompatible device counts with reasons
+4. [x] Rollout state machine prevents invalid transitions (e.g., retry on completed rollout)
+5. [x] Progress dashboard shows real-time rollout status and per-device tracking
+6. [x] Cancel stops pending devices; completed/failed devices remain unchanged
+7. [x] Retry resets only failed devices; leaves succeeded devices untouched
+8. [x] Audit log records every lifecycle transition
+9. [x] All data-driven views handle loading, error, and empty states
+10. [x] Dark mode renders correctly on all new/edited pages
+11. [x] Responsive at 375px, 768px, and 1280px+
+12. [x] 50 new E2E tests pass alongside existing 99 tests
+13. [x] TypeScript clean, production build clean, E2E suite passes
+
+### Completed
+
+2026-07-17 — v1.9.0 delivered. Sprint 11 complete across 6 work areas: firmware package registry, rollout management system with generic execution model, create rollout wizard, progress dashboard with per-device tracking, cancel/retry lifecycle controls, and 50 Playwright E2E tests. All 13 acceptance criteria met. TypeScript zero errors, 32/32 pages, shared JS 103 kB. Execution framework designed for reuse by Batch Diagnostics (Sprint 12).
