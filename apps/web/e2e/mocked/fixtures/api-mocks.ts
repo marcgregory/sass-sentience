@@ -723,6 +723,553 @@ export async function mockDeviceGroupRoutes(page: Page) {
   });
 }
 
+// ─── Firmware Package mock data ───────────────────────────────────────────
+
+interface MockFirmwarePackage {
+  id: string;
+  name: string;
+  version: string;
+  deviceType: string[];
+  releaseNotes: string | null;
+  fileHash: string | null;
+  fileSize: number | null;
+  status: "active" | "deprecated";
+  createdBy: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const MOCK_FIRMWARE_PACKAGES: MockFirmwarePackage[] = [
+  {
+    id: "pkg-1",
+    name: "Sensor OS",
+    version: "2.1.0",
+    deviceType: ["temperature", "humidity"],
+    releaseNotes: "Improved battery life and signal stability",
+    fileHash: "sha256-a1b2c3d4e5f6...",
+    fileSize: 4194304,
+    status: "active",
+    createdBy: "Alice Johnson",
+    metadata: { buildNumber: "421", minProtocol: "1.0" },
+    createdAt: "2026-05-01T08:00:00Z",
+    updatedAt: "2026-06-01T12:00:00Z",
+  },
+  {
+    id: "pkg-2",
+    name: "Gateway Firmware",
+    version: "3.0.1",
+    deviceType: ["power", "vibration"],
+    releaseNotes: "Critical security patch for Modbus interface",
+    fileHash: "sha256-f6e5d4c3b2a1...",
+    fileSize: 8388608,
+    status: "active",
+    createdBy: "Alice Johnson",
+    metadata: null,
+    createdAt: "2026-06-01T08:00:00Z",
+    updatedAt: "2026-06-15T10:00:00Z",
+  },
+  {
+    id: "pkg-3",
+    name: "Sensor OS",
+    version: "1.8.3",
+    deviceType: ["temperature", "humidity"],
+    releaseNotes: "Legacy version",
+    fileHash: null,
+    fileSize: null,
+    status: "deprecated",
+    createdBy: "Bob Smith",
+    metadata: null,
+    createdAt: "2026-03-01T08:00:00Z",
+    updatedAt: "2026-05-01T12:00:00Z",
+  },
+];
+
+let mockFirmwarePackages: MockFirmwarePackage[];
+
+export function resetMockFirmware() {
+  mockFirmwarePackages = MOCK_FIRMWARE_PACKAGES.map((p) => JSON.parse(JSON.stringify(p)));
+}
+
+// ─── Rollout mock data ──────────────────────────────────────────────────
+
+interface MockRolloutDevice {
+  id: string;
+  rolloutId: string;
+  deviceId: string;
+  status: "pending" | "running" | "succeeded" | "failed" | "skipped" | "cancelled";
+  errorMessage: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
+interface MockRollout {
+  id: string;
+  jobType: string;
+  name: string;
+  firmwarePackageId: string | null;
+  jobConfig: Record<string, unknown> | null;
+  targetGroupId: string;
+  status: "draft" | "running" | "completed" | "failed" | "cancelled";
+  deviceCount: number;
+  completedCount: number;
+  failedCount: number;
+  createdBy: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  firmwareName?: string | null;
+  targetGroupName?: string | null;
+}
+
+const BASE_TIME = "2026-06-15T08:00:00Z";
+
+const MOCK_ROLLOUTS: MockRollout[] = [
+  {
+    id: "rollout-1",
+    jobType: "firmware",
+    name: "Sensor OS v2.1.0 → Building A Sensors",
+    firmwarePackageId: "pkg-1",
+    jobConfig: null,
+    targetGroupId: "group-1",
+    status: "draft",
+    deviceCount: 2,
+    completedCount: 0,
+    failedCount: 0,
+    createdBy: "user-1",
+    startedAt: null,
+    completedAt: null,
+    cancelledAt: null,
+    createdAt: "2026-06-15T08:00:00Z",
+    updatedAt: "2026-06-15T08:00:00Z",
+    firmwareName: "Sensor OS v2.1.0",
+    targetGroupName: "Building A Sensors",
+  },
+  {
+    id: "rollout-2",
+    jobType: "firmware",
+    name: "Gateway Firmware v3.0.1 → Riverside Fleet",
+    firmwarePackageId: "pkg-2",
+    jobConfig: null,
+    targetGroupId: "group-3",
+    status: "running",
+    deviceCount: 2,
+    completedCount: 1,
+    failedCount: 0,
+    createdBy: "user-1",
+    startedAt: "2026-06-16T10:00:00Z",
+    completedAt: null,
+    cancelledAt: null,
+    createdAt: "2026-06-15T09:00:00Z",
+    updatedAt: "2026-06-16T10:30:00Z",
+    firmwareName: "Gateway Firmware v3.0.1",
+    targetGroupName: "Riverside Fleet",
+  },
+  {
+    id: "rollout-3",
+    jobType: "firmware",
+    name: "Sensor OS v2.1.0 → Riverside Fleet",
+    firmwarePackageId: "pkg-1",
+    jobConfig: null,
+    targetGroupId: "group-3",
+    status: "completed",
+    deviceCount: 2,
+    completedCount: 2,
+    failedCount: 0,
+    createdBy: "user-1",
+    startedAt: "2026-06-10T08:00:00Z",
+    completedAt: "2026-06-12T16:00:00Z",
+    cancelledAt: null,
+    createdAt: "2026-06-09T08:00:00Z",
+    updatedAt: "2026-06-12T16:00:00Z",
+    firmwareName: "Sensor OS v2.1.0",
+    targetGroupName: "Riverside Fleet",
+  },
+  {
+    id: "rollout-4",
+    jobType: "firmware",
+    name: "Gateway Firmware v3.0.1 → Critical Infrastructure",
+    firmwarePackageId: "pkg-2",
+    jobConfig: null,
+    targetGroupId: "group-2",
+    status: "failed",
+    deviceCount: 1,
+    completedCount: 0,
+    failedCount: 1,
+    createdBy: "user-1",
+    startedAt: "2026-06-14T08:00:00Z",
+    completedAt: "2026-06-14T08:05:00Z",
+    cancelledAt: null,
+    createdAt: "2026-06-13T08:00:00Z",
+    updatedAt: "2026-06-14T08:05:00Z",
+    firmwareName: "Gateway Firmware v3.0.1",
+    targetGroupName: "Critical Infrastructure",
+  },
+];
+
+const MOCK_ROLLOUT_DEVICES: Record<string, MockRolloutDevice[]> = {
+  "rollout-1": [
+    { id: "rdev-1", rolloutId: "rollout-1", deviceId: "dev-1", status: "pending", errorMessage: null, startedAt: null, completedAt: null },
+    { id: "rdev-2", rolloutId: "rollout-1", deviceId: "dev-2", status: "pending", errorMessage: null, startedAt: null, completedAt: null },
+  ],
+  "rollout-2": [
+    { id: "rdev-3", rolloutId: "rollout-2", deviceId: "dev-4", status: "succeeded", errorMessage: null, startedAt: "2026-06-16T10:00:00Z", completedAt: "2026-06-16T10:15:00Z" },
+    { id: "rdev-4", rolloutId: "rollout-2", deviceId: "dev-5", status: "running", errorMessage: null, startedAt: "2026-06-16T10:00:00Z", completedAt: null },
+  ],
+  "rollout-3": [
+    { id: "rdev-5", rolloutId: "rollout-3", deviceId: "dev-4", status: "succeeded", errorMessage: null, startedAt: "2026-06-10T08:00:00Z", completedAt: "2026-06-10T08:10:00Z" },
+    { id: "rdev-6", rolloutId: "rollout-3", deviceId: "dev-5", status: "succeeded", errorMessage: null, startedAt: "2026-06-10T08:00:00Z", completedAt: "2026-06-10T08:12:00Z" },
+  ],
+  "rollout-4": [
+    { id: "rdev-7", rolloutId: "rollout-4", deviceId: "dev-4", status: "failed", errorMessage: "Device Power Meter D1 did not acknowledge update", startedAt: "2026-06-14T08:00:00Z", completedAt: "2026-06-14T08:05:00Z" },
+  ],
+};
+
+let mockRollouts: MockRollout[];
+let mockRolloutDevices: Record<string, MockRolloutDevice[]>;
+
+export function resetMockRollouts() {
+  mockRollouts = MOCK_ROLLOUTS.map((r) => JSON.parse(JSON.stringify(r)));
+  mockRolloutDevices = JSON.parse(JSON.stringify(MOCK_ROLLOUT_DEVICES));
+}
+
+function cloneRollout(r: MockRollout): MockRollout {
+  return JSON.parse(JSON.stringify(r));
+}
+
+// ─── Firmware API route mocks ───────────────────────────────────────────
+
+export async function mockFirmwareRoutes(page: Page) {
+  await page.route("**/api/firmware**", async (route, request) => {
+    const url = new URL(request.url());
+    const path = url.pathname;
+
+    // POST /api/firmware/:id/deprecate
+    const deprecateMatch = path.match(/\/api\/firmware\/([^/]+)\/deprecate$/);
+    if (request.method() === "POST" && deprecateMatch) {
+      const pid = deprecateMatch[1];
+      const pkg = mockFirmwarePackages.find((p) => p.id === pid);
+      if (!pkg) return route.fulfill(jsonFulfill(404, { message: "Firmware package not found", code: "NOT_FOUND" }));
+      if (pkg.status !== "active") return route.fulfill(jsonFulfill(409, { message: `Firmware package is already "${pkg.status}"`, code: "INVALID_TRANSITION" }));
+      pkg.status = "deprecated";
+      pkg.updatedAt = new Date().toISOString();
+      return route.fulfill(jsonFulfill(200, cloneFirmwarePackage(pkg)));
+    }
+
+    // POST /api/firmware/:id/activate
+    const activateMatch = path.match(/\/api\/firmware\/([^/]+)\/activate$/);
+    if (request.method() === "POST" && activateMatch) {
+      const pid = activateMatch[1];
+      const pkg = mockFirmwarePackages.find((p) => p.id === pid);
+      if (!pkg) return route.fulfill(jsonFulfill(404, { message: "Firmware package not found", code: "NOT_FOUND" }));
+      if (pkg.status !== "deprecated") return route.fulfill(jsonFulfill(409, { message: `Firmware package is already "${pkg.status}"`, code: "INVALID_TRANSITION" }));
+      pkg.status = "active";
+      pkg.updatedAt = new Date().toISOString();
+      return route.fulfill(jsonFulfill(200, cloneFirmwarePackage(pkg)));
+    }
+
+    // POST /api/firmware — create
+    if (request.method() === "POST") {
+      const body = request.postDataJSON();
+      const created: MockFirmwarePackage = {
+        id: `pkg-new-${Date.now()}`,
+        name: body.name,
+        version: body.version,
+        deviceType: body.deviceType ?? [],
+        releaseNotes: body.releaseNotes ?? null,
+        fileHash: body.fileHash ?? null,
+        fileSize: body.fileSize ?? null,
+        status: "active",
+        createdBy: "Alice Johnson",
+        metadata: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      mockFirmwarePackages.push(created);
+      return route.fulfill(jsonFulfill(201, created));
+    }
+
+    // PATCH /api/firmware/:id — update
+    if (request.method() === "PATCH") {
+      const id = path.match(/\/api\/firmware\/([^/]+)$/)?.[1];
+      const pkg = mockFirmwarePackages.find((p) => p.id === id);
+      if (!pkg) return route.fulfill(jsonFulfill(404, { message: "Firmware package not found", code: "NOT_FOUND" }));
+      const body = request.postDataJSON();
+      Object.assign(pkg, { ...body, updatedAt: new Date().toISOString() });
+      return route.fulfill(jsonFulfill(200, cloneFirmwarePackage(pkg)));
+    }
+
+    // DELETE /api/firmware/:id — delete
+    if (request.method() === "DELETE") {
+      const id = path.match(/\/api\/firmware\/([^/]+)$/)?.[1];
+      const idx = mockFirmwarePackages.findIndex((p) => p.id === id);
+      if (idx === -1) return route.fulfill(jsonFulfill(404, { message: "Firmware package not found", code: "NOT_FOUND" }));
+      // Guard: check if referenced by rollouts
+      const referenced = mockRollouts.filter((r) => r.firmwarePackageId === id).length;
+      if (referenced > 0) {
+        return route.fulfill(jsonFulfill(409, { message: `Cannot delete firmware package: ${referenced} rollout(s) reference it`, code: "HAS_ACTIVE_ROLLOUTS" }));
+      }
+      mockFirmwarePackages.splice(idx, 1);
+      return route.fulfill(jsonFulfill(200, { success: true }));
+    }
+
+    // GET /api/firmware/:id — single
+    const id = path.match(/\/api\/firmware\/([^/]+)$/)?.[1];
+    if (id) {
+      const pkg = mockFirmwarePackages.find((p) => p.id === id);
+      return pkg
+        ? route.fulfill(jsonFulfill(200, cloneFirmwarePackage(pkg)))
+        : route.fulfill(jsonFulfill(404, { message: "Firmware package not found", code: "NOT_FOUND" }));
+    }
+
+    // GET /api/firmware — list
+    const search = url.searchParams.get("search")?.toLowerCase() ?? "";
+    const statusFilter = url.searchParams.get("status") ?? "";
+    const page = parseInt(url.searchParams.get("page") ?? "1");
+    const limit = parseInt(url.searchParams.get("limit") ?? "20");
+    let filtered = [...mockFirmwarePackages];
+    if (search) {
+      filtered = filtered.filter((p) =>
+        p.name.toLowerCase().includes(search) || p.version.toLowerCase().includes(search),
+      );
+    }
+    if (statusFilter) {
+      filtered = filtered.filter((p) => p.status === statusFilter);
+    }
+    return route.fulfill(jsonFulfill(200, paginated(filtered, page, limit)));
+  });
+}
+
+function cloneFirmwarePackage(p: MockFirmwarePackage): MockFirmwarePackage {
+  return JSON.parse(JSON.stringify(p));
+}
+
+// ─── Rollout API route mocks ────────────────────────────────────────────
+
+export async function mockRolloutRoutes(page: Page) {
+  await page.route("**/api/rollouts**", async (route, request) => {
+    const url = new URL(request.url());
+    const path = url.pathname;
+
+    // ── Pre-creation eligibility: GET /api/rollouts/eligibility/group/:gid/package/:pid ──
+    const preEligMatch = path.match(/\/api\/rollouts\/eligibility\/group\/([^/]+)\/package\/([^/]+)$/);
+    if (request.method() === "GET" && preEligMatch) {
+      const [, gid, pid] = preEligMatch;
+      return handleEligibility(route, gid, pid);
+    }
+
+    // ── Per-rollout sub-routes ──
+    const rolloutId = path.match(/\/api\/rollouts\/([^/]+)\/(.*)$/);
+    if (rolloutId) {
+      const rid = rolloutId[1];
+      const sub = rolloutId[2];
+
+      // GET /api/rollouts/:id/devices
+      if (sub === "devices") {
+        const devices = mockRolloutDevices[rid] ?? [];
+        const statusQuery = url.searchParams.get("status");
+        const page = parseInt(url.searchParams.get("page") ?? "1");
+        const limit = parseInt(url.searchParams.get("limit") ?? "20");
+        let filtered = [...devices];
+        if (statusQuery) {
+          filtered = filtered.filter((d) => d.status === statusQuery);
+        }
+        // Enrich with device names
+        const enriched = filtered.map((d) => {
+          const device = MOCK_DEVICES.find((m) => m.id === d.deviceId);
+          return { ...d, deviceName: device?.name ?? null, deviceSerial: device?.serialNumber ?? null };
+        });
+        return route.fulfill(jsonFulfill(200, paginated(enriched, page, limit)));
+      }
+
+      // GET /api/rollouts/:id/eligibility
+      if (sub === "eligibility") {
+        const rollout = mockRollouts.find((r) => r.id === rid);
+        if (!rollout) return route.fulfill(jsonFulfill(404, { message: "Rollout not found", code: "NOT_FOUND" }));
+        return handleEligibility(route, rollout.targetGroupId, rollout.firmwarePackageId ?? "");
+      }
+
+      // GET /api/rollouts/:id/summary
+      if (sub === "summary") {
+        const devices = mockRolloutDevices[rid] ?? [];
+        const statusMap: Record<string, number> = { pending: 0, running: 0, succeeded: 0, failed: 0, skipped: 0, cancelled: 0 };
+        for (const d of devices) {
+          statusMap[d.status] = (statusMap[d.status] ?? 0) + 1;
+        }
+        return route.fulfill(jsonFulfill(200, statusMap));
+      }
+
+      // POST /api/rollouts/:id/start
+      if (sub === "start") {
+        const rollout = mockRollouts.find((r) => r.id === rid);
+        if (!rollout) return route.fulfill(jsonFulfill(404, { message: "Rollout not found", code: "NOT_FOUND" }));
+        if (rollout.status !== "draft") {
+          return route.fulfill(jsonFulfill(409, { message: `Cannot start rollout in "${rollout.status}" status`, code: "INVALID_TRANSITION" }));
+        }
+        rollout.status = "running";
+        rollout.startedAt = new Date().toISOString();
+        rollout.updatedAt = new Date().toISOString();
+        return route.fulfill(jsonFulfill(200, cloneRollout(rollout)));
+      }
+
+      // POST /api/rollouts/:id/cancel
+      if (sub === "cancel") {
+        const rollout = mockRollouts.find((r) => r.id === rid);
+        if (!rollout) return route.fulfill(jsonFulfill(404, { message: "Rollout not found", code: "NOT_FOUND" }));
+        if (rollout.status !== "draft" && rollout.status !== "running") {
+          return route.fulfill(jsonFulfill(409, { message: `Cannot cancel rollout in "${rollout.status}" status`, code: "INVALID_TRANSITION" }));
+        }
+        rollout.status = "cancelled";
+        rollout.cancelledAt = new Date().toISOString();
+        rollout.updatedAt = new Date().toISOString();
+        // Mark pending devices as cancelled
+        if (mockRolloutDevices[rid]) {
+          mockRolloutDevices[rid] = mockRolloutDevices[rid].map((d) =>
+            d.status === "pending" ? { ...d, status: "cancelled" as const } : d,
+          );
+        }
+        return route.fulfill(jsonFulfill(200, cloneRollout(rollout)));
+      }
+
+      // POST /api/rollouts/:id/retry
+      if (sub === "retry") {
+        const rollout = mockRollouts.find((r) => r.id === rid);
+        if (!rollout) return route.fulfill(jsonFulfill(404, { message: "Rollout not found", code: "NOT_FOUND" }));
+        if (!["running", "completed", "failed"].includes(rollout.status)) {
+          return route.fulfill(jsonFulfill(409, { message: `Cannot retry rollout in "${rollout.status}" status`, code: "INVALID_TRANSITION" }));
+        }
+        // Reset failed devices
+        let retriedCount = 0;
+        if (mockRolloutDevices[rid]) {
+          const before = mockRolloutDevices[rid].length;
+          mockRolloutDevices[rid] = mockRolloutDevices[rid].map((d) => {
+            if (d.status === "failed") {
+              retriedCount++;
+              return { ...d, status: "pending" as const, errorMessage: null, startedAt: null, completedAt: null };
+            }
+            return d;
+          });
+        }
+        // If terminal, move back to running
+        if (["completed", "failed"].includes(rollout.status) && retriedCount > 0) {
+          rollout.status = "running";
+          rollout.failedCount = 0;
+          rollout.updatedAt = new Date().toISOString();
+        }
+        return route.fulfill(jsonFulfill(200, { success: true, retriedCount }));
+      }
+
+      return route.fulfill(jsonFulfill(404, { message: "Not found" }));
+    }
+
+    // ── POST /api/rollouts — create ──
+    if (request.method() === "POST") {
+      const body = request.postDataJSON();
+      const fw = mockFirmwarePackages.find((p) => p.id === body.firmwarePackageId);
+      if (!fw) return route.fulfill(jsonFulfill(404, { message: "Firmware package not found", code: "NOT_FOUND" }));
+
+      // Look up group devices from group device map
+      const groupDevices = GROUP_DEVICES_MAP[body.targetGroupId] ?? [];
+      const deviceIds = groupDevices.map((d) => d.id);
+
+      const created: MockRollout = {
+        id: `rollout-new-${Date.now()}`,
+        jobType: "firmware",
+        name: body.name,
+        firmwarePackageId: body.firmwarePackageId,
+        jobConfig: null,
+        targetGroupId: body.targetGroupId,
+        status: "draft",
+        deviceCount: deviceIds.length,
+        completedCount: 0,
+        failedCount: 0,
+        createdBy: "user-1",
+        startedAt: null,
+        completedAt: null,
+        cancelledAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        firmwareName: fw ? `${fw.name} v${fw.version}` : null,
+        targetGroupName: "Mock Group",
+      };
+      mockRollouts.push(created);
+
+      // Create device entries
+      mockRolloutDevices[created.id] = deviceIds.map((did, i) => ({
+        id: `rdev-new-${i}`,
+        rolloutId: created.id,
+        deviceId: did,
+        status: "pending" as const,
+        errorMessage: null,
+        startedAt: null,
+        completedAt: null,
+      }));
+
+      return route.fulfill(jsonFulfill(201, cloneRollout(created)));
+    }
+
+    // ── GET /api/rollouts/:id — single ──
+    const singleId = path.match(/\/api\/rollouts\/([^/]+)$/)?.[1];
+    if (singleId) {
+      const rollout = mockRollouts.find((r) => r.id === singleId);
+      return rollout
+        ? route.fulfill(jsonFulfill(200, cloneRollout(rollout)))
+        : route.fulfill(jsonFulfill(404, { message: "Rollout not found", code: "NOT_FOUND" }));
+    }
+
+    // ── GET /api/rollouts — list ──
+    const search = url.searchParams.get("search")?.toLowerCase() ?? "";
+    const statusFilter = url.searchParams.get("status") ?? "";
+    const fwIdFilter = url.searchParams.get("firmwarePackageId") ?? "";
+    const page = parseInt(url.searchParams.get("page") ?? "1");
+    const limit = parseInt(url.searchParams.get("limit") ?? "20");
+    let filtered = mockRollouts.filter((r) => r.jobType === "firmware");
+    if (search) {
+      filtered = filtered.filter((r) => r.name.toLowerCase().includes(search));
+    }
+    if (statusFilter) {
+      filtered = filtered.filter((r) => r.status === statusFilter);
+    }
+    if (fwIdFilter) {
+      filtered = filtered.filter((r) => r.firmwarePackageId === fwIdFilter);
+    }
+    return route.fulfill(jsonFulfill(200, paginated(filtered, page, limit)));
+  });
+}
+
+/** Shared eligibility check for both rollout-specific and pre-creation endpoints. */
+async function handleEligibility(
+  route: import("@playwright/test").Route,
+  groupId: string,
+  firmwarePackageId: string,
+) {
+  const groupDevices = GROUP_DEVICES_MAP[groupId] ?? [];
+  const fw = mockFirmwarePackages.find((p) => p.id === firmwarePackageId);
+  const fwDeviceTypes = fw?.deviceType ?? [];
+
+  const eligible: Array<{ id: string; name: string; type: string; status: string }> = [];
+  const ineligible: Array<{ id: string; name: string; type: string; status: string; reason: string }> = [];
+
+  for (const device of groupDevices) {
+    if (fwDeviceTypes.length > 0 && !fwDeviceTypes.includes(device.type)) {
+      ineligible.push({ id: device.id, name: device.name, type: device.type, status: device.status, reason: `Device type "${device.type}" not compatible` });
+    } else if (device.status !== "online") {
+      ineligible.push({ id: device.id, name: device.name, type: device.type, status: device.status, reason: `Device is "${device.status}" (must be online)` });
+    } else {
+      eligible.push({ id: device.id, name: device.name, type: device.type, status: device.status });
+    }
+  }
+
+  return route.fulfill(jsonFulfill(200, {
+    eligibleCount: eligible.length,
+    ineligibleCount: ineligible.length,
+    eligibleDevices: eligible,
+    ineligibleDevices: ineligible,
+  }));
+}
+
 export async function mockSettingRoutes(page: Page) {
   await page.route("**/api/settings**", async (route, request) => {
     if (request.method() === "PATCH") {
@@ -756,6 +1303,10 @@ export async function mockAllRoutes(page: Page) {
   await mockUserRoutes(page);
   await mockRoleRoutes(page);
   await mockDeviceGroupRoutes(page);
+  await mockFirmwareRoutes(page);
+  await mockRolloutRoutes(page);
   await mockSettingRoutes(page);
   resetMockGroups();
+  resetMockFirmware();
+  resetMockRollouts();
 }
