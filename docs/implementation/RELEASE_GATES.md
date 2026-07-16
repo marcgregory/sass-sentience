@@ -29,13 +29,13 @@
 - [ ] `curl /api/ready` returns `{"status": "ready"}`
 - [ ] HTTP 200 status code
 
-## Gate 4: Real E2E Tests
+## Gate 4: Real E2E Tests + Workflow Integrity
 
 - [ ] All real-infrastructure Playwright tests pass
 - [ ] No new test failures vs previous release
 - [ ] Pre-existing failures documented in Known Issues
 
-### Workflow Integrity Checks (Execution Framework)
+### Workflow Integrity Checks (Execution Engine)
 
 When the sprint introduces or modifies an execution engine (rollouts, jobs, diagnostics), verify the engine directly — not just the UI:
 

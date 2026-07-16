@@ -9,7 +9,7 @@
 | Field | Value |
 |-------|-------|
 | **Version** | `v1.9.0-rc1` |
-| **Git Commit** | `6239361` |
+| **Git Commit** | `6bf907a` |
 | **Git Tag** | `—` (tag created post-approval — see RELEASE_PROCESS.md §6) |
 | **Validation Date** | 2026-07-17 |
 | **Validator** | `<name / CI run>` |
@@ -149,9 +149,9 @@ curl http://localhost:<api-port>/api/ready
 
 ---
 
-### 2.4 Gate 4 — Real E2E Tests
+### 2.4 Gate 4 — Real E2E Tests + Workflow Integrity
 
-**Command:**
+**Commands:**
 ```bash
 docker compose -f docker-compose.e2e.yml run playwright
 ```
@@ -166,6 +166,21 @@ docker compose -f docker-compose.e2e.yml run playwright
 ```
 <Playwright summary — tests passed / total, failure details if any>
 ```
+
+#### 2.4.1 Workflow Integrity Checks
+
+When the sprint introduces or modifies the execution engine, verify the engine directly — not just the UI.
+
+| Check | Expected | Actual |
+|-------|----------|--------|
+| **State machine transitions** | Create → Start → Run → Complete. Invalid transitions rejected. | |
+| **Per-device execution records** | `rollout_devices` rows match eligible device count. | |
+| **Summary endpoint accuracy** | `GET /api/rollouts/:id/summary` counts match raw SQL counts. | |
+| **Audit trail persistence** | Lifecycle events (created, started, cancelled, retried, completed) recorded with actor + timestamp. | |
+| **Immutable execution history** | No status mutations on completed/failed devices after rollout completion. | |
+| **Retry isolation** | Retry resets only `failed` → `pending`; `succeeded` untouched. | |
+| **Cancel isolation** | Cancel stops pending; running devices finish; completed/failed unchanged. | |
+| **Idempotency** | Retry on already-retried: no-op. Cancel on already-cancelled: no-op. | |
 
 **Status:** `⏳ Pending / ✅ Passed / ❌ Failed`
 
