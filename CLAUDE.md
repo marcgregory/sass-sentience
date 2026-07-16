@@ -49,11 +49,13 @@ Only one sprint may be active at a time. See `docs/implementation/BUILD_PLAN.md`
 
 ## Current Phase
 
-**v1.5.x — Product Completion** (2026-07-15)
+**v1.6.0 — Full-Stack End-to-End Validation** (2026-07-16)
 
-All v1.5.x milestones are delivered. The platform is functionally complete for all domains: devices, telemetry, alerts, events, reports, users, roles, estates, sites, diagnostics, authentication flows (including forgot password, MFA, profile), platform administration (dashboard API, health, settings, admin overview, profile notification prefs). No mock data remains in production UI.
+All 6 validation gates passed. Release tagged `v1.6.0`. The release validation framework is now proven: Repository Baseline → Docker Build → Stack Startup → Readiness → Real E2E Tests → Failure Modes.
 
-The next phase is full-stack E2E validation against real infrastructure.
+The platform has been validated end-to-end against real infrastructure with 16/16 E2E tests passing, 3 failure scenarios verified, and a repeatable release process established.
+
+The next phase is feature-focused — applying the validated release process to deliver product capabilities.
 
 See `docs/implementation/ROADMAP.md` for milestone tracking.
 
@@ -64,7 +66,7 @@ See `docs/implementation/ROADMAP.md` for milestone tracking.
 | **v1.5.2** | Device Diagnostics | ✅ Delivered |
 | **v1.5.3** | Account Management (Forgot Password, MFA, Profile) | ✅ Delivered |
 | **v1.5.4** | Platform Administration (Dashboard, Health, Settings) | ✅ Delivered |
-| **v1.6.0** | Full-Stack End-to-End Validation | ⏳ Next |
+| **v1.6.0** | Full-Stack End-to-End Validation | ✅ Delivered |
 
 ### Key Achievements (v1.0 through v1.5.0)
 
