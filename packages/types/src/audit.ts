@@ -1,4 +1,4 @@
-export type AuditAction = "create" | "update" | "delete" | "login" | "logout" | "failed_login" | "export" | "diagnostic" | "config_change" | "permission_change" | "password_reset" | "mfa_change";
+export type AuditAction = "create" | "update" | "delete" | "login" | "logout" | "failed_login" | "export" | "diagnostic" | "config_change" | "permission_change" | "password_reset" | "mfa_change" | "firmware_rollout";
 
 export interface AuditLog {
   id: string;

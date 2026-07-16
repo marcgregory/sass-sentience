@@ -16,3 +16,4 @@ export * from "./notification-rules";
 export * from "./diagnostics";
 export * from "./password-reset-tokens";
 export * from "./device-groups";
+export * from "./rollouts";

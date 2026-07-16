@@ -148,4 +148,20 @@ export const queryKeys = {
     devices: (groupId: string, params?: Record<string, unknown>) =>
       ["deviceGroups", "devices", groupId, params] as const,
   },
+
+  /** Firmware Packages */
+  firmware: {
+    all: ["firmware"] as const,
+    list: (params?: Record<string, unknown>) => ["firmware", "list", params] as const,
+    detail: (id: string) => ["firmware", "detail", id] as const,
+  },
+
+  /** Rollouts */
+  rollouts: {
+    all: ["rollouts"] as const,
+    list: (params?: Record<string, unknown>) => ["rollouts", "list", params] as const,
+    detail: (id: string) => ["rollouts", "detail", id] as const,
+    devices: (rolloutId: string, params?: Record<string, unknown>) =>
+      ["rollouts", "devices", rolloutId, params] as const,
+  },
 } as const;

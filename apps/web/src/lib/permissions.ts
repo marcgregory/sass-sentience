@@ -10,6 +10,8 @@ export type Resource =
   | "sites"
   | "devices"
   | "device-groups"
+  | "firmware"
+  | "rollouts"
   | "alerts"
   | "events"
   | "reports"
@@ -35,6 +37,8 @@ const permissionMatrix: Record<UserRole, Partial<Record<Resource, Action[]>>> = 
     sites: ["manage"],
     devices: ["manage"],
     "device-groups": ["manage"],
+    firmware: ["manage"],
+    rollouts: ["manage"],
     alerts: ["manage"],
     events: ["manage"],
     reports: ["manage"],
@@ -54,6 +58,8 @@ const permissionMatrix: Record<UserRole, Partial<Record<Resource, Action[]>>> = 
     sites: ["read"],
     devices: ["read", "update"],
     "device-groups": ["read", "create", "update", "delete"],
+    firmware: ["read", "create", "update", "delete"],
+    rollouts: ["read", "create", "update", "delete"],
     alerts: ["read", "update"],
     events: ["read"],
     reports: ["read", "create", "delete"],
@@ -92,6 +98,8 @@ export const ALL_RESOURCES: Resource[] = [
   "sites",
   "devices",
   "device-groups",
+  "firmware",
+  "rollouts",
   "alerts",
   "events",
   "reports",
@@ -115,6 +123,8 @@ export const RESOURCE_LABELS: Record<Resource, string> = {
   sites: "Sites",
   devices: "Devices",
   "device-groups": "Device Groups",
+  firmware: "Firmware",
+  rollouts: "Rollouts",
   alerts: "Alerts",
   events: "Events",
   reports: "Reports",

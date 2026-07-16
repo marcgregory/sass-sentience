@@ -71,6 +71,13 @@
       "when": 1784204573191,
       "tag": "0009_silly_mephisto",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784210646821,
+      "tag": "0010_peaceful_wolfpack",
+      "breakpoints": true
     }
   ]
 }

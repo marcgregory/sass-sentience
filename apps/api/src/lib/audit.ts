@@ -19,7 +19,8 @@ type AuditAction =
   | "login" | "logout" | "failed_login"
   | "export" | "diagnostic"
   | "config_change" | "permission_change"
-  | "password_reset" | "mfa_change";
+  | "password_reset" | "mfa_change"
+  | "firmware_rollout";
 
 export interface AuditLogInput {
   userId: string | null;
