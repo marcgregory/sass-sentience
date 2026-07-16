@@ -71,29 +71,27 @@ jobs:
       - name: Docker Compose — wait for services
         run: |
           echo "=== Waiting for all services to be healthy ==="
-          # Poll until all containers show healthy status
+          # Poll until all long-lived services show healthy status
           for i in $(seq 1 60); do
-            STATUS=$(docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} ps --format json 2>/dev/null | \
-              python3 -c "
-import json, sys
-try:
-    services = json.load(sys.stdin)
-    if isinstance(services, dict):
-        services = [services]
-    statuses = [s.get('Health', 'unhealthy') if isinstance(s, dict) else 'unknown' for s in services]
-    # Filter out the playwright service (it's a runner, not a long-lived service)
-    statuses = [s for s in statuses if s in ('healthy', 'unhealthy', '(healthy)', '(unhealthy)')]
-    healthy = all('healthy' in s for s in statuses if s != 'unknown')
-    print(f'Healthy: {healthy} — {statuses}')
-    sys.exit(0 if healthy else 1)
-except Exception as e:
-    print(f'Error parsing status: {e}')
-    sys.exit(1)
-" 2>/dev/null) && break
-            echo "  Attempt $i: services not all healthy yet..."
+            ALL_HEALTHY=true
+            for svc in postgres mosquitto api realtime web; do
+              STATUS=$(docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} ps --format json "$svc" 2>/dev/null | python3 -c "import json,sys; s=json.load(sys.stdin); print(s.get('Health','unhealthy'))" 2>/dev/null)
+              if [ "$STATUS" != "healthy" ]; then
+                ALL_HEALTHY=false
+                echo "  Attempt $i: $svc = $STATUS"
+              fi
+            done
+            if [ "$ALL_HEALTHY" = "true" ]; then
+              echo "✅ All services healthy"
+              break
+            fi
             sleep 5
           done
-          echo "$STATUS"
+          if [ "$ALL_HEALTHY" != "true" ]; then
+            echo "❌ Not all services became healthy"
+            docker compose -f ${{ env.DOCKER_COMPOSE_FILE }} ps
+            exit 1
+          fi
 
       - name: Run Playwright E2E tests
         run: |
