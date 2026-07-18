@@ -224,3 +224,90 @@ The Functional Readiness Audit (`docs/release/FUNCTIONAL_READINESS_AUDIT.md`) id
 - **Settings**: Tenant fields and notification channel toggles persist to API settings keys.
 - **Admin overview**: `GET /api/admin/stats` returns real DB counts.
 - **Profile notification prefs**: Interactive toggles persist via `PUT /api/auth/me`.
+
+---
+
+## Engineering Review — v1.9.0 Findings (2026-07-18)
+
+Findings from the Deep Engineering Review (9 areas, evidence-driven). None are release blockers. All are scheduled as backlog improvements.
+
+### Critical / High
+
+None found. The review identified no correctness, security, or data-integrity issues that would block v1.9.0.
+
+### Medium Priority
+
+#### 1. Missing `pool.on('error')` handler — DB restart crashes the API server
+The `pg.Pool` in `apps/api/src/db/index.ts` has no `pool.on('error')` handler. If the database experiences a transient outage or restarts, an idle client error will crash the Node process.
+
+**Severity:** Medium — operational hardening
+**Fix:** Add `pool.on('error', (err) => logger.error({ err }, 'pg pool error'))` — prevents process termination on idle-client failures.
+**Effort:** ~15 minutes
+
+#### 2. Multi-write endpoints lack transactions — audit logs can be lost on partial failure
+Every mutation route follows the pattern: main write → `logAuditEvent()`. These are two separate queries with no wrapping transaction. If the main write succeeds and the audit insert fails, the mutation is committed but the audit trail is missing. The user receives a 500 error for a successful mutation.
+
+Affected endpoints: all POST/PATCH/DELETE routes across firmware, rollouts, device-groups, devices, estates, sites, users, settings, alerts, diagnostics, api-keys, roles, reports, notifications, admin.
+
+**Severity:** Medium — compliance gap, no data corruption
+**Fix:** Wrap multi-step mutations in `db.transaction()`. The password reset flow (`auth.ts:363`) is the only existing example of the correct pattern.
+**Effort:** ~3-4 hours (gradual, per-file)
+
+#### 3. `isValidDeviceTransition()` is dead code
+Defined at `rollouts.ts:48` but never called anywhere. Creates false confidence that device rollout status transitions are validated.
+
+**Severity:** Medium — misleading
+**Fix:** Either remove it or wire it into every `rollout_devices` status change in the execution worker (when built).
+**Effort:** ~10 minutes to remove; ~1 hour to wire properly during Sprint 12
+
+#### 4. Device status transitions are unvalidated
+`PATCH /devices/:id` accepts any status value (`online`, `offline`, `fault`, `warning`) unconditionally. No transition guard exists.
+
+**Note:** This may be by design — if device status is purely telemetry from MQTT/bridge, unrestricted transitions are acceptable. If users/support are editing status manually, validation should be added.
+
+**Severity:** Medium — depends on usage context
+**Fix:** Verify whether device status is telemetry-driven or user-controlled. If the latter, add transition validation.
+**Design guidance:** Telemetry state (online/offline/fault from MQTT heartbeat) and administrative state (maintenance/disabled/decommissioned by operator) should be separate fields. The current `status` column conflates both. A future migration should split into `operational_status` (telemetry-driven, read-only API) and `admin_status` (user-controlled, with explicit transition rules).
+**Effort:** TBD pending investigation
+
+#### 5. Device group add-device TOCTOU race
+`device-groups.ts:293-360` — the add-device endpoint reads `group.deviceIds`, checks for duplicates in application code, then issues an UPDATE. Two concurrent requests can both pass the duplicate check, resulting in a duplicate device entry in the array.
+
+**Severity:** Medium — data integrity
+**Fix:** Add `WHERE NOT (${deviceId}::uuid = ANY(deviceIds))` to the UPDATE statement, making the duplicate check atomic.
+**Effort:** ~30 minutes
+
+#### 6. `POST /api/auth/mfa/setup` lacks audit logging
+MFA setup stores a TOTP secret and enables two-factor authentication but emits no audit event.
+
+**Severity:** Medium — compliance gap
+**Fix:** Add `logAuditEvent()` call after successful MFA setup.
+**Effort:** ~15 minutes
+
+#### 7. `POST /api/notifications` allows cross-user notification creation
+Any authenticated user can create a notification for any `userId` in the request body. No scoping to the caller's identity.
+
+**Severity:** Medium — authorization gap
+**Fix:** Either restrict to admin/support roles, or scope `userId` to the caller (`require` that `userId === user.sub`).
+**Effort:** ~30 minutes
+
+#### 8. Notifications emitter has `reconnectionAttempts: 5`
+`apps/api/src/socket/notifications-emitter.ts` limits reconnection to 5 attempts (~10 seconds). After that, live notification delivery is permanently lost. The bridge listener (`bridge-listener.ts`) correctly uses `Infinity`.
+
+**Severity:** Medium — live-delivery reliability
+**Fix:** Change `reconnectionAttempts` from `5` to `Infinity` to match bridge-listener.
+**Effort:** ~5 minutes
+
+### Low Priority (Performance / Polish)
+
+#### 9. `GET /devices/:id` — 3 sequential SELECTs instead of 1 JOIN
+Three round-trips for device → site → estate enrichment. Single JOIN would suffice.
+
+#### 10. `GET /admin/stats` — 7 separate COUNT queries
+Seven individual `COUNT(*)` queries. Aggregating with `FILTER(WHERE ...)` would reduce to 3.
+
+#### 11. `GET /dashboard/summary` — full table scan of devices
+Fetches all devices without pagination to compute distributions. Should use SQL aggregates at scale.
+
+#### 12. Graceful shutdown doesn't disconnect bridge/notification sockets
+`SIGTERM`/`SIGINT` handler calls `app.close()` and `pool.end()` but doesn't disconnect the bridge listener or notification emitter Socket.IO clients.
