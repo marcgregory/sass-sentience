@@ -1,4 +1,4 @@
-# Validation Record — v1.9.0-rc1
+# Validation Record — v1.9.0-rc3
 
 > Process: `docs/release/RELEASE_PROCESS.md`
 
@@ -8,9 +8,11 @@
 
 | Field | Value |
 |-------|-------|
-| **Version** | `v1.9.0-rc1` |
-| **Git Commit** | `6bf907a` |
-| **Git Tag** | `—` (tag created post-approval — see RELEASE_PROCESS.md §6) |
+| **Version** | `v1.9.0-rc3` |
+| **Git Commit** | `42ea44c` |
+| **Git Tag** | `v1.9.0-rc3` |
+
+> **Note on commit references:** The `Git Commit` field identifies the software artifact under validation (`42ea44c` — firmware rollout + Gate 0 evidence). The `v1.9.0-rc3` tag points to a documentation overlay commit (`8858f52`) that wraps the validation record around the software commit. This is intentional: the RC tag represents a *release package* (code + release documentation), while the `Git Commit` field records the exact software snapshot validated. Both hashes should be preserved in the audit trail.
 | **Validation Date** | 2026-07-17 |
 | **Validator** | `<name / CI run>` |
 | **Environment (OS)** | |
