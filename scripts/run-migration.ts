@@ -1,8 +1,12 @@
 // One-off migration: add notification_preferences column to users table
 import { Client } from "pg";
 
-const DATABASE_URL =
-  "postgresql://neondb_owner:npg_fBsPSa4TecF9@ep-snowy-darkness-ao2pkoqm-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
+const DATABASE_URL = process.env.DATABASE_URL;
+
+if (!DATABASE_URL) {
+  console.error("ERROR: DATABASE_URL environment variable is not set");
+  process.exit(1);
+}
 
 async function main() {
   const client = new Client(DATABASE_URL);

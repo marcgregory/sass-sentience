@@ -1,8 +1,7 @@
 import pg from "pg";
 const { Pool } = pg;
 const pool = new Pool({
-  connectionString:
-    "postgresql://neondb_owner:npg_fBsPSa4TecF9@ep-snowy-darkness-ao2pkoqm-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require",
+  connectionString: process.env.DATABASE_URL,
 });
 try {
   const tables = ["firmware_packages", "rollouts", "rollout_devices", "device_groups", "devices"];
